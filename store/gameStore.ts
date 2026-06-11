@@ -1,0 +1,770 @@
+"use client";
+
+import { create } from "zustand";
+import type {
+  GameState,
+  LastDiscard,
+  Meld,
+  Player,
+  PlayerId,
+  ReactionOption,
+  ScoreResult,
+  TileInstance,
+  TileKind,
+  WinMethod,
+  WinResult,
+} from "@/types/mahjong";
+import { createTileSet, sortTiles, TILE_KIND_LABEL } from "@/utils/mahjong/tiles";
+import { shuffle } from "@/utils/mahjong/shuffle";
+import { getNextPlayerId, getPlayersAfter, INITIAL_SCORE } from "@/utils/mahjong/rules";
+import {
+  analyzeWin,
+  getAnGangKinds,
+  getTingDiscardOptions,
+  getWinningKinds,
+} from "@/utils/mahjong/handAnalyzer";
+import { applyGangScore, scoreDraw, scoreGang, scoreWin } from "@/utils/mahjong/scoring";
+import { getForbiddenDiscards } from "@/utils/mahjong/ai";
+
+interface GameStore extends GameState {
+  startNewRound: () => void;
+  shuffleWall: () => void;
+  dealInitialHands: () => void;
+  drawTile: (playerId: PlayerId) => void;
+  discardTile: (playerId: PlayerId, tileId: string) => void;
+  selectTile: (tileId?: string) => void;
+  passReaction: (playerId: PlayerId) => void;
+  claimPeng: (playerId: PlayerId) => void;
+  claimMingGang: (playerId: PlayerId) => void;
+  claimAnGang: (playerId: PlayerId, tileType: TileKind) => void;
+  claimBuGang: (playerId: PlayerId, meldId: string) => void;
+  declareLiangDao: (playerId: PlayerId, discardTileId: string) => void;
+  claimHu: (playerId: PlayerId) => void;
+  resolveReactions: () => void;
+  nextTurn: () => void;
+  settleWin: (winnerId: PlayerId, method: WinMethod, loserId?: PlayerId, winningTile?: TileInstance) => void;
+  settleNoSafeDiscard: (playerId: PlayerId) => void;
+  resetRound: () => void;
+}
+
+const PLAYER_NAMES: Record<PlayerId, string> = {
+  human: "你",
+  ai_left: "左家 AI",
+  ai_right: "右家 AI",
+};
+
+function createPlayers(previous?: Record<PlayerId, Player>): Record<PlayerId, Player> {
+  return {
+    human: createPlayer("human", "human", "bottom", true, previous?.human.score),
+    ai_left: createPlayer("ai_left", "ai", "left", false, previous?.ai_left.score),
+    ai_right: createPlayer("ai_right", "ai", "right", false, previous?.ai_right.score),
+  };
+}
+
+function createPlayer(
+  id: PlayerId,
+  type: Player["type"],
+  seat: Player["seat"],
+  isDealer: boolean,
+  score = INITIAL_SCORE,
+): Player {
+  return {
+    id,
+    type,
+    name: PLAYER_NAMES[id],
+    seat,
+    hand: [],
+    discards: [],
+    melds: [],
+    score,
+    isDealer,
+    isLiangDao: false,
+    autoPlay: false,
+    waitingKinds: [],
+  };
+}
+
+function pushLog(logs: string[], message: string): string[] {
+  return [...logs, message].slice(-8);
+}
+
+function removeTilesByKind(hand: TileInstance[], kind: TileKind, count: number): TileInstance[] {
+  const removed: TileInstance[] = [];
+  const remaining: TileInstance[] = [];
+  for (const tile of hand) {
+    if (tile.kind === kind && removed.length < count) removed.push(tile);
+    else remaining.push(tile);
+  }
+  return remaining;
+}
+
+function takeTilesByKind(hand: TileInstance[], kind: TileKind, count: number): TileInstance[] {
+  return hand.filter((tile) => tile.kind === kind).slice(0, count);
+}
+
+/**
+ * 是否为「非基础胡」：除基础胡外还成立任意番型（碰碰胡/清一色/七对/大小三元/卡五星）。
+ * 基础听牌（只有基础胡，无额外番型）在点炮规则中受限。
+ */
+function isNonBasicWin(win: WinResult): boolean {
+  return Boolean(
+    win.isPengPengHu ||
+      win.isQingYiSe ||
+      win.isSevenPairs ||
+      win.isDaSanYuan ||
+      win.isXiaoSanYuan ||
+      win.isKaWuXing,
+  );
+}
+
+function buildReactionOptions(
+  players: Record<PlayerId, Player>,
+  discard: LastDiscard,
+): ReactionOption[] {
+  const discarder = players[discard.playerId];
+  return getPlayersAfter(discard.playerId)
+    .map((playerId) => {
+      const player = players[playerId];
+      const sameCount = player.hand.filter((tile) => tile.kind === discard.tile.kind).length;
+      const win = analyzeWin([...player.hand, discard.tile], discard.tile.kind, player.melds);
+      // 点炮胡限制：若胡牌方仅为基础胡，且打出者未亮倒，则不能点炮胡。
+      // 仅当胡的是非基础胡，或打出者处于亮倒状态时，才允许点炮。
+      const canHu = win.isWin && (isNonBasicWin(win) || discarder.isLiangDao);
+      const canPeng = !player.isLiangDao && sameCount >= 2;
+      const canGang = !player.isLiangDao && sameCount >= 3;
+      return { playerId, canHu, canPeng, canGang };
+    })
+    .filter((option) => option.canHu || option.canGang || option.canPeng);
+}
+
+function topPriorityReaction(
+  pending: NonNullable<GameState["pendingReactions"]>,
+  passes: PlayerId[],
+) {
+  const remaining = pending.options.filter((option) => !passes.includes(option.playerId));
+  return (
+    remaining.find((option) => option.canHu) ??
+    remaining.find((option) => option.canGang) ??
+    remaining.find((option) => option.canPeng)
+  );
+}
+
+function applyRoundResult(
+  players: Record<PlayerId, Player>,
+  result: ScoreResult,
+): Record<PlayerId, Player> {
+  return {
+    human: { ...players.human, score: result.totalScores.human },
+    ai_left: { ...players.ai_left, score: result.totalScores.ai_left },
+    ai_right: { ...players.ai_right, score: result.totalScores.ai_right },
+  };
+}
+
+function updateHumanLiangDaoHint(player: Player): boolean {
+  return player.hand.length % 3 === 2 && !player.isLiangDao && getTingDiscardOptions(player.hand, player.melds).length > 0;
+}
+
+/**
+ * 补杠（明杠/蓄杠）完成时结算杠分：其余两家各赔分，按本局杠次序翻倍。
+ * 返回应用了杠分的玩家表与追加后的日志。
+ */
+function applyBuGangScore(
+  players: Record<PlayerId, Player>,
+  gangerId: PlayerId,
+  gangSequence: number,
+  logs: string[],
+): { players: Record<PlayerId, Player>; logs: string[] } {
+  const gang = scoreGang({ players, gangType: "bu_gang", gangerId, gangSequence });
+  if (!gang) {
+    return { players, logs: pushLog(logs, `${players[gangerId].name} 补杠成功，补摸一张`) };
+  }
+  return {
+    players: applyGangScore(players, gang.scoreChanges),
+    logs: pushLog(logs, `${players[gangerId].name} 明杠 ${gang.label}，补摸一张`),
+  };
+}
+
+function forbiddenDiscardOwner(players: Record<PlayerId, Player>, selfId: PlayerId, kind: TileKind): Player | undefined {
+  return Object.values(players).find(
+    (player) => player.id !== selfId && player.isLiangDao && player.waitingKinds.includes(kind),
+  );
+}
+
+const initialPlayers = createPlayers();
+
+export const useGameStore = create<GameStore>((set, get) => ({
+  wall: [],
+  deadWall: [],
+  players: initialPlayers,
+  currentPlayerId: "human",
+  dealerId: "human",
+  phase: "ready",
+  reactionPasses: [],
+  logs: [],
+  actionNonce: 0,
+  canHumanLiangDao: false,
+  gangCount: 0,
+
+  startNewRound: () => {
+    const previous = get().players;
+    const players = createPlayers(previous);
+    const wall = shuffle(createTileSet());
+    const dealt = { ...players };
+    const nextWall = [...wall];
+
+    for (let index = 0; index < 14; index += 1) dealt.human.hand.push(nextWall.shift()!);
+    for (let index = 0; index < 13; index += 1) dealt.ai_left.hand.push(nextWall.shift()!);
+    for (let index = 0; index < 13; index += 1) dealt.ai_right.hand.push(nextWall.shift()!);
+
+    dealt.human.hand = sortTiles(dealt.human.hand);
+    dealt.ai_left.hand = sortTiles(dealt.ai_left.hand);
+    dealt.ai_right.hand = sortTiles(dealt.ai_right.hand);
+
+    set({
+      wall: nextWall,
+      deadWall: [],
+      players: dealt,
+      currentPlayerId: "human",
+      dealerId: "human",
+      phase: "playing",
+      lastDiscard: undefined,
+      pendingReactions: undefined,
+      reactionPasses: [],
+      pendingBuGang: undefined,
+      selectedTileId: undefined,
+      roundResult: undefined,
+      supplementContext: undefined,
+      canHumanLiangDao: updateHumanLiangDaoHint(dealt.human),
+      gangCount: 0,
+      logs: pushLog([], "新局开始，庄家先出牌"),
+      actionNonce: get().actionNonce + 1,
+    });
+  },
+
+  shuffleWall: () => set({ wall: shuffle(createTileSet()) }),
+
+  dealInitialHands: () => get().startNewRound(),
+
+  drawTile: (playerId) => {
+    const state = get();
+    if (state.phase === "settled" || state.phase === "draw") return;
+    const wall = [...state.wall];
+    if (wall.length === 0) {
+      const result = scoreDraw(state.players);
+      set({
+        phase: "draw",
+        roundResult: result,
+        logs: pushLog(state.logs, "牌墙摸空，流局"),
+      });
+      return;
+    }
+
+    const tile = wall.shift()!;
+    const players = { ...state.players };
+    const player = players[playerId];
+    players[playerId] = {
+      ...player,
+      hand: sortTiles([...player.hand, tile]),
+      lastDrawnTileId: tile.id,
+    };
+
+    set({
+      wall,
+      players,
+      currentPlayerId: playerId,
+      phase: "playing",
+      pendingReactions: undefined,
+      reactionPasses: [],
+      selectedTileId: undefined,
+      canHumanLiangDao: playerId === "human" ? updateHumanLiangDaoHint(players.human) : state.canHumanLiangDao,
+      logs: pushLog(state.logs, `${player.name} 摸牌`),
+      actionNonce: state.actionNonce + 1,
+    });
+  },
+
+  discardTile: (playerId, tileId) => {
+    const state = get();
+    if (state.phase !== "playing" || state.currentPlayerId !== playerId) return;
+    const player = state.players[playerId];
+    const tile = player.hand.find((item) => item.id === tileId);
+    if (!tile) return;
+
+    const forbiddenOwner = forbiddenDiscardOwner(state.players, playerId, tile.kind);
+    const mustAvoidLiangDaoWaits = !player.isLiangDao && !player.autoPlay;
+    if (forbiddenOwner && mustAvoidLiangDaoWaits) {
+      const forbidden = getForbiddenDiscards(state.players, playerId);
+      const hasLegalDiscard = player.hand.some((item) => !forbidden.has(item.kind));
+      if (!hasLegalDiscard) {
+        get().settleNoSafeDiscard(playerId);
+        return;
+      }
+      set({
+        logs: pushLog(state.logs, `${TILE_KIND_LABEL[tile.kind]} 是 ${forbiddenOwner.name} 的亮倒听牌，不能打出`),
+        actionNonce: state.actionNonce + 1,
+      });
+      return;
+    }
+
+    const players = { ...state.players };
+    const remaining = player.hand.filter((item) => item.id !== tileId);
+    const waits = player.isLiangDao ? getWinningKinds(remaining, player.melds) : [];
+    players[playerId] = {
+      ...player,
+      hand: sortTiles(remaining),
+      discards: [...player.discards, tile],
+      lastDrawnTileId: undefined,
+      waitingKinds: waits,
+    };
+
+    const lastDiscard = { playerId, tile };
+    const options = buildReactionOptions(players, lastDiscard);
+    const hasOptions = options.length > 0;
+    set({
+      players,
+      lastDiscard,
+      pendingReactions: hasOptions ? { discard: lastDiscard, options } : undefined,
+      phase: hasOptions ? "responding" : "playing",
+      reactionPasses: [],
+      selectedTileId: undefined,
+      canHumanLiangDao: false,
+      logs: pushLog(state.logs, `${player.name} 打出 ${TILE_KIND_LABEL[tile.kind]}`),
+      actionNonce: state.actionNonce + 1,
+    });
+
+    if (!hasOptions) get().nextTurn();
+  },
+
+  selectTile: (tileId) => set({ selectedTileId: tileId }),
+
+  passReaction: (playerId) => {
+    const state = get();
+    if (!state.pendingReactions) return;
+    set({
+      reactionPasses: Array.from(new Set([...state.reactionPasses, playerId])),
+      logs: pushLog(state.logs, `${state.players[playerId].name} 过`),
+      actionNonce: state.actionNonce + 1,
+    });
+    get().resolveReactions();
+  },
+
+  claimPeng: (playerId) => {
+    const state = get();
+    const pending = state.pendingReactions;
+    if (!pending) return;
+    const top = topPriorityReaction(pending, state.reactionPasses);
+    if (top?.playerId !== playerId || !top.canPeng) return;
+    const option = pending.options.find((item) => item.playerId === playerId);
+    if (!option?.canPeng) return;
+    const kind = pending.discard.tile.kind;
+    const player = state.players[playerId];
+    const claimed = takeTilesByKind(player.hand, kind, 2);
+    if (claimed.length < 2) return;
+
+    const players = { ...state.players };
+    players[pending.discard.playerId] = {
+      ...players[pending.discard.playerId],
+      discards: players[pending.discard.playerId].discards.filter((tile) => tile.id !== pending.discard.tile.id),
+    };
+    players[playerId] = {
+      ...player,
+      hand: sortTiles(removeTilesByKind(player.hand, kind, 2)),
+      melds: [
+        ...player.melds,
+        {
+          id: `peng-${kind}-${Date.now()}`,
+          type: "peng",
+          tiles: [...claimed, pending.discard.tile],
+          fromPlayerId: pending.discard.playerId,
+        },
+      ],
+      lastDrawnTileId: undefined,
+    };
+
+    set({
+      players,
+      currentPlayerId: playerId,
+      phase: "playing",
+      pendingReactions: undefined,
+      reactionPasses: [],
+      lastDiscard: undefined,
+      logs: pushLog(state.logs, `${player.name} 碰 ${TILE_KIND_LABEL[kind]}`),
+      actionNonce: state.actionNonce + 1,
+    });
+  },
+
+  claimMingGang: (playerId) => {
+    const state = get();
+    const pending = state.pendingReactions;
+    if (!pending) return;
+    const top = topPriorityReaction(pending, state.reactionPasses);
+    if (top?.playerId !== playerId || !top.canGang) return;
+    const option = pending.options.find((item) => item.playerId === playerId);
+    if (!option?.canGang) return;
+    const kind = pending.discard.tile.kind;
+    const player = state.players[playerId];
+    const claimed = takeTilesByKind(player.hand, kind, 3);
+    if (claimed.length < 3) return;
+
+    const wall = [...state.wall];
+    const supplement = wall.pop();
+    const players = { ...state.players };
+    players[pending.discard.playerId] = {
+      ...players[pending.discard.playerId],
+      discards: players[pending.discard.playerId].discards.filter((tile) => tile.id !== pending.discard.tile.id),
+    };
+    players[playerId] = {
+      ...player,
+      hand: sortTiles([
+        ...removeTilesByKind(player.hand, kind, 3),
+        ...(supplement ? [supplement] : []),
+      ]),
+      melds: [
+        ...player.melds,
+        {
+          id: `ming-gang-${kind}-${Date.now()}`,
+          type: "ming_gang",
+          tiles: [...claimed, pending.discard.tile],
+          fromPlayerId: pending.discard.playerId,
+        },
+      ],
+      lastDrawnTileId: supplement?.id,
+    };
+
+    if (!supplement) {
+      const result = scoreDraw(players);
+      set({ players, wall, phase: "draw", roundResult: result, logs: pushLog(state.logs, "杠后无牌，流局") });
+      return;
+    }
+
+    // 直杠（点杠）：放杠者单独赔分，按本局杠次序翻倍
+    const gangSequence = state.gangCount + 1;
+    const gang = scoreGang({
+      players,
+      gangType: "ming_gang",
+      gangerId: playerId,
+      dianGangPlayerId: pending.discard.playerId,
+      gangSequence,
+    });
+    const scoredPlayers = gang ? applyGangScore(players, gang.scoreChanges) : players;
+
+    set({
+      wall,
+      players: scoredPlayers,
+      currentPlayerId: playerId,
+      phase: "playing",
+      pendingReactions: undefined,
+      reactionPasses: [],
+      lastDiscard: undefined,
+      supplementContext: "gangshang",
+      gangCount: gangSequence,
+      logs: pushLog(
+        state.logs,
+        gang
+          ? `${player.name} 直杠 ${TILE_KIND_LABEL[kind]}（${gang.label}），补摸一张`
+          : `${player.name} 明杠 ${TILE_KIND_LABEL[kind]}，补摸一张`,
+      ),
+      actionNonce: state.actionNonce + 1,
+    });
+  },
+
+  claimAnGang: (playerId, tileType) => {
+    const state = get();
+    const player = state.players[playerId];
+    if (state.phase !== "playing" || state.currentPlayerId !== playerId || player.isLiangDao) return;
+    if (!getAnGangKinds(player.hand).includes(tileType)) return;
+    const wall = [...state.wall];
+    const supplement = wall.pop();
+    const gangTiles = takeTilesByKind(player.hand, tileType, 4);
+    const players = { ...state.players };
+    players[playerId] = {
+      ...player,
+      hand: sortTiles([
+        ...removeTilesByKind(player.hand, tileType, 4),
+        ...(supplement ? [supplement] : []),
+      ]),
+      melds: [
+        ...player.melds,
+        {
+          id: `an-gang-${tileType}-${Date.now()}`,
+          type: "an_gang",
+          tiles: gangTiles,
+          concealed: true,
+        },
+      ],
+      lastDrawnTileId: supplement?.id,
+    };
+    if (!supplement) {
+      const result = scoreDraw(players);
+      set({
+        wall,
+        players: applyRoundResult(players, result),
+        phase: "draw",
+        roundResult: result,
+        logs: pushLog(state.logs, "暗杠后无牌，流局"),
+        actionNonce: state.actionNonce + 1,
+      });
+      return;
+    }
+    // 暗杠：其余两家各赔分，按本局杠次序翻倍
+    const gangSequence = state.gangCount + 1;
+    const gang = scoreGang({
+      players,
+      gangType: "an_gang",
+      gangerId: playerId,
+      gangSequence,
+    });
+    const scoredPlayers = gang ? applyGangScore(players, gang.scoreChanges) : players;
+    set({
+      wall,
+      players: scoredPlayers,
+      supplementContext: "gangshang",
+      gangCount: gangSequence,
+      logs: pushLog(
+        state.logs,
+        gang
+          ? `${player.name} 暗杠 ${TILE_KIND_LABEL[tileType]}（${gang.label}），补摸一张`
+          : `${player.name} 暗杠 ${TILE_KIND_LABEL[tileType]}，补摸一张`,
+      ),
+      actionNonce: state.actionNonce + 1,
+    });
+  },
+
+  claimBuGang: (playerId, meldId) => {
+    const state = get();
+    const player = state.players[playerId];
+    if (state.phase !== "playing" || state.currentPlayerId !== playerId || player.isLiangDao) return;
+    const meld = player.melds.find((item) => item.id === meldId && item.type === "peng");
+    if (!meld) return;
+    const kind = meld.tiles[0].kind;
+    const tile = player.hand.find((item) => item.kind === kind);
+    if (!tile) return;
+
+    const otherOptions = getPlayersAfter(playerId)
+      .map((otherId) => {
+        const other = state.players[otherId];
+        return {
+          playerId: otherId,
+          canHu: analyzeWin([...other.hand, tile], tile.kind, other.melds).isWin,
+          canPeng: false,
+          canGang: false,
+        };
+      })
+      .filter((option) => option.canHu);
+
+    if (otherOptions.length > 0) {
+      set({
+        pendingBuGang: { playerId, meldId, tile },
+        pendingReactions: {
+          discard: { playerId, tile },
+          options: otherOptions,
+        },
+        phase: "responding",
+        reactionPasses: [],
+        logs: pushLog(state.logs, `${player.name} 补杠 ${TILE_KIND_LABEL[kind]}，等待抢杠胡`),
+        actionNonce: state.actionNonce + 1,
+      });
+      return;
+    }
+
+    const wall = [...state.wall];
+    const supplement = wall.pop();
+    const players = { ...state.players };
+    players[playerId] = {
+      ...player,
+      hand: sortTiles(player.hand.filter((item) => item.id !== tile.id).concat(supplement ? [supplement] : [])),
+      melds: player.melds.map((item) =>
+        item.id === meldId ? { ...item, type: "bu_gang", tiles: [...item.tiles, tile] } : item,
+      ),
+      lastDrawnTileId: supplement?.id,
+    };
+    if (!supplement) {
+      const result = scoreDraw(players);
+      set({
+        wall,
+        players: applyRoundResult(players, result),
+        phase: "draw",
+        roundResult: result,
+        pendingBuGang: undefined,
+        pendingReactions: undefined,
+        reactionPasses: [],
+        logs: pushLog(state.logs, "补杠后无牌，流局"),
+        actionNonce: state.actionNonce + 1,
+      });
+      return;
+    }
+    const buGangSequence = state.gangCount + 1;
+    const scored = applyBuGangScore(players, playerId, buGangSequence, state.logs);
+    set({
+      wall,
+      players: scored.players,
+      supplementContext: "gangshang",
+      gangCount: buGangSequence,
+      logs: scored.logs,
+      actionNonce: state.actionNonce + 1,
+    });
+  },
+
+  declareLiangDao: (playerId, discardTileId) => {
+    const state = get();
+    const player = state.players[playerId];
+    if (player.isLiangDao || state.currentPlayerId !== playerId || state.phase !== "playing") return;
+    const tile = player.hand.find((item) => item.id === discardTileId);
+    if (!tile) return;
+    const remaining = player.hand.filter((item) => item.id !== discardTileId);
+    const waits = getWinningKinds(remaining, player.melds);
+    if (waits.length === 0) return;
+
+    const players = { ...state.players };
+    players[playerId] = {
+      ...player,
+      isLiangDao: true,
+      autoPlay: true,
+      waitingKinds: waits,
+    };
+    set({
+      players,
+      logs: pushLog(state.logs, `${player.name} 亮倒，听 ${waits.map((kind) => TILE_KIND_LABEL[kind]).join("、")}`),
+      actionNonce: state.actionNonce + 1,
+    });
+    get().discardTile(playerId, discardTileId);
+  },
+
+  claimHu: (playerId) => {
+    const state = get();
+    if (state.pendingBuGang) {
+      if (state.pendingReactions) {
+        const top = topPriorityReaction(state.pendingReactions, state.reactionPasses);
+        if (top?.playerId !== playerId || !top.canHu) return;
+      }
+      get().settleWin(playerId, "qianggang", state.pendingBuGang.playerId, state.pendingBuGang.tile);
+      return;
+    }
+    if (state.pendingReactions) {
+      const top = topPriorityReaction(state.pendingReactions, state.reactionPasses);
+      if (top?.playerId !== playerId || !top.canHu) return;
+      const discard = state.pendingReactions.discard;
+      get().settleWin(playerId, "discard", discard.playerId, discard.tile);
+      return;
+    }
+    const player = state.players[playerId];
+    const winningTile = player.hand.find((tile) => tile.id === player.lastDrawnTileId) ?? player.hand[player.hand.length - 1];
+    const method = state.supplementContext === "gangshang" ? "gangshang" : "zimo";
+    get().settleWin(playerId, method, undefined, winningTile);
+  },
+
+  resolveReactions: () => {
+    const state = get();
+    const pending = state.pendingReactions;
+    if (!pending) return;
+    const remaining = pending.options.filter((option) => !state.reactionPasses.includes(option.playerId));
+    if (remaining.length > 0) return;
+
+    if (state.pendingBuGang) {
+      const { playerId, meldId, tile } = state.pendingBuGang;
+      const player = state.players[playerId];
+      const wall = [...state.wall];
+      const supplement = wall.pop();
+      const players = { ...state.players };
+      players[playerId] = {
+        ...player,
+        hand: sortTiles(player.hand.filter((item) => item.id !== tile.id).concat(supplement ? [supplement] : [])),
+        melds: player.melds.map((item) =>
+          item.id === meldId ? { ...item, type: "bu_gang", tiles: [...item.tiles, tile] } : item,
+        ),
+        lastDrawnTileId: supplement?.id,
+      };
+      if (!supplement) {
+        const result = scoreDraw(players);
+        set({
+          wall,
+          players: applyRoundResult(players, result),
+          pendingReactions: undefined,
+          pendingBuGang: undefined,
+          reactionPasses: [],
+          phase: "draw",
+          roundResult: result,
+          logs: pushLog(state.logs, "无人抢杠胡，补杠后无牌，流局"),
+          actionNonce: state.actionNonce + 1,
+        });
+        return;
+      }
+      const buGangSequence = state.gangCount + 1;
+      const scored = applyBuGangScore(players, playerId, buGangSequence, state.logs);
+      set({
+        wall,
+        players: scored.players,
+        currentPlayerId: playerId,
+        pendingReactions: undefined,
+        pendingBuGang: undefined,
+        reactionPasses: [],
+        phase: "playing",
+        supplementContext: "gangshang",
+        gangCount: buGangSequence,
+        logs: scored.logs,
+        actionNonce: state.actionNonce + 1,
+      });
+      return;
+    }
+
+    set({
+      pendingReactions: undefined,
+      pendingBuGang: undefined,
+      reactionPasses: [],
+      phase: "playing",
+      actionNonce: state.actionNonce + 1,
+    });
+    get().nextTurn();
+  },
+
+  nextTurn: () => {
+    const state = get();
+    if (state.phase === "settled" || state.phase === "draw") return;
+    const next = getNextPlayerId(state.lastDiscard?.playerId ?? state.currentPlayerId);
+    get().drawTile(next);
+  },
+
+  settleWin: (winnerId, method, loserId, winningTile) => {
+    const state = get();
+    const player = state.players[winnerId];
+    const tile = winningTile ?? player.hand.find((item) => item.id === player.lastDrawnTileId);
+    const tilesForWin =
+      method === "discard" || method === "qianggang"
+        ? [...player.hand, ...(tile ? [tile] : [])]
+        : player.hand;
+    const win = analyzeWin(tilesForWin, tile?.kind, player.melds);
+    if (!win.isWin) return;
+    const result = scoreWin({
+      players: state.players,
+      winnerId,
+      loserId,
+      method,
+      win,
+    });
+    set({
+      players: applyRoundResult(state.players, result),
+      phase: "settled",
+      roundResult: result,
+      pendingReactions: undefined,
+      pendingBuGang: undefined,
+      reactionPasses: [],
+      logs: pushLog(state.logs, result.title),
+      actionNonce: state.actionNonce + 1,
+    });
+  },
+
+  settleNoSafeDiscard: (playerId) => {
+    const state = get();
+    const result = scoreDraw(state.players);
+    set({
+      phase: "draw",
+      roundResult: result,
+      pendingReactions: undefined,
+      pendingBuGang: undefined,
+      reactionPasses: [],
+      logs: pushLog(state.logs, `${state.players[playerId].name} 无可安全出牌，流局`),
+      actionNonce: state.actionNonce + 1,
+    });
+  },
+
+  resetRound: () => get().startNewRound(),
+}));
