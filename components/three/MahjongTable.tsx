@@ -1,6 +1,8 @@
 "use client";
 
-import { Text } from "@react-three/drei";
+import { useTexture, Text } from "@react-three/drei";
+import { SRGBColorSpace } from "three";
+import tableTextureSrc from "@/png/table/table.png";
 
 // 四个座位角落的装饰点位（绕桌心对称）
 const CORNER_POSITIONS: Array<[number, number]> = [
@@ -10,14 +12,30 @@ const CORNER_POSITIONS: Array<[number, number]> = [
   [3.2, 2.5],
 ];
 
-// 四向座位风位标识：按出牌顺序 东(下家/人类)→南(右家)→西(左家)，文字朝各自玩家方向平铺
+const TABLE_FONT_URL = "/fonts/MaShanZheng-Regular.ttf";
+
+// 四向座位风位标识：按座位方位显示，文字朝各自玩家方向平铺
 const SEAT_MARKERS: Array<{ pos: [number, number, number]; rotation: [number, number, number]; label: string }> = [
-  { pos: [0, 0.151, 2.05], rotation: [-Math.PI / 2, 0, 0], label: "东" },
-  { pos: [2.5, 0.151, 0], rotation: [-Math.PI / 2, 0, -Math.PI / 2], label: "南" },
-  { pos: [-2.5, 0.151, 0], rotation: [-Math.PI / 2, 0, Math.PI / 2], label: "西" },
+  { pos: [0, 0.171, 2.12], rotation: [-Math.PI / 2, 0, 0], label: "南" },
+  { pos: [2.58, 0.171, 0], rotation: [-Math.PI / 2, 0, -Math.PI / 2], label: "东" },
+  { pos: [0, 0.171, -2.12], rotation: [-Math.PI / 2, 0, Math.PI], label: "北" },
+  { pos: [-2.58, 0.171, 0], rotation: [-Math.PI / 2, 0, Math.PI / 2], label: "西" },
 ];
 
-export function MahjongTable({ wallCount }: { wallCount: number }) {
+function TableSurfaceImage() {
+  const texture = useTexture(tableTextureSrc.src);
+  texture.colorSpace = SRGBColorSpace;
+  texture.anisotropy = 8;
+
+  return (
+    <mesh receiveShadow position={[0, 0.147, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <planeGeometry args={[7.38, 5.78]} />
+      <meshStandardMaterial map={texture} roughness={0.82} toneMapped={false} />
+    </mesh>
+  );
+}
+
+export function MahjongTable({ textured = true }: { textured?: boolean }) {
   return (
     <group>
       {/* 外层木质桌身 */}
@@ -38,17 +56,12 @@ export function MahjongTable({ wallCount }: { wallCount: number }) {
         <meshStandardMaterial color="#10302b" roughness={0.85} />
       </mesh>
 
-      {/* 主毡面（深绿） */}
+      {/* 主桌面 */}
       <mesh receiveShadow position={[0, 0.1, 0]}>
-        <boxGeometry args={[7.0, 0.08, 5.4]} />
-        <meshStandardMaterial color="#1f6f61" roughness={0.92} />
+        <boxGeometry args={[7.38, 0.08, 5.78]} />
+        <meshStandardMaterial color="#1f1612" roughness={0.92} />
       </mesh>
-
-      {/* 毡面中央更深一档的方框，分割打牌区与中心区 */}
-      <mesh receiveShadow position={[0, 0.115, 0]}>
-        <boxGeometry args={[3.4, 0.02, 3.0]} />
-        <meshStandardMaterial color="#185a4e" roughness={0.95} />
-      </mesh>
+      {textured ? <TableSurfaceImage /> : null}
 
       {/* 四角金色装饰点 */}
       {CORNER_POSITIONS.map(([x, z], index) => (
@@ -64,41 +77,15 @@ export function MahjongTable({ wallCount }: { wallCount: number }) {
           key={marker.label}
           position={marker.pos}
           rotation={marker.rotation}
-          fontSize={0.26}
-          color="#2f8a78"
+          font={TABLE_FONT_URL}
+          fontSize={0.38}
+          color="#F8C887"
           anchorX="center"
           anchorY="middle"
         >
           {marker.label}
         </Text>
       ))}
-
-      {/* 中心牌墙计数底座 */}
-      <mesh position={[0, 0.14, 0]} castShadow>
-        <boxGeometry args={[1.35, 0.12, 0.98]} />
-        <meshStandardMaterial color="#0d2b27" roughness={0.65} metalness={0.25} />
-      </mesh>
-      <mesh position={[0, 0.205, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[0.62, 0.7, 40]} />
-        <meshStandardMaterial color="#2f8a78" emissive="#155" emissiveIntensity={0.3} toneMapped={false} />
-      </mesh>
-      <Text position={[0, 0.21, 0]} rotation={[-Math.PI / 2, 0, 0]} fontSize={0.17} color="#dff7ef" anchorX="center" anchorY="middle">
-        余牌 {wallCount}
-      </Text>
-
-      {/* 三向挡牌条 */}
-      <mesh position={[0, 0.16, -2.35]} castShadow>
-        <boxGeometry args={[4.4, 0.1, 0.22]} />
-        <meshStandardMaterial color="#2b544d" roughness={0.7} />
-      </mesh>
-      <mesh position={[-3.05, 0.16, 0]} castShadow>
-        <boxGeometry args={[0.22, 0.1, 3.5]} />
-        <meshStandardMaterial color="#2b544d" roughness={0.7} />
-      </mesh>
-      <mesh position={[3.05, 0.16, 0]} castShadow>
-        <boxGeometry args={[0.22, 0.1, 3.5]} />
-        <meshStandardMaterial color="#2b544d" roughness={0.7} />
-      </mesh>
     </group>
   );
 }

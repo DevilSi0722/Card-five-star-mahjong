@@ -109,11 +109,14 @@ function takeTilesByKind(hand: TileInstance[], kind: TileKind, count: number): T
 function isNonBasicWin(win: WinResult): boolean {
   return Boolean(
     win.isPengPengHu ||
+      win.isMingSiGuiYi ||
+      win.isAnSiGuiYi ||
       win.isQingYiSe ||
       win.isSevenPairs ||
       win.isDaSanYuan ||
       win.isXiaoSanYuan ||
-      win.isKaWuXing,
+      win.isKaWuXing ||
+      win.isShouZhuaYi,
   );
 }
 
@@ -276,6 +279,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       pendingReactions: undefined,
       reactionPasses: [],
       selectedTileId: undefined,
+      supplementContext: undefined,
       canHumanLiangDao: playerId === "human" ? updateHumanLiangDaoHint(players.human) : state.canHumanLiangDao,
       logs: pushLog(state.logs, `${player.name} 摸牌`),
       actionNonce: state.actionNonce + 1,
@@ -327,6 +331,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       reactionPasses: [],
       selectedTileId: undefined,
       canHumanLiangDao: false,
+      supplementContext: state.supplementContext,
       logs: pushLog(state.logs, `${player.name} 打出 ${TILE_KIND_LABEL[tile.kind]}`),
       actionNonce: state.actionNonce + 1,
     });
@@ -711,6 +716,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       pendingBuGang: undefined,
       reactionPasses: [],
       phase: "playing",
+      supplementContext: undefined,
       actionNonce: state.actionNonce + 1,
     });
     get().nextTurn();
@@ -733,12 +739,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
         : player.hand;
     const win = analyzeWin(tilesForWin, tile?.kind, player.melds);
     if (!win.isWin) return;
+    const isGangShangPao = method === "discard" && state.supplementContext === "gangshang";
+    const isHaiDiLao = method === "zimo" && state.wall.length === 0;
     const result = scoreWin({
       players: state.players,
       winnerId,
       loserId,
       method,
       win,
+      isGangShangPao,
+      isHaiDiLao,
     });
     set({
       players: applyRoundResult(state.players, result),

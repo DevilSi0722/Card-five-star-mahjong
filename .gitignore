@@ -28,9 +28,13 @@ pnpm-debug.log*
 # local tooling
 .gitnexus/
 .claude/
+.playwright-cli/
+output/playwright/
 
 # os/editor
 .DS_Store
 Thumbs.db
 .idea/
 .vscode/
+
+CLAUDE.md

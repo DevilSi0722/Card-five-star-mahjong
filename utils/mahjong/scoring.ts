@@ -15,14 +15,21 @@ export const GANG_UNIT = 1;
 const FAN_META: Record<FanItem["type"], { name: string; fan: number }> = {
   base: { name: "基础胡", fan: 1 },
   pengpenghu: { name: "碰碰胡", fan: 2 },
-  qingyise: { name: "清一色", fan: 3 },
-  qidui: { name: "七对", fan: 3 },
-  dasanyuan: { name: "大三元", fan: 4 },
-  xiaosanyuan: { name: "小三元", fan: 3 },
+  mingsiguiyi: { name: "明四归一", fan: 2 },
+  ansiguiyi: { name: "暗四归一", fan: 4 },
+  qidui: { name: "七对", fan: 4 },
+  longqidui: { name: "龙七对", fan: 8 },
+  shuanglongqidui: { name: "双龙七对", fan: 16 },
+  dasanyuan: { name: "大三元", fan: 8 },
+  xiaosanyuan: { name: "小三元", fan: 4 },
+  gangshangkaihua: { name: "杠上开花", fan: 2 },
+  gangshangpao: { name: "杠上炮", fan: 2 },
+  qiangganghu: { name: "抢杠胡", fan: 2 },
+  qingyise: { name: "清一色", fan: 4 },
+  shouzhuayi: { name: "手抓一", fan: 4 },
+  liangdao: { name: "亮倒/明牌", fan: 2 },
   kawuxing: { name: "卡五星", fan: 2 },
-  liangdao: { name: "亮倒/明牌", fan: 1 },
-  gangshangkaihua: { name: "杠上开花", fan: 1 },
-  qiangganghu: { name: "抢杠胡", fan: 1 },
+  haidilao: { name: "海底捞", fan: 2 },
 };
 
 function fan(type: FanItem["type"]): FanItem {
@@ -34,18 +41,29 @@ export function calculateFans(
   options: {
     isLiangDao?: boolean;
     method: WinMethod;
+    isGangShangPao?: boolean;
+    isHaiDiLao?: boolean;
   },
 ): FanItem[] {
   const fans: FanItem[] = [fan("base")];
   if (win.isPengPengHu) fans.push(fan("pengpenghu"));
+  if (win.isMingSiGuiYi) fans.push(fan("mingsiguiyi"));
+  if (win.isAnSiGuiYi) fans.push(fan("ansiguiyi"));
   if (win.isQingYiSe) fans.push(fan("qingyise"));
-  if (win.isSevenPairs) fans.push(fan("qidui"));
+  if (win.isSevenPairs) {
+    if ((win.dragonPairCount ?? 0) >= 2) fans.push(fan("shuanglongqidui"));
+    else if ((win.dragonPairCount ?? 0) === 1) fans.push(fan("longqidui"));
+    else fans.push(fan("qidui"));
+  }
   if (win.isDaSanYuan) fans.push(fan("dasanyuan"));
   else if (win.isXiaoSanYuan) fans.push(fan("xiaosanyuan"));
-  if (win.isKaWuXing) fans.push(fan("kawuxing"));
-  if (options.isLiangDao) fans.push(fan("liangdao"));
   if (options.method === "gangshang") fans.push(fan("gangshangkaihua"));
+  if (options.isGangShangPao) fans.push(fan("gangshangpao"));
   if (options.method === "qianggang") fans.push(fan("qiangganghu"));
+  if (win.isShouZhuaYi) fans.push(fan("shouzhuayi"));
+  if (options.isLiangDao) fans.push(fan("liangdao"));
+  if (win.isKaWuXing) fans.push(fan("kawuxing"));
+  if (options.isHaiDiLao) fans.push(fan("haidilao"));
   return fans;
 }
 
@@ -55,26 +73,35 @@ export function scoreWin(options: {
   loserId?: PlayerId;
   method: WinMethod;
   win: WinResult;
+  isGangShangPao?: boolean;
+  isHaiDiLao?: boolean;
 }): ScoreResult {
   const { players, winnerId, loserId, method, win } = options;
   const fans = calculateFans(win, {
     isLiangDao: players[winnerId].isLiangDao,
     method,
+    isGangShangPao: options.isGangShangPao,
+    isHaiDiLao: options.isHaiDiLao,
   });
-  const totalFan = fans.reduce((sum, item) => sum + item.fan, 0);
-  const baseScore = BASE_SCORE * 2 ** totalFan;
+  const multiplier = fans.reduce((product, item) => product * item.fan, 1);
+  const totalFan = multiplier;
+  const baseScore = BASE_SCORE * multiplier;
   const ids = Object.keys(players) as PlayerId[];
   const scoreChanges = Object.fromEntries(ids.map((id) => [id, 0])) as Record<PlayerId, number>;
+  const loserPayment = (id: PlayerId) =>
+    baseScore * (!players[winnerId].isLiangDao && players[id].isLiangDao ? 2 : 1);
 
   if (method === "zimo" || method === "gangshang") {
     for (const id of ids) {
       if (id === winnerId) continue;
-      scoreChanges[id] -= baseScore;
-      scoreChanges[winnerId] += baseScore;
+      const payment = loserPayment(id);
+      scoreChanges[id] -= payment;
+      scoreChanges[winnerId] += payment;
     }
   } else if (loserId) {
-    scoreChanges[loserId] -= baseScore;
-    scoreChanges[winnerId] += baseScore;
+    const payment = loserPayment(loserId);
+    scoreChanges[loserId] -= payment;
+    scoreChanges[winnerId] += payment;
   }
 
   const totalScores = Object.fromEntries(
@@ -95,6 +122,7 @@ export function scoreWin(options: {
     fans,
     totalFan,
     baseScore,
+    multiplier,
     scoreChanges,
     totalScores,
     title: `${players[winnerId].name} ${methodName[method]}`,
@@ -107,6 +135,7 @@ export function scoreDraw(players: Record<PlayerId, Player>): ScoreResult {
     fans: [],
     totalFan: 0,
     baseScore: 0,
+    multiplier: 0,
     scoreChanges: Object.fromEntries(ids.map((id) => [id, 0])) as Record<PlayerId, number>,
     totalScores: Object.fromEntries(ids.map((id) => [id, players[id].score])) as Record<PlayerId, number>,
     title: "流局",

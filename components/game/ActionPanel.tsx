@@ -35,6 +35,7 @@ function ActionButton({
   return (
     <button
       type="button"
+      onPointerDown={(event) => event.stopPropagation()}
       onClick={onClick}
       aria-label={label}
       title={label}
@@ -164,7 +165,7 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
 
   return (
     rightActions.length > 0 ? (
-      <div className="pointer-events-auto fixed bottom-5 right-5 z-20 flex max-w-[12rem] flex-row-reverse flex-wrap items-end justify-end gap-3 sm:max-w-[14rem]">
+      <div className="pointer-events-auto fixed bottom-[168px] left-1/2 z-40 flex max-w-[calc(100vw-1.5rem)] -translate-x-1/2 flex-row flex-wrap items-center justify-center gap-3 sm:bottom-[188px]">
         {rightActions}
       </div>
     ) : null

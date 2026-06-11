@@ -79,18 +79,26 @@ export interface PendingReactions {
 export type FanType =
   | "base"
   | "pengpenghu"
+  | "mingsiguiyi"
+  | "ansiguiyi"
   | "qingyise"
   | "qidui"
+  | "longqidui"
+  | "shuanglongqidui"
   | "dasanyuan"
   | "xiaosanyuan"
   | "kawuxing"
   | "liangdao"
   | "gangshangkaihua"
-  | "qiangganghu";
+  | "gangshangpao"
+  | "qiangganghu"
+  | "shouzhuayi"
+  | "haidilao";
 
 export interface FanItem {
   type: FanType;
   name: string;
+  /** 当前规则中的倍率，例如 ×2/×4/×8。基础胡为 ×1。 */
   fan: number;
 }
 
@@ -112,11 +120,15 @@ export interface WinResult {
   decomposition?: WinDecomposition;
   allDecompositions?: WinDecomposition[];
   isSevenPairs?: boolean;
+  dragonPairCount?: number;
   isPengPengHu?: boolean;
   isQingYiSe?: boolean;
   isDaSanYuan?: boolean;
   isXiaoSanYuan?: boolean;
   isKaWuXing?: boolean;
+  isMingSiGuiYi?: boolean;
+  isAnSiGuiYi?: boolean;
+  isShouZhuaYi?: boolean;
   winningTileKind?: TileKind;
 }
 
@@ -127,6 +139,7 @@ export interface ScoreResult {
   fans: FanItem[];
   totalFan: number;
   baseScore: number;
+  multiplier: number;
   scoreChanges: Record<PlayerId, number>;
   totalScores: Record<PlayerId, number>;
   title: string;

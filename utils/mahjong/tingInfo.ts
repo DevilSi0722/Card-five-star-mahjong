@@ -9,7 +9,7 @@ export interface WaitDetail {
   kind: TileKind;
   /** 该牌在牌山+他人手牌中理论剩余张数（4 - 已可见张数） */
   remaining: number;
-  /** 胡这张牌的得分倍率（2 ** 总番数） */
+  /** 胡这张牌的得分倍率（各番型倍率连乘） */
   multiplier: number;
 }
 
@@ -53,9 +53,9 @@ export function getWaitDetails(
     if (!win.isWin) continue;
 
     const fans = calculateFans(win, { isLiangDao: options.isLiangDao, method: "discard" });
-    const totalFan = fans.reduce((sum, item) => sum + item.fan, 0);
+    const multiplier = fans.reduce((product, item) => product * item.fan, 1);
     const remaining = Math.max(0, 4 - (seen.get(kind) ?? 0));
-    details.push({ kind, remaining, multiplier: 2 ** totalFan });
+    details.push({ kind, remaining, multiplier });
   }
 
   return details;

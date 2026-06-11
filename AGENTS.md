@@ -1,7 +1,7 @@
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **KawuxingMajiang** (646 symbols, 1311 relationships, 55 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **Card-five-star-mahjong** (647 symbols, 1314 relationships, 55 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
@@ -24,10 +24,10 @@ This project is indexed by GitNexus as **KawuxingMajiang** (646 symbols, 1311 re
 
 | Resource | Use for |
 |----------|---------|
-| `gitnexus://repo/KawuxingMajiang/context` | Codebase overview, check index freshness |
-| `gitnexus://repo/KawuxingMajiang/clusters` | All functional areas |
-| `gitnexus://repo/KawuxingMajiang/processes` | All execution flows |
-| `gitnexus://repo/KawuxingMajiang/process/{name}` | Step-by-step execution trace |
+| `gitnexus://repo/Card-five-star-mahjong/context` | Codebase overview, check index freshness |
+| `gitnexus://repo/Card-five-star-mahjong/clusters` | All functional areas |
+| `gitnexus://repo/Card-five-star-mahjong/processes` | All execution flows |
+| `gitnexus://repo/Card-five-star-mahjong/process/{name}` | Step-by-step execution trace |
 
 ## CLI
 

@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { useTexture } from "@react-three/drei";
 import { animated, useSpring } from "@react-spring/three";
-import { SRGBColorSpace } from "three";
-import type { TileInstance } from "@/types/mahjong";
+import { CanvasTexture, SRGBColorSpace } from "three";
+import type { TileInstance, TileKind } from "@/types/mahjong";
 import { getTileTextureSrc } from "@/utils/mahjong/tileTextures";
 
 interface TileMeshProps {
@@ -24,20 +24,48 @@ interface TileMeshProps {
   onHoverChange?: (hovered: boolean) => void;
 }
 
+const FACE_BACKGROUND = "#f5f1df";
+const FACE_TEXTURE_CACHE = new WeakMap<object, CanvasTexture>();
+
 function TileFaceTexture({ src, standing = false }: { src: string; standing?: boolean }) {
-  const texture = useTexture(src);
-  texture.colorSpace = SRGBColorSpace;
-  texture.anisotropy = 8;
+  const sourceTexture = useTexture(src);
+  const texture = useMemo(() => {
+    const sourceImage = sourceTexture.image as HTMLImageElement | HTMLCanvasElement | ImageBitmap | undefined;
+    if (!sourceImage) return sourceTexture;
+    const cached = FACE_TEXTURE_CACHE.get(sourceImage);
+    if (cached) return cached;
+
+    const width = sourceImage.width;
+    const height = sourceImage.height;
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+
+    const context = canvas.getContext("2d");
+    if (!context) return sourceTexture;
+    context.fillStyle = FACE_BACKGROUND;
+    context.fillRect(0, 0, width, height);
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = "high";
+    context.drawImage(sourceImage, 0, 0, width, height);
+
+    const bakedTexture = new CanvasTexture(canvas);
+    bakedTexture.colorSpace = SRGBColorSpace;
+    bakedTexture.anisotropy = 16;
+    bakedTexture.needsUpdate = true;
+    FACE_TEXTURE_CACHE.set(sourceImage, bakedTexture);
+    return bakedTexture;
+  }, [sourceTexture]);
 
   return standing ? (
-    <mesh position={[0, 0, 0.072]} rotation={[0, 0, 0]}>
-      <planeGeometry args={[0.27, 0.37]} />
-      <meshBasicMaterial map={texture} transparent toneMapped={false} />
+    <mesh position={[0, 0, 0.0605]} rotation={[0, 0, 0]}>
+      <planeGeometry args={[0.255, 0.355]} />
+      <meshBasicMaterial map={texture} toneMapped={false} />
     </mesh>
   ) : (
-    <mesh position={[0, 0.078, 0.01]} rotation={[-Math.PI / 2, 0, 0]}>
-      <planeGeometry args={[0.27, 0.37]} />
-      <meshBasicMaterial map={texture} transparent toneMapped={false} />
+    <mesh position={[0, 0.0605, 0.01]} rotation={[-Math.PI / 2, 0, 0]}>
+      <planeGeometry args={[0.255, 0.355]} />
+      <meshBasicMaterial map={texture} toneMapped={false} />
     </mesh>
   );
 }
@@ -125,12 +153,45 @@ export function TileMesh({
           roughness={0.55}
         />
       </mesh>
-      <mesh position={isStanding ? [0, 0, 0.063] : [0, 0.063, 0]}>
-        <boxGeometry args={isStanding ? [0.29, 0.38, 0.014] : [0.29, 0.014, 0.42]} />
-        <meshStandardMaterial color={faceUp ? "#fbf6ea" : "#16384c"} roughness={0.65} />
-      </mesh>
-      {textureSrc ? <TileFaceTexture src={textureSrc} standing={isStanding} /> : null}
+      {textureSrc ? (
+        <Suspense fallback={null}>
+          <TileFaceTexture src={textureSrc} standing={isStanding} />
+        </Suspense>
+      ) : null}
       {tingHint ? <TingDot standing={isStanding} /> : null}
     </animated.group>
+  );
+}
+
+export function TileKindPreview3D({
+  kind,
+  position,
+  rotation = [0, 0, 0],
+  scale = 1,
+}: {
+  kind: TileKind;
+  position: [number, number, number];
+  rotation?: [number, number, number];
+  scale?: number;
+}) {
+  const [suit, rawRank] = kind.split("-");
+  const rank = Number.isNaN(Number(rawRank)) ? rawRank : Number(rawRank);
+  const tile: TileInstance = {
+    id: `preview-${kind}`,
+    kind,
+    suit: suit as TileInstance["suit"],
+    rank: rank as TileInstance["rank"],
+    copy: 0,
+  };
+
+  return (
+    <TileMesh
+      tile={tile}
+      faceUp
+      liangDao
+      scale={scale}
+      position={position}
+      rotation={rotation}
+    />
   );
 }

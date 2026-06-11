@@ -122,6 +122,16 @@ function findSevenPairs(tiles: TileInstance[], melds: Meld[] = []): WinDecomposi
   return pairCount === 7 ? { groups, isSevenPairs: true } : undefined;
 }
 
+function dragonPairCountForSevenPairs(tiles: TileInstance[], isSevenPairs?: boolean): number {
+  if (!isSevenPairs) return 0;
+  const counts = countKinds(tiles);
+  let dragonPairCount = 0;
+  for (const kind of ALL_TILE_KINDS) {
+    if ((counts.get(kind) ?? 0) === 4) dragonPairCount += 1;
+  }
+  return dragonPairCount;
+}
+
 function isQingYiSe(groups: MeldGroup[]): boolean {
   const suits = new Set(groups.flatMap((group) => group.kinds).map((kind) => parseTileKind(kind).suit));
   return suits.size === 1 && (suits.has("dot") || suits.has("bamboo"));
@@ -173,6 +183,23 @@ function isKaWuXing(
   return countRequiredKind(decomposition.groups, winningTileKind) > (countsWithoutWinning.get(winningTileKind) ?? 0);
 }
 
+function isMingSiGuiYi(melds: Meld[], winningTileKind?: TileKind): boolean {
+  if (!winningTileKind) return false;
+  return melds.some((meld) => meld.type === "peng" && meld.tiles[0]?.kind === winningTileKind);
+}
+
+function isAnSiGuiYi(tiles: TileInstance[], winningTileKind?: TileKind): boolean {
+  if (!winningTileKind) return false;
+  const withoutWinning = [...tiles];
+  const removeIndex = withoutWinning.findIndex((tile) => tile.kind === winningTileKind);
+  if (removeIndex >= 0) withoutWinning.splice(removeIndex, 1);
+  return (countKinds(withoutWinning).get(winningTileKind) ?? 0) >= 3;
+}
+
+function isShouZhuaYi(tiles: TileInstance[], melds: Meld[]): boolean {
+  return melds.length === 4 && tiles.length === 2;
+}
+
 export function analyzeWin(
   tiles: TileInstance[],
   winningTileKind?: TileKind,
@@ -196,17 +223,22 @@ export function analyzeWin(
   const dragonTriplets = dragonTripletCount(best.groups);
   const isDaSanYuan = dragonTriplets === 3;
   const isXiaoSanYuan = !isDaSanYuan && dragonTriplets === 2 && hasDragonPair(best.groups);
+  const dragonPairCount = dragonPairCountForSevenPairs(sorted, best.isSevenPairs);
 
   return {
     isWin: true,
     decomposition: best,
     allDecompositions,
     isSevenPairs: Boolean(best.isSevenPairs),
+    dragonPairCount,
     isPengPengHu: isPengPengHu(best.groups, best.isSevenPairs),
     isQingYiSe: isQingYiSe(best.groups),
     isDaSanYuan,
     isXiaoSanYuan,
     isKaWuXing: isKaWuXing(best, sorted, winningTileKind),
+    isMingSiGuiYi: isMingSiGuiYi(melds, winningTileKind),
+    isAnSiGuiYi: isAnSiGuiYi(sorted, winningTileKind),
+    isShouZhuaYi: isShouZhuaYi(sorted, melds),
     winningTileKind,
   };
 }

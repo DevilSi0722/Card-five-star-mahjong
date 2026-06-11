@@ -50,7 +50,6 @@ export function GameHUD() {
   const resetRound = useGameStore((state) => state.resetRound);
   const logPanelRef = useRef<HTMLDivElement>(null);
 
-  const current = players[currentPlayerId];
   const human = players.human;
   const drawn = human.hand.find((tile) => tile.id === human.lastDrawnTileId);
   const canSelfHu = phase === "playing" && currentPlayerId === "human" && analyzeWin(human.hand, drawn?.kind, human.melds).isWin;
@@ -71,9 +70,8 @@ export function GameHUD() {
         <div className="pointer-events-auto rounded-lg border border-white/12 bg-slate-950/70 px-3 py-2 shadow-panel backdrop-blur-md">
           <div className="flex items-center gap-2 text-sm font-semibold text-white">
             <CircleDot className="h-4 w-4 text-emerald-300" />
-            {phase === "responding" ? "等待响应" : phase === "settled" || phase === "draw" ? "本局结束" : `${current.name} 回合`}
+            牌墙剩余 {wall.length} 张
           </div>
-          <div className="mt-1 text-xs text-slate-300">牌墙剩余 {wall.length} 张</div>
         </div>
 
         <div className="pointer-events-auto grid min-w-[168px] gap-2">

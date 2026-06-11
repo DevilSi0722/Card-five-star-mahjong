@@ -42,14 +42,14 @@ export function SettlementModal({ result }: { result: ScoreResult }) {
             {result.fans.length > 0 ? (
               result.fans.map((fan) => (
                 <span key={fan.type} className="rounded-md border border-emerald-300/25 bg-emerald-400/12 px-2 py-1 text-xs text-emerald-100">
-                  {fan.name} +{fan.fan}
+                  {fan.name} ×{fan.fan}
                 </span>
               ))
             ) : (
               <span className="text-xs text-slate-400">无</span>
             )}
           </div>
-          <div className="mt-3 text-sm text-slate-200">总番数：{result.totalFan}，单份分：{result.baseScore}</div>
+          <div className="mt-3 text-sm text-slate-200">总倍率：×{result.multiplier}，单份分：{result.baseScore}</div>
         </div>
 
         <div className="mt-4 overflow-hidden rounded-md border border-white/10">

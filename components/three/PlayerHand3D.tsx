@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import type { Player } from "@/types/mahjong";
 import { getTingDiscardTileIds } from "@/utils/mahjong/tingInfo";
 import { useUiStore } from "@/store/uiStore";
-import { TileMesh } from "./TileMesh";
+import { TileKindPreview3D, TileMesh } from "./TileMesh";
 
 function handTransform(seat: Player["seat"]) {
   if (seat === "bottom") return { center: [0, 0.24, 2.05] as const, step: [0.36, 0, 0] as const, rotation: [0, 0, 0] as [number, number, number] };
@@ -15,20 +15,37 @@ function handTransform(seat: Player["seat"]) {
 // 新摸牌与已有手牌之间额外留出的间隔（以一个牌位的比例表示）
 const DRAWN_TILE_GAP = 0.55;
 
+function waitingPreviewPosition(
+  seat: Player["seat"],
+  transform: ReturnType<typeof handTransform>,
+  index: number,
+  count: number,
+  scale: number,
+): [number, number, number] {
+  const offset = (index - (count - 1) / 2) * 0.26 * scale;
+  if (seat === "left") return [transform.center[0] + 0.38, 0.2, transform.center[2] + offset];
+  if (seat === "right") return [transform.center[0] - 0.38, 0.2, transform.center[2] - offset];
+  return [transform.center[0] + offset, 0.2, transform.center[2] - 0.38];
+}
+
 export function PlayerHand3D({
   player,
   current,
   revealAll,
   selectedTileId,
+  scale = 1,
   onTileClick,
   onTileDoubleClick,
+  showWaitingPreview = false,
 }: {
   player: Player;
   current?: boolean;
   revealAll?: boolean;
   selectedTileId?: string;
+  scale?: number;
   onTileClick?: (tileId: string) => void;
   onTileDoubleClick?: (tileId: string) => void;
+  showWaitingPreview?: boolean;
 }) {
   const transform = handTransform(player.seat);
   const isHuman = player.id === "human";
@@ -70,8 +87,19 @@ export function PlayerHand3D({
 
   return (
     <group>
+      {showWaitingPreview && player.isLiangDao
+        ? player.waitingKinds.map((kind, index) => (
+            <TileKindPreview3D
+              key={`${player.id}-wait-${kind}`}
+              kind={kind}
+              scale={0.5}
+              position={waitingPreviewPosition(player.seat, transform, index, player.waitingKinds.length, scale)}
+              rotation={transform.rotation}
+            />
+          ))
+        : null}
       {slots.map(({ tile, slot }) => {
-        const delta = slot - centerSlot;
+        const delta = (slot - centerSlot) * scale;
         // 该牌是否平铺亮出（结算全亮 / 亮倒全亮）
         const lying = isTileRevealed();
         // 平铺亮出的牌一定正面；其余牌：人类看自己手牌为正面，AI 暗置
@@ -85,6 +113,7 @@ export function PlayerHand3D({
             current={current}
             liangDao={lying}
             standing={!lying}
+            scale={scale}
             hoverable={isHuman && !lying}
             tingHint={tingTileIds.has(tile.id)}
             position={[
