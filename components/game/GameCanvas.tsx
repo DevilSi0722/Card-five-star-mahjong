@@ -23,8 +23,9 @@ const MAX_RENDER_HEIGHT = 1080;
 
 function getCappedCanvasDpr(mobileLandscape: boolean) {
   if (typeof window === "undefined") return 1;
-  const width = Math.max(1, window.innerWidth);
-  const height = Math.max(1, window.innerHeight);
+  const viewport = window.visualViewport;
+  const width = Math.max(1, viewport?.width ?? window.innerWidth);
+  const height = Math.max(1, viewport?.height ?? window.innerHeight);
   const maxDpr = mobileLandscape ? 1.5 : 1;
   return Math.min(maxDpr, MAX_RENDER_WIDTH / width, MAX_RENDER_HEIGHT / height);
 }
@@ -39,7 +40,13 @@ function useCappedCanvasDpr(mobileLandscape: boolean) {
 
     update();
     window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
+    window.addEventListener("orientationchange", update);
+    window.visualViewport?.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("orientationchange", update);
+      window.visualViewport?.removeEventListener("resize", update);
+    };
   }, [mobileLandscape]);
 
   return dpr;

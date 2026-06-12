@@ -13,7 +13,7 @@ import { BuyHorseRevealOverlay } from "./BuyHorseRevealOverlay";
 import { SettlementModal } from "./SettlementModal";
 
 export function MahjongGame() {
-  const { isMobileLandscape } = useResponsiveGameLayout();
+  const { width, height, isMobileLandscape } = useResponsiveGameLayout();
   const startNewRound = useGameStore((state) => state.startNewRound);
   const roundResult = useGameStore((state) => state.roundResult);
   const selectedTileId = useGameStore((state) => state.selectedTileId);
@@ -42,9 +42,13 @@ export function MahjongGame() {
 
   return (
     <main
-      className={`game-shell relative h-dvh w-screen overflow-hidden bg-[#071014] ${
+      className={`game-shell relative overflow-hidden bg-[#071014] ${
         isMobileLandscape ? "game-shell--mobile-landscape" : ""
       }`}
+      style={{
+        width: width > 0 ? `${width}px` : "100vw",
+        height: height > 0 ? `${height}px` : "100dvh",
+      }}
       onPointerDown={() => {
         if (selectedTileId) selectTile(undefined);
       }}

@@ -46,12 +46,13 @@ button {
 }
 
 .game-shell {
-  min-height: 100svh;
+  height: 100svh;
+  width: 100vw;
 }
 
 @supports (height: 100dvh) {
   .game-shell {
-    min-height: 100dvh;
+    height: 100dvh;
   }
 }
 

@@ -12,9 +12,13 @@ export function useResponsiveGameLayout() {
   });
 
   useEffect(() => {
+    let frame = 0;
+    const timeoutIds: number[] = [];
+
     const update = () => {
-      const width = window.innerWidth;
-      const height = window.innerHeight;
+      const viewport = window.visualViewport;
+      const width = Math.round(viewport?.width ?? window.innerWidth);
+      const height = Math.round(viewport?.height ?? window.innerHeight);
       const isLandscape = width >= height;
       setLayout({
         width,
@@ -24,14 +28,33 @@ export function useResponsiveGameLayout() {
         isMobileLandscape: isLandscape && width < 950 && height < 540,
       });
     };
+
+    const scheduleUpdate = () => {
+      window.cancelAnimationFrame(frame);
+      while (timeoutIds.length > 0) {
+        const id = timeoutIds.pop();
+        if (id !== undefined) window.clearTimeout(id);
+      }
+      frame = window.requestAnimationFrame(update);
+      for (const delay of [80, 180, 360, 700]) {
+        timeoutIds.push(window.setTimeout(update, delay));
+      }
+    };
+
     update();
-    window.addEventListener("resize", update);
-    window.visualViewport?.addEventListener("resize", update);
-    window.screen.orientation?.addEventListener?.("change", update);
+    window.addEventListener("resize", scheduleUpdate);
+    window.addEventListener("orientationchange", scheduleUpdate);
+    window.visualViewport?.addEventListener("resize", scheduleUpdate);
+    window.visualViewport?.addEventListener("scroll", scheduleUpdate);
+    window.screen.orientation?.addEventListener?.("change", scheduleUpdate);
     return () => {
-      window.removeEventListener("resize", update);
-      window.visualViewport?.removeEventListener("resize", update);
-      window.screen.orientation?.removeEventListener?.("change", update);
+      window.cancelAnimationFrame(frame);
+      for (const id of timeoutIds) window.clearTimeout(id);
+      window.removeEventListener("resize", scheduleUpdate);
+      window.removeEventListener("orientationchange", scheduleUpdate);
+      window.visualViewport?.removeEventListener("resize", scheduleUpdate);
+      window.visualViewport?.removeEventListener("scroll", scheduleUpdate);
+      window.screen.orientation?.removeEventListener?.("change", scheduleUpdate);
     };
   }, []);
 
