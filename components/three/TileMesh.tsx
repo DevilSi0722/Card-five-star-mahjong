@@ -21,6 +21,7 @@ interface TileMeshProps {
   scale?: number;
   flyFrom?: [number, number, number];
   flyFromRotation?: [number, number, number];
+  animationConfig?: { tension: number; friction: number };
   onClick?: () => void;
   onDoubleClick?: () => void;
   onHoverChange?: (hovered: boolean) => void;
@@ -158,6 +159,7 @@ export function TileMesh({
   scale = 1,
   flyFrom,
   flyFromRotation,
+  animationConfig,
   onClick,
   onDoubleClick,
   onHoverChange,
@@ -182,7 +184,7 @@ export function TileMesh({
       : undefined,
     position: targetPosition,
     rotation,
-    config: flyFrom ? { tension: 190, friction: 22 } : { tension: 260, friction: 24 },
+    config: animationConfig ?? (flyFrom ? { tension: 190, friction: 22 } : { tension: 260, friction: 24 }),
   });
 
   const textureSrc = tile && faceUp ? getTileTextureSrc(tile.kind) : undefined;

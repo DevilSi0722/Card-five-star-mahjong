@@ -36,7 +36,7 @@ export function MahjongGame() {
     }
 
     setShowSettlement(false);
-    const timer = window.setTimeout(() => setShowSettlement(true), 3000);
+    const timer = window.setTimeout(() => setShowSettlement(true), 3500);
     return () => window.clearTimeout(timer);
   }, [roundResult]);
 
