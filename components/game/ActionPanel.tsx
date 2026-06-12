@@ -73,6 +73,7 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
   const claimMingGang = useGameStore((state) => state.claimMingGang);
   const claimAnGang = useGameStore((state) => state.claimAnGang);
   const claimBuGang = useGameStore((state) => state.claimBuGang);
+  const discardTile = useGameStore((state) => state.discardTile);
   const passReaction = useGameStore((state) => state.passReaction);
   const liangDaoArmed = useUiStore((state) => state.liangDaoArmed);
   const setLiangDaoArmed = useUiStore((state) => state.setLiangDaoArmed);
@@ -80,19 +81,31 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
   const human = players.human;
   const isHumanTurn = phase === "playing" && currentPlayerId === "human";
   const playable = isHumanTurn && !human.autoPlay;
+  const liangDaoDecisionTurn = isHumanTurn && human.isLiangDao;
   const canClaimSelfHu = isHumanTurn && canSelfHu;
-  const humanReaction =
+  const drawnTile = human.lastDrawnTileId ? human.hand.find((tile) => tile.id === human.lastDrawnTileId) : undefined;
+  const remainingReactions =
     phase === "responding" && pendingReactions
-      ? (
-          pendingReactions.options.find((option) => !reactionPasses.includes(option.playerId) && option.canHu) ??
-          pendingReactions.options.find((option) => !reactionPasses.includes(option.playerId) && option.canGang) ??
-          pendingReactions.options.find((option) => !reactionPasses.includes(option.playerId) && option.canPeng)
-        )?.playerId === "human"
-      ? pendingReactions.options.find((option) => option.playerId === "human")
-      : undefined
+      ? pendingReactions.options.filter((option) => !reactionPasses.includes(option.playerId))
+      : [];
+  const humanPendingReaction = remainingReactions.find((option) => option.playerId === "human");
+  const hasHuPriority = remainingReactions.some((option) => option.canHu);
+  const topNonHuReaction =
+    remainingReactions.find((option) => option.canGang) ?? remainingReactions.find((option) => option.canPeng);
+  const humanReaction = humanPendingReaction?.canHu
+    ? humanPendingReaction
+    : !hasHuPriority && topNonHuReaction?.playerId === "human"
+      ? humanPendingReaction
       : undefined;
 
   const rightActions: React.ReactNode[] = [];
+  const turnAnGangKinds = liangDaoDecisionTurn && drawnTile
+    ? anGangKinds.filter((kind) => kind === drawnTile.kind)
+    : anGangKinds;
+  const turnBuGangMelds = liangDaoDecisionTurn && drawnTile
+    ? buGangMelds.filter((meld) => meld.tiles[0].kind === drawnTile.kind)
+    : buGangMelds;
+  const showTurnGangActions = playable || (liangDaoDecisionTurn && !canClaimSelfHu);
 
   if (humanReaction?.canPeng) {
     rightActions.push(
@@ -110,8 +123,8 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
     );
   }
 
-  if (playable) {
-    for (const kind of anGangKinds.slice(0, 2)) {
+  if (showTurnGangActions) {
+    for (const kind of turnAnGangKinds.slice(0, 2)) {
       rightActions.push(
         <ActionButton
           key={`an-gang-${kind}`}
@@ -125,7 +138,7 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
       );
     }
 
-    for (const meld of buGangMelds.slice(0, 2)) {
+    for (const meld of turnBuGangMelds.slice(0, 2)) {
       rightActions.push(
         <ActionButton
           key={meld.id}
@@ -135,6 +148,21 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
           compact={isMobileLandscape}
         >
           补杠
+        </ActionButton>,
+      );
+    }
+
+    if (liangDaoDecisionTurn && drawnTile && (turnAnGangKinds.length > 0 || turnBuGangMelds.length > 0)) {
+      rightActions.push(
+        <ActionButton
+          compact={isMobileLandscape}
+          key="skip-liang-dao-gang"
+          tone="danger"
+          label="过"
+          icon={<X />}
+          onClick={() => discardTile("human", drawnTile.id)}
+        >
+          过
         </ActionButton>,
       );
     }

@@ -148,6 +148,18 @@ export interface ScoreResult {
     value: number;
     bonus: number;
   };
+  winDetails?: WinScoreDetail[];
+}
+
+export interface WinScoreDetail {
+  winnerId: PlayerId;
+  loserId?: PlayerId;
+  method: WinMethod;
+  fans: FanItem[];
+  totalFan: number;
+  baseScore: number;
+  multiplier: number;
+  title: string;
 }
 
 export interface AiDecision {
@@ -179,7 +191,7 @@ export interface GameState {
   actionNonce: number;
   canHumanLiangDao: boolean;
   supplementContext?: "gangshang";
-  /** 本局已发生的杠次数，用于「杠上杠」翻倍计分 */
+  /** 兼容保留字段；杠分不再按本局杠次数翻倍。 */
   gangCount: number;
   /** 本局底分。 */
   baseScore: number;

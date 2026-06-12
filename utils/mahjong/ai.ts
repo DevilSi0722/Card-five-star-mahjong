@@ -136,13 +136,15 @@ export function chooseReaction(
   return { action: "pass", reason: "不响应" };
 }
 
-export function chooseGang(player: Player): AiDecision | undefined {
-  if (player.isLiangDao) return undefined;
-  const anGang = getAnGangKinds(player.hand)[0];
+export function chooseGang(player: Player, options: { requireDrawnTile?: boolean } = {}): AiDecision | undefined {
+  const drawnTile = player.lastDrawnTileId ? player.hand.find((tile) => tile.id === player.lastDrawnTileId) : undefined;
+  const anGang = getAnGangKinds(player.hand).find((kind) => !options.requireDrawnTile || kind === drawnTile?.kind);
   if (anGang) return { action: "an_gang", tileKind: anGang, reason: "手牌四张相同，暗杠" };
   const buGang = player.melds.find((meld: Meld) => {
     if (meld.type !== "peng") return false;
-    return player.hand.some((tile) => tile.kind === meld.tiles[0].kind);
+    const kind = meld.tiles[0].kind;
+    if (options.requireDrawnTile && drawnTile?.kind !== kind) return false;
+    return player.hand.some((tile) => tile.kind === kind);
   });
   if (buGang) return { action: "bu_gang", meldId: buGang.id, reason: "碰后摸到第四张，补杠" };
   return undefined;

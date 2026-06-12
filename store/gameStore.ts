@@ -45,6 +45,7 @@ interface GameStore extends GameState {
   resolveReactions: () => void;
   nextTurn: (delayMs?: number) => void;
   settleWin: (winnerId: PlayerId, method: WinMethod, loserId?: PlayerId, winningTile?: TileInstance) => void;
+  settleWins: (winnerIds: PlayerId[], method: WinMethod, loserId: PlayerId, winningTile: TileInstance) => void;
   settleNoSafeDiscard: (playerId: PlayerId) => void;
   resetRound: () => void;
 }
@@ -55,11 +56,11 @@ const PLAYER_NAMES: Record<PlayerId, string> = {
   ai_right: "右家 AI",
 };
 
-function createPlayers(previous?: Record<PlayerId, Player>): Record<PlayerId, Player> {
+function createPlayers(previous?: Record<PlayerId, Player>, dealerId: PlayerId = "human"): Record<PlayerId, Player> {
   return {
-    human: createPlayer("human", "human", "bottom", true, previous?.human.score),
-    ai_left: createPlayer("ai_left", "ai", "left", false, previous?.ai_left.score),
-    ai_right: createPlayer("ai_right", "ai", "right", false, previous?.ai_right.score),
+    human: createPlayer("human", "human", "bottom", dealerId === "human", previous?.human.score),
+    ai_left: createPlayer("ai_left", "ai", "left", dealerId === "ai_left", previous?.ai_left.score),
+    ai_right: createPlayer("ai_right", "ai", "right", dealerId === "ai_right", previous?.ai_right.score),
   };
 }
 
@@ -154,6 +155,15 @@ function topPriorityReaction(
   );
 }
 
+function pendingHuPlayerIds(
+  pending: NonNullable<GameState["pendingReactions"]>,
+  passes: PlayerId[],
+): PlayerId[] {
+  return pending.options
+    .filter((option) => option.canHu && !passes.includes(option.playerId))
+    .map((option) => option.playerId);
+}
+
 function applyRoundResult(
   players: Record<PlayerId, Player>,
   result: ScoreResult,
@@ -170,23 +180,23 @@ function updateHumanLiangDaoHint(player: Player): boolean {
 }
 
 /**
- * 补杠（明杠/蓄杠）完成时结算杠分：其余两家各赔分，按本局杠次序翻倍。
+ * 补杠（自抓明杠）完成时结算杠分：普通明杠其余两家各赔 1 份，杠上明杠各赔 2 份。
  * 返回应用了杠分的玩家表与追加后的日志。
  */
 function applyBuGangScore(
   players: Record<PlayerId, Player>,
   gangerId: PlayerId,
-  gangSequence: number,
+  isGangContext: boolean,
   baseScore: number,
   logs: string[],
 ): { players: Record<PlayerId, Player>; logs: string[] } {
-  const gang = scoreGang({ players, gangType: "bu_gang", gangerId, gangSequence, baseScore });
+  const gang = scoreGang({ players, gangType: "bu_gang", gangerId, isGangContext, baseScore });
   if (!gang) {
     return { players, logs: pushLog(logs, `${players[gangerId].name} 补杠成功，补摸一张`) };
   }
   return {
     players: applyGangScore(players, gang.scoreChanges),
-    logs: pushLog(logs, `${players[gangerId].name} 明杠 ${gang.label}，补摸一张`),
+    logs: pushLog(logs, `${players[gangerId].name} ${gang.label}，补摸一张`),
   };
 }
 
@@ -233,17 +243,20 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   startNewRound: () => {
+    const state = get();
     const nextLiangDaoZimoBuyHorseEnabled = get().nextLiangDaoZimoBuyHorseEnabled;
     const nextBaseScore = get().nextBaseScore;
-    const previous = get().players;
-    const players = createPlayers(previous);
+    const dealerId = state.roundResult?.winnerId ?? state.dealerId ?? "human";
+    const previous = state.players;
+    const players = createPlayers(previous, dealerId);
     const wall = shuffle(createTileSet());
     const dealt = { ...players };
     const nextWall = [...wall];
 
-    for (let index = 0; index < 14; index += 1) dealt.human.hand.push(nextWall.shift()!);
-    for (let index = 0; index < 13; index += 1) dealt.ai_left.hand.push(nextWall.shift()!);
-    for (let index = 0; index < 13; index += 1) dealt.ai_right.hand.push(nextWall.shift()!);
+    for (const playerId of Object.keys(dealt) as PlayerId[]) {
+      const handSize = playerId === dealerId ? 14 : 13;
+      for (let index = 0; index < handSize; index += 1) dealt[playerId].hand.push(nextWall.shift()!);
+    }
 
     dealt.human.hand = sortTiles(dealt.human.hand);
     dealt.ai_left.hand = sortTiles(dealt.ai_left.hand);
@@ -253,8 +266,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       wall: nextWall,
       deadWall: [],
       players: dealt,
-      currentPlayerId: "human",
-      dealerId: "human",
+      currentPlayerId: dealerId,
+      dealerId,
       phase: "playing",
       lastDiscard: undefined,
       pendingReactions: undefined,
@@ -267,8 +280,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       gangCount: 0,
       baseScore: nextBaseScore,
       liangDaoZimoBuyHorseEnabled: nextLiangDaoZimoBuyHorseEnabled,
-      logs: pushLog([], "新局开始，庄家先出牌"),
-      actionNonce: get().actionNonce + 1,
+      logs: pushLog([], `新局开始，${dealt[dealerId].name} 坐庄先出牌`),
+      actionNonce: state.actionNonce + 1,
     });
   },
 
@@ -469,14 +482,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return;
     }
 
-    // 直杠（点杠）：放杠者单独赔分，按本局杠次序翻倍
-    const gangSequence = state.gangCount + 1;
+    const isGangContext = state.supplementContext === "gangshang";
     const gang = scoreGang({
       players,
       gangType: "ming_gang",
       gangerId: playerId,
       dianGangPlayerId: pending.discard.playerId,
-      gangSequence,
+      isGangContext,
       baseScore: state.baseScore,
     });
     const scoredPlayers = gang ? applyGangScore(players, gang.scoreChanges) : players;
@@ -490,12 +502,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
       reactionPasses: [],
       lastDiscard: undefined,
       supplementContext: "gangshang",
-      gangCount: gangSequence,
       logs: pushLog(
         state.logs,
         gang
-          ? `${player.name} 直杠 ${TILE_KIND_LABEL[kind]}（${gang.label}），补摸一张`
-          : `${player.name} 明杠 ${TILE_KIND_LABEL[kind]}，补摸一张`,
+          ? `${player.name} 杠 ${TILE_KIND_LABEL[kind]}（${gang.label}），补摸一张`
+          : `${player.name} 杠 ${TILE_KIND_LABEL[kind]}，补摸一张`,
       ),
       actionNonce: state.actionNonce + 1,
     });
@@ -504,7 +515,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   claimAnGang: (playerId, tileType) => {
     const state = get();
     const player = state.players[playerId];
-    if (state.phase !== "playing" || state.currentPlayerId !== playerId || player.isLiangDao) return;
+    if (state.phase !== "playing" || state.currentPlayerId !== playerId) return;
     if (!getAnGangKinds(player.hand).includes(tileType)) return;
     const wall = [...state.wall];
     const supplement = wall.pop();
@@ -539,13 +550,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
       });
       return;
     }
-    // 暗杠：其余两家各赔分，按本局杠次序翻倍
-    const gangSequence = state.gangCount + 1;
+    const isGangContext = state.supplementContext === "gangshang";
     const gang = scoreGang({
       players,
       gangType: "an_gang",
       gangerId: playerId,
-      gangSequence,
+      isGangContext,
       baseScore: state.baseScore,
     });
     const scoredPlayers = gang ? applyGangScore(players, gang.scoreChanges) : players;
@@ -553,7 +563,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
       wall,
       players: scoredPlayers,
       supplementContext: "gangshang",
-      gangCount: gangSequence,
       logs: pushLog(
         state.logs,
         gang
@@ -567,7 +576,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   claimBuGang: (playerId, meldId) => {
     const state = get();
     const player = state.players[playerId];
-    if (state.phase !== "playing" || state.currentPlayerId !== playerId || player.isLiangDao) return;
+    if (state.phase !== "playing" || state.currentPlayerId !== playerId) return;
     const meld = player.melds.find((item) => item.id === meldId && item.type === "peng");
     if (!meld) return;
     const kind = meld.tiles[0].kind;
@@ -627,13 +636,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
       });
       return;
     }
-    const buGangSequence = state.gangCount + 1;
-    const scored = applyBuGangScore(players, playerId, buGangSequence, state.baseScore, state.logs);
+    const scored = applyBuGangScore(players, playerId, state.supplementContext === "gangshang", state.baseScore, state.logs);
     set({
       wall,
       players: scored.players,
       supplementContext: "gangshang",
-      gangCount: buGangSequence,
       logs: scored.logs,
       actionNonce: state.actionNonce + 1,
     });
@@ -677,16 +684,20 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (state.pendingBuGang) {
       if (state.pendingReactions) {
         const top = topPriorityReaction(state.pendingReactions, state.reactionPasses);
-        if (top?.playerId !== playerId || !top.canHu) return;
+        const huPlayerIds = pendingHuPlayerIds(state.pendingReactions, state.reactionPasses);
+        if (!top?.canHu || !huPlayerIds.includes(playerId)) return;
+        get().settleWins(huPlayerIds, "qianggang", state.pendingBuGang.playerId, state.pendingBuGang.tile);
+        return;
       }
       get().settleWin(playerId, "qianggang", state.pendingBuGang.playerId, state.pendingBuGang.tile);
       return;
     }
     if (state.pendingReactions) {
       const top = topPriorityReaction(state.pendingReactions, state.reactionPasses);
-      if (top?.playerId !== playerId || !top.canHu) return;
+      const huPlayerIds = pendingHuPlayerIds(state.pendingReactions, state.reactionPasses);
+      if (!top?.canHu || !huPlayerIds.includes(playerId)) return;
       const discard = state.pendingReactions.discard;
-      get().settleWin(playerId, "discard", discard.playerId, discard.tile);
+      get().settleWins(huPlayerIds, "discard", discard.playerId, discard.tile);
       return;
     }
     const player = state.players[playerId];
@@ -731,8 +742,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         });
         return;
       }
-      const buGangSequence = state.gangCount + 1;
-      const scored = applyBuGangScore(players, playerId, buGangSequence, state.baseScore, state.logs);
+      const scored = applyBuGangScore(players, playerId, state.supplementContext === "gangshang", state.baseScore, state.logs);
       set({
         wall,
         players: scored.players,
@@ -742,7 +752,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
         reactionPasses: [],
         phase: "playing",
         supplementContext: "gangshang",
-        gangCount: buGangSequence,
         logs: scored.logs,
         actionNonce: state.actionNonce + 1,
       });
@@ -845,6 +854,90 @@ export const useGameStore = create<GameStore>((set, get) => ({
           ? `${result.title}，买马 ${TILE_KIND_LABEL[buyHorseTile.kind]} +${result.buyHorse?.bonus ?? 0}`
           : result.title,
       ),
+      actionNonce: state.actionNonce + 1,
+    });
+  },
+
+  settleWins: (winnerIds, method, loserId, winningTile) => {
+    const state = get();
+    const ids = Object.keys(state.players) as PlayerId[];
+    const uniqueWinnerIds = Array.from(new Set(winnerIds)).filter((id) => id !== loserId);
+    const isGangShangPao = method === "discard" && state.supplementContext === "gangshang";
+    const scoreResults: ScoreResult[] = [];
+
+    for (const winnerId of uniqueWinnerIds) {
+      const player = state.players[winnerId];
+      const win = analyzeWin([...player.hand, winningTile], winningTile.kind, player.melds);
+      if (!win.isWin) continue;
+      scoreResults.push(
+        scoreWin({
+          players: state.players,
+          winnerId,
+          loserId,
+          method,
+          win,
+          baseScore: state.baseScore,
+          isGangShangPao,
+        }),
+      );
+    }
+
+    if (scoreResults.length === 0) return;
+    if (scoreResults.length === 1) {
+      const result = scoreResults[0];
+      set({
+        players: applyRoundResult(state.players, result),
+        phase: "settled",
+        roundResult: result,
+        pendingReactions: undefined,
+        pendingBuGang: undefined,
+        reactionPasses: [],
+        logs: pushLog(state.logs, result.title),
+        actionNonce: state.actionNonce + 1,
+      });
+      return;
+    }
+
+    const scoreChanges = Object.fromEntries(ids.map((id) => [id, 0])) as Record<PlayerId, number>;
+    for (const scoreResult of scoreResults) {
+      for (const id of ids) {
+        scoreChanges[id] += scoreResult.scoreChanges[id];
+      }
+    }
+
+    const first = scoreResults[0]!;
+    const totalScores = Object.fromEntries(
+      ids.map((id) => [id, state.players[id].score + scoreChanges[id]]),
+    ) as Record<PlayerId, number>;
+    const winnerNames = scoreResults
+      .map((scoreResult) => state.players[scoreResult.winnerId!].name)
+      .join("、");
+    const titlePrefix = method === "qianggang" ? "多人抢杠胡" : "一炮双响";
+    const result: ScoreResult = {
+      ...first,
+      scoreChanges,
+      totalScores,
+      title: `${titlePrefix}：${winnerNames}`,
+      winDetails: scoreResults.map((scoreResult) => ({
+        winnerId: scoreResult.winnerId!,
+        loserId: scoreResult.loserId,
+        method: scoreResult.method!,
+        fans: scoreResult.fans,
+        totalFan: scoreResult.totalFan,
+        baseScore: scoreResult.baseScore,
+        multiplier: scoreResult.multiplier,
+        title: scoreResult.title,
+      })),
+    };
+
+    set({
+      players: applyRoundResult(state.players, result),
+      phase: "settled",
+      roundResult: result,
+      pendingReactions: undefined,
+      pendingBuGang: undefined,
+      reactionPasses: [],
+      logs: pushLog(state.logs, result.title),
       actionNonce: state.actionNonce + 1,
     });
   },

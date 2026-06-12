@@ -6,8 +6,8 @@ import { TileMesh } from "./TileMesh";
 
 function baseForSeat(seat: Player["seat"]): [number, number, number] {
   if (seat === "bottom") return [-2.15, 0.18, 1.52];
-  if (seat === "left") return [-3.02, 0.18, -1.95];
-  return [3.02, 0.18, 1.95];
+  if (seat === "left") return [-3.32, 0.18, -1.95];
+  return [3.32, 0.18, 1.95];
 }
 
 function tilePosition(
@@ -19,6 +19,18 @@ function tilePosition(
   if (seat === "bottom") return [base[0] + meldIndex * 1.02 + tileIndex * 0.25, base[1], base[2]];
   if (seat === "left") return [base[0], base[1], base[2] + meldIndex * 0.72 + tileIndex * 0.2];
   return [base[0], base[1], base[2] - meldIndex * 0.72 - tileIndex * 0.2];
+}
+
+function stackedGangTilePosition(
+  seat: Player["seat"],
+  base: [number, number, number],
+  meldIndex: number,
+  tileIndex: number,
+): [number, number, number] {
+  const visualTileIndex = tileIndex === 3 ? 1 : tileIndex;
+  const position = tilePosition(seat, base, meldIndex, visualTileIndex);
+  if (tileIndex === 3) return [position[0], position[1] + 0.1, position[2]];
+  return position;
 }
 
 function rotationForSeat(seat: Player["seat"]): [number, number, number] {
@@ -71,18 +83,26 @@ export function MeldArea3D({ player }: { player: Player }) {
       {player.melds.map((meld, meldIndex) =>
         meld.tiles.map((tile, tileIndex) => {
           const tileKey = `${meld.id}-${tile.id}`;
+          const concealedGang = meld.type === "an_gang" && Boolean(meld.concealed);
+          const stackedGang = concealedGang || meld.type === "ming_gang" || meld.type === "bu_gang";
           const fromDiscard =
             Boolean(meld.fromPlayerId) &&
             (meld.type === "peng" || meld.type === "ming_gang") &&
             tileIndex === meld.tiles.length - 1;
           const sourceSeat = fromDiscard && meld.fromPlayerId ? seatForPlayerId(meld.fromPlayerId) : player.seat;
+          const position = stackedGang
+            ? stackedGangTilePosition(player.seat, base, meldIndex, tileIndex)
+            : tilePosition(player.seat, base, meldIndex, tileIndex);
+          const faceUp = concealedGang
+            ? tileIndex === 3
+            : !meld.concealed || player.id === "human" || player.isLiangDao;
           return (
             <TileMesh
               key={tileKey}
               tile={tile}
-              faceUp={!meld.concealed || player.id === "human" || player.isLiangDao}
+              faceUp={faceUp}
               scale={player.id === "human" ? 0.68 : 0.58}
-              position={tilePosition(player.seat, base, meldIndex, tileIndex)}
+              position={position}
               rotation={rotationForSeat(player.seat)}
               flyFrom={
                 animatedTileKeys.has(tileKey)

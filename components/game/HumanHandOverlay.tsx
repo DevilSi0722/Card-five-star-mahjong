@@ -161,7 +161,7 @@ export function HumanHandOverlay() {
                 alt=""
                 fill
                 sizes={isMobileLandscape ? "63px" : "94px"}
-                className="object-fill"
+                className={`object-fill ${isDrawn ? "human-hand-tile-fly-in" : ""}`}
                 unoptimized
                 priority
                 aria-hidden
@@ -174,7 +174,7 @@ export function HumanHandOverlay() {
                   height={86}
                   className={`absolute left-1/2 top-[53%] -translate-x-1/2 -translate-y-1/2 object-contain ${
                     isMobileLandscape ? "h-[61px] w-[44px]" : "h-[84px] w-[60px] sm:h-[92px] sm:w-[66px]"
-                  }`}
+                  } ${isDrawn ? "human-hand-tile-fly-in" : ""}`}
                   unoptimized
                   priority
                   loading="eager"

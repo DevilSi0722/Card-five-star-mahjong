@@ -14,9 +14,9 @@ function WaitTile({ wait }: { wait: WaitDetail }) {
   const label = TILE_KIND_LABEL[wait.kind];
 
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-white/12 bg-white/8 px-2.5 py-2 text-xs shadow-sm">
+    <div className="flex w-[86px] shrink-0 flex-col gap-1.5 rounded-lg border border-white/12 bg-white/8 px-2 py-2 text-center text-[11px] shadow-sm">
       <div
-        className="flex h-[58px] w-[42px] shrink-0 items-center justify-center rounded-md border border-slate-300/75 bg-[#fbf6ea] shadow-inner"
+        className="mx-auto flex h-[56px] w-[40px] shrink-0 items-center justify-center rounded-md border border-slate-300/75 bg-[#fbf6ea] shadow-inner"
         title={label}
         aria-label={label}
       >
@@ -31,7 +31,7 @@ function WaitTile({ wait }: { wait: WaitDetail }) {
           />
         ) : null}
       </div>
-      <div className="grid gap-1 leading-none">
+      <div className="grid gap-0.5 leading-none">
         <span className={wait.remaining > 0 ? "font-semibold text-emerald-200" : "font-semibold text-rose-300"}>
           余 {wait.remaining}
         </span>
@@ -51,7 +51,8 @@ export function TingInfoBar() {
 
   // 计算要展示的听牌信息：
   // 1) 已亮倒：常驻展示当前所听（以现有手牌为准）
-  // 2) 悬浮某张可听牌：展示「打出这张后」所听
+  // 2) 未亮倒但当前已上听：常驻展示当前所听
+  // 3) 悬浮某张可听牌：展示「打出这张后」所听
   const info = useMemo<{ title: string; waits: WaitDetail[] } | null>(() => {
     if (phase === "settled" || phase === "draw") return null;
 
@@ -68,6 +69,15 @@ export function TingInfoBar() {
       });
       if (waits.length === 0) return null;
       return { title: "已亮倒，听", waits };
+    }
+
+    if (human.hand.length % 3 === 1) {
+      const waits = getWaitDetails(human.hand, human.melds, {
+        players,
+        observerId: "human",
+        isLiangDao: false,
+      });
+      if (waits.length > 0) return { title: "已上听，听", waits };
     }
 
     // 悬浮某张牌：模拟打出它后的听牌
@@ -97,13 +107,13 @@ export function TingInfoBar() {
     <div
       className={`pointer-events-none fixed z-20 ${
         isMobileLandscape
-          ? "mobile-landscape-ting top-1/2 w-[min(210px,30vw)] -translate-y-1/2"
-          : "right-5 top-1/2 w-[min(260px,calc(100vw-1.5rem))] -translate-y-1/2"
+          ? "mobile-landscape-ting top-[max(4.25rem,env(safe-area-inset-top))] max-w-[min(360px,44vw)]"
+          : "right-5 top-1/2 max-w-[calc(100vw-1.5rem)] -translate-y-1/2"
       }`}
     >
       <div
-        className={`pointer-events-auto flex flex-col overflow-auto rounded-lg border border-yellow-300/35 bg-slate-950/86 shadow-panel backdrop-blur-md hud-scrollbar ${
-          isMobileLandscape ? "max-h-[calc(100dvh-1rem)] gap-2 px-2.5 py-2.5" : "max-h-[calc(100dvh-2rem)] gap-3 px-4 py-4"
+        className={`pointer-events-auto flex w-max max-w-full flex-col overflow-auto rounded-lg border border-yellow-300/35 bg-slate-950/86 shadow-panel backdrop-blur-md hud-scrollbar ${
+          isMobileLandscape ? "max-h-[calc(100dvh-1rem)] gap-2 px-2 py-2" : "max-h-[calc(100dvh-2rem)] gap-3 px-4 py-4"
         }`}
       >
         <div className={`flex flex-col font-semibold text-yellow-200 ${isMobileLandscape ? "gap-1 text-xs" : "gap-1.5 text-sm"}`}>
@@ -113,7 +123,7 @@ export function TingInfoBar() {
           </span>
           <span className="font-normal text-slate-400">共 {totalRemaining} 张可胡</span>
         </div>
-        <div className={`flex flex-col ${isMobileLandscape ? "gap-1.5" : "gap-2.5"}`}>
+        <div className={`flex max-w-full flex-nowrap overflow-x-auto pb-1 hud-scrollbar ${isMobileLandscape ? "gap-1.5" : "gap-2.5"}`}>
           {info.waits.map((wait) => <WaitTile key={wait.kind} wait={wait} />)}
         </div>
       </div>

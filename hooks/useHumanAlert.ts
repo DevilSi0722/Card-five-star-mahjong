@@ -18,33 +18,43 @@ export function useHumanAlert(): HumanAlert {
 
   const human = players.human;
 
-  // 响应阶段：仅当“人类”是当前最高优先级的响应方时，其按钮才可用（与 ActionPanel 一致）
-  const topReaction =
+  // 响应阶段：胡牌可多人同时成立；碰/杠仍只在“人类”是当前最高优先级响应方时提示。
+  const remainingReactions =
     phase === "responding" && pendingReactions
-      ? pendingReactions.options.find((option) => !reactionPasses.includes(option.playerId) && option.canHu) ??
-        pendingReactions.options.find((option) => !reactionPasses.includes(option.playerId) && option.canGang) ??
-        pendingReactions.options.find((option) => !reactionPasses.includes(option.playerId) && option.canPeng)
-      : undefined;
-  const humanReaction =
-    topReaction?.playerId === "human"
-      ? pendingReactions?.options.find((option) => option.playerId === "human")
+      ? pendingReactions.options.filter((option) => !reactionPasses.includes(option.playerId))
+      : [];
+  const humanPendingReaction = remainingReactions.find((option) => option.playerId === "human");
+  const hasHuPriority = remainingReactions.some((option) => option.canHu);
+  const topNonHuReaction =
+    remainingReactions.find((option) => option.canGang) ?? remainingReactions.find((option) => option.canPeng);
+  const humanReaction = humanPendingReaction?.canHu
+    ? humanPendingReaction
+    : !hasHuPriority && topNonHuReaction?.playerId === "human"
+      ? humanPendingReaction
       : undefined;
 
   // 自摸按钮在亮倒托管后仍由玩家手动点击，因此可自摸时也需要触发胡牌氛围灯。
   const isHumanTurn = phase === "playing" && currentPlayerId === "human";
   const playable = isHumanTurn && !human.autoPlay;
+  const liangDaoDecisionTurn = isHumanTurn && human.isLiangDao;
   const drawn = isHumanTurn ? human.hand.find((tile) => tile.id === human.lastDrawnTileId) : undefined;
   const canSelfHu = isHumanTurn ? analyzeWin(human.hand, drawn?.kind, human.melds).isWin : false;
-  const anGangKinds = playable ? getAnGangKinds(human.hand) : [];
-  const buGangMelds = playable
+  const anGangKinds = playable || liangDaoDecisionTurn ? getAnGangKinds(human.hand) : [];
+  const buGangMelds = playable || liangDaoDecisionTurn
     ? human.melds.filter(
         (meld) => meld.type === "peng" && human.hand.some((tile) => tile.kind === meld.tiles[0].kind),
       )
     : [];
+  const turnAnGangKinds = liangDaoDecisionTurn && drawn
+    ? anGangKinds.filter((kind) => kind === drawn.kind)
+    : anGangKinds;
+  const turnBuGangMelds = liangDaoDecisionTurn && drawn
+    ? buGangMelds.filter((meld) => meld.tiles[0].kind === drawn.kind)
+    : buGangMelds;
   const tingOptions = playable ? getTingDiscardOptions(human.hand, human.melds) : [];
 
   if (humanReaction?.canHu || canSelfHu) return "hu";
-  if (humanReaction?.canPeng || humanReaction?.canGang || anGangKinds.length > 0 || buGangMelds.length > 0) {
+  if (humanReaction?.canPeng || humanReaction?.canGang || turnAnGangKinds.length > 0 || turnBuGangMelds.length > 0) {
     return "meld";
   }
   if (tingOptions.length > 0) return "liangdao";

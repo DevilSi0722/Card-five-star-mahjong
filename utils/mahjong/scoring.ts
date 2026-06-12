@@ -147,16 +147,14 @@ export function scoreDraw(players: Record<PlayerId, Player>): ScoreResult {
 /**
  * 计算一次杠的即时得分变动（杠分），并返回每位玩家的分数增量。
  *
- * 规则（每份基数 = GANG_UNIT，按「杠上杠」翻倍）：
- * - 直杠（点杠）：手里 3 张，别人打出第 4 张 —— 仅放杠者赔 2 份，杠者得 2 份。
+ * 规则（每份基数 = GANG_UNIT）：
+ * - 点明杠：手里 3 张，别人打出第 4 张 —— 仅点杠者赔 2 份。
  *   对应 meld 类型 `ming_gang`（需传入 fromPlayerId 作为放杠者）。
- * - 明杠（蓄杠）：先碰后自摸第 4 张补杠 —— 其余两家各赔 1 份，杠者共得 2 份。
+ * - 自抓明杠：先碰后自摸第 4 张补杠 —— 其余两家各赔 1 份。
  *   对应 meld 类型 `bu_gang`。
- * - 暗杠：4 张全在手 —— 其余两家各赔 2 份，杠者共得 4 份。
+ * - 暗杠：4 张全在手 —— 其余两家各赔 2 份。
  *   对应 meld 类型 `an_gang`。
- *
- * gangSequence 为本次杠是本局第几次杠（从 1 开始）；第 2 次起每次翻倍：
- * 倍数 = 2 ** (gangSequence - 1)。
+ * - 杠上杠：连杠或开杠打牌被杠时，明杠其余两家各赔 2 份，暗杠其余两家各赔 4 份（封顶）。
  */
 export function scoreGang(options: {
   players: Record<PlayerId, Player>;
@@ -164,29 +162,39 @@ export function scoreGang(options: {
   gangerId: PlayerId;
   /** 放杠者，仅直杠（ming_gang）需要 */
   dianGangPlayerId?: PlayerId;
-  /** 本局第几次杠，从 1 开始 */
-  gangSequence: number;
+  /** 是否为连杠或开杠打牌被杠。 */
+  isGangContext?: boolean;
   /** 本局底分。 */
   baseScore?: number;
 }): { scoreChanges: Record<PlayerId, number>; label: string; perPlayer: number } | null {
-  const { players, gangType, gangerId, dianGangPlayerId, gangSequence } = options;
+  const { players, gangType, gangerId, dianGangPlayerId, isGangContext = false } = options;
   const ids = Object.keys(players) as PlayerId[];
   const scoreChanges = Object.fromEntries(ids.map((id) => [id, 0])) as Record<PlayerId, number>;
-  const multiplier = 2 ** Math.max(0, gangSequence - 1);
   const scoreUnit = options.baseScore ?? GANG_UNIT;
 
   if (gangType === "ming_gang") {
-    // 直杠（点杠）：放杠者单独赔 2 份
+    if (isGangContext) {
+      const amount = 2 * scoreUnit;
+      let total = 0;
+      for (const id of ids) {
+        if (id === gangerId) continue;
+        scoreChanges[id] -= amount;
+        total += amount;
+      }
+      scoreChanges[gangerId] += total;
+      return { scoreChanges, label: `杠上明杠 +${total}`, perPlayer: amount };
+    }
+    // 点明杠：点杠者单独赔 2 份
     if (!dianGangPlayerId) return null;
-    const amount = 2 * scoreUnit * multiplier;
+    const amount = 2 * scoreUnit;
     scoreChanges[dianGangPlayerId] -= amount;
     scoreChanges[gangerId] += amount;
-    return { scoreChanges, label: `直杠 +${amount}`, perPlayer: amount };
+    return { scoreChanges, label: `点明杠 +${amount}`, perPlayer: amount };
   }
 
   if (gangType === "bu_gang") {
-    // 明杠（蓄杠）：其余两家各赔 1 份
-    const amount = 1 * scoreUnit * multiplier;
+    // 自抓明杠；杠上杠时封顶为其余两家各赔 2 份
+    const amount = (isGangContext ? 2 : 1) * scoreUnit;
     let total = 0;
     for (const id of ids) {
       if (id === gangerId) continue;
@@ -194,12 +202,12 @@ export function scoreGang(options: {
       total += amount;
     }
     scoreChanges[gangerId] += total;
-    return { scoreChanges, label: `明杠 +${total}`, perPlayer: amount };
+    return { scoreChanges, label: `${isGangContext ? "杠上明杠" : "自抓明杠"} +${total}`, perPlayer: amount };
   }
 
   if (gangType === "an_gang") {
-    // 暗杠：其余两家各赔 2 份
-    const amount = 2 * scoreUnit * multiplier;
+    // 暗杠；杠上杠时封顶为其余两家各赔 4 份
+    const amount = (isGangContext ? 4 : 2) * scoreUnit;
     let total = 0;
     for (const id of ids) {
       if (id === gangerId) continue;
@@ -207,7 +215,7 @@ export function scoreGang(options: {
       total += amount;
     }
     scoreChanges[gangerId] += total;
-    return { scoreChanges, label: `暗杠 +${total}`, perPlayer: amount };
+    return { scoreChanges, label: `${isGangContext ? "杠上暗杠" : "暗杠"} +${total}`, perPlayer: amount };
   }
 
   return null;

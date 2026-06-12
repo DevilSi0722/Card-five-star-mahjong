@@ -11,9 +11,32 @@ const PLAYER_LABEL: Record<PlayerId, string> = {
   ai_right: "右家 AI",
 };
 
+const METHOD_LABEL: Record<NonNullable<ScoreResult["method"]>, string> = {
+  zimo: "自摸",
+  discard: "点炮",
+  qianggang: "抢杠胡",
+  gangshang: "杠上开花",
+};
+
 export function SettlementModal({ result }: { result: ScoreResult }) {
   const resetRound = useGameStore((state) => state.resetRound);
   const ids = Object.keys(result.scoreChanges) as PlayerId[];
+  const winDetails =
+    result.winDetails ??
+    (result.winnerId && result.method
+      ? [
+          {
+            winnerId: result.winnerId,
+            loserId: result.loserId,
+            method: result.method,
+            fans: result.fans,
+            totalFan: result.totalFan,
+            baseScore: result.baseScore,
+            multiplier: result.multiplier,
+            title: result.title,
+          },
+        ]
+      : []);
 
   return (
     <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/35 p-4">
@@ -24,14 +47,8 @@ export function SettlementModal({ result }: { result: ScoreResult }) {
         </div>
         {result.winnerId ? (
           <div className="mt-2 text-sm text-slate-300">
-            胡牌玩家：{PLAYER_LABEL[result.winnerId]}，方式：
-            {result.method === "zimo"
-              ? "自摸"
-              : result.method === "discard"
-                ? "点炮"
-                : result.method === "qianggang"
-                  ? "抢杠胡"
-                  : "杠上开花"}
+            胡牌玩家：{winDetails.map((detail) => PLAYER_LABEL[detail.winnerId]).join("、")}，方式：
+            {result.method ? METHOD_LABEL[result.method] : ""}
           </div>
         ) : (
           <div className="mt-2 text-sm text-slate-300">牌墙摸空，本局不计分。</div>
@@ -39,18 +56,32 @@ export function SettlementModal({ result }: { result: ScoreResult }) {
 
         <div className="mt-4 rounded-md bg-white/6 p-3">
           <div className="text-sm font-medium text-slate-100">番型</div>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {result.fans.length > 0 ? (
-              result.fans.map((fan) => (
-                <span key={fan.type} className="rounded-md border border-emerald-300/25 bg-emerald-400/12 px-2 py-1 text-xs text-emerald-100">
-                  {fan.name} ×{fan.fan}
-                </span>
-              ))
-            ) : (
-              <span className="text-xs text-slate-400">无</span>
-            )}
-          </div>
-          <div className="mt-3 text-sm text-slate-200">总倍率：×{result.multiplier}，单份分：{result.baseScore}</div>
+          {winDetails.length > 0 ? (
+            <div className="mt-2 space-y-3">
+              {winDetails.map((detail) => (
+                <div key={detail.winnerId} className="rounded-md border border-white/8 bg-slate-900/60 p-2.5">
+                  <div className="text-xs font-medium text-slate-200">
+                    {PLAYER_LABEL[detail.winnerId]} · {METHOD_LABEL[detail.method]}
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {detail.fans.map((fan) => (
+                      <span
+                        key={fan.type}
+                        className="rounded-md border border-emerald-300/25 bg-emerald-400/12 px-2 py-1 text-xs text-emerald-100"
+                      >
+                        {fan.name} ×{fan.fan}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="mt-2 text-xs text-slate-300">
+                    总倍率：×{detail.multiplier}，单份分：{detail.baseScore}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-2 text-xs text-slate-400">无</div>
+          )}
           {result.buyHorse ? (
             <div className="mt-2 rounded-md border border-sky-300/20 bg-sky-400/10 px-2 py-1.5 text-sm text-sky-100">
               买马：{TILE_KIND_LABEL[result.buyHorse.tile.kind]}，点数 {result.buyHorse.value}，额外 +{result.buyHorse.bonus}

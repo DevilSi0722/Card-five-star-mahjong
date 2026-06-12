@@ -39,6 +39,17 @@ export function useAiTurn() {
       }
 
       if (current.isLiangDao || current.autoPlay) {
+        const gang = chooseGang(current, { requireDrawnTile: true });
+        if (current.type === "human" && gang) return;
+        if (gang?.action === "an_gang" && gang.tileKind) {
+          latest.claimAnGang(player.id, gang.tileKind);
+          return;
+        }
+        if (gang?.action === "bu_gang" && gang.meldId) {
+          latest.claimBuGang(player.id, gang.meldId);
+          return;
+        }
+
         const drawn = current.lastDrawnTileId
           ? current.hand.find((tile) => tile.id === current.lastDrawnTileId)
           : current.hand[current.hand.length - 1];
@@ -82,10 +93,11 @@ export function useAiTurn() {
     const firstHu = remaining.find((option) => option.canHu);
     const firstGang = remaining.find((option) => option.canGang);
     const firstPeng = remaining.find((option) => option.canPeng);
+    const humanCanHu = remaining.some((option) => option.playerId === "human" && option.canHu);
     const option = firstHu ?? firstGang ?? firstPeng;
     if (!option) return;
     const player = snapshot.players[option.playerId];
-    if (player.type === "human" && option.canHu) return;
+    if (humanCanHu) return;
     const isAutomated = player.type === "ai" || player.autoPlay;
     if (!isAutomated) return;
 
