@@ -96,9 +96,16 @@ export function chooseDiscard(
   };
 }
 
-export function shouldDeclareLiangDao(player: Player): AiDecision | undefined {
+export function shouldDeclareLiangDao(
+  player: Player,
+  players?: Record<PlayerId, Player>,
+): AiDecision | undefined {
   if (player.isLiangDao || player.hand.length % 3 !== 2) return undefined;
-  const options = getTingDiscardOptions(player.hand, player.melds);
+  const forbidden = players ? getForbiddenDiscards(players, player.id) : new Set<TileKind>();
+  const options = getTingDiscardOptions(player.hand, player.melds).filter((option) => {
+    const tile = player.hand.find((item) => item.id === option.discardTileId);
+    return tile ? !forbidden.has(tile.kind) : false;
+  });
   if (options.length === 0) return undefined;
   const best = [...options].sort((a, b) => b.waits.length - a.waits.length)[0];
   if (Math.random() > 0.6) return undefined;

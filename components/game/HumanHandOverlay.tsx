@@ -24,7 +24,10 @@ export function HumanHandOverlay() {
   const reactionPasses = useGameStore((state) => state.reactionPasses);
   const selectTile = useGameStore((state) => state.selectTile);
   const discardTile = useGameStore((state) => state.discardTile);
+  const declareLiangDao = useGameStore((state) => state.declareLiangDao);
   const setHoveredTileId = useUiStore((state) => state.setHoveredTileId);
+  const liangDaoArmed = useUiStore((state) => state.liangDaoArmed);
+  const setLiangDaoArmed = useUiStore((state) => state.setLiangDaoArmed);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -59,6 +62,7 @@ export function HumanHandOverlay() {
     () => (interactive ? getTingDiscardTileIds(human.hand, human.melds) : new Set<string>()),
     [human.hand, human.melds, interactive],
   );
+  const liangDaoDiscardTileIds = tingTileIds;
   const remainingReactionOptions =
     phase === "responding" && pendingReactions
       ? pendingReactions.options.filter((option) => !reactionPasses.includes(option.playerId))
@@ -71,6 +75,12 @@ export function HumanHandOverlay() {
     activeReaction?.playerId === "human" && activeReaction.canPeng
       ? pendingReactions?.discard.tile.kind
       : undefined;
+
+  useEffect(() => {
+    if (liangDaoArmed && (!interactive || human.isLiangDao || revealAll || liangDaoDiscardTileIds.size === 0)) {
+      setLiangDaoArmed(false);
+    }
+  }, [human.isLiangDao, interactive, liangDaoArmed, liangDaoDiscardTileIds.size, revealAll, setLiangDaoArmed]);
 
   if (human.hand.length === 0 || human.isLiangDao || revealAll) return null;
 
@@ -92,6 +102,8 @@ export function HumanHandOverlay() {
           const label = TILE_KIND_LABEL[tile.kind];
           const dangerous = exposedWaitKinds.has(tile.kind);
           const canPengTile = tile.kind === canPengKind;
+          const canLiangDaoWithTile = liangDaoDiscardTileIds.has(tile.id);
+          const highlightLiangDaoChoice = liangDaoArmed && canLiangDaoWithTile;
 
           return (
             <button
@@ -102,7 +114,18 @@ export function HumanHandOverlay() {
               onPointerDown={(event) => event.stopPropagation()}
               onClick={() => selectTile(tile.id)}
               onDoubleClick={() => {
-                if (interactive) discardTile("human", tile.id);
+                if (!interactive) return;
+                if (liangDaoArmed) {
+                  if (canLiangDaoWithTile) {
+                    setLiangDaoArmed(false);
+                    declareLiangDao("human", tile.id);
+                    return;
+                  }
+                  setLiangDaoArmed(false);
+                  discardTile("human", tile.id);
+                  return;
+                }
+                discardTile("human", tile.id);
               }}
               onMouseEnter={() => {
                 if (interactive) setHoveredTileId(tile.id);
@@ -117,18 +140,20 @@ export function HumanHandOverlay() {
               } ${
                 selected
                   ? `${isMobileLandscape ? "-translate-y-2" : "-translate-y-3"} shadow-[0_14px_28px_rgba(250,204,21,0.26),0_0_18px_rgba(250,204,21,0.28)]`
+                  : highlightLiangDaoChoice
+                    ? "shadow-[0_12px_24px_rgba(56,189,248,0.26),0_0_16px_rgba(56,189,248,0.32)]"
                   : canPengTile
-                    ? "animate-pulse shadow-[0_12px_24px_rgba(250,204,21,0.22),0_0_14px_rgba(250,204,21,0.24)]"
+                    ? "shadow-[0_12px_24px_rgba(250,204,21,0.22),0_0_14px_rgba(250,204,21,0.24)]"
                   : dangerous
                     ? "shadow-[0_12px_24px_rgba(239,68,68,0.22),0_0_14px_rgba(239,68,68,0.22)]"
                   : "shadow-panel"
               } ${interactive ? `pointer-events-auto cursor-pointer ${isMobileLandscape ? "hover:-translate-y-2" : "hover:-translate-y-4"}` : "pointer-events-auto cursor-default"}`}
             >
-              {selected || canPengTile || dangerous ? (
+              {selected || highlightLiangDaoChoice || canPengTile || dangerous ? (
                 <span
-                  className={`pointer-events-none absolute inset-x-3 -bottom-1 z-10 h-1 rounded-full blur-[0.5px] ${
-                    dangerous ? "bg-red-400/85" : "bg-yellow-300/90"
-                  }`}
+                  className={`pointer-events-none absolute inset-x-3 -bottom-1 z-10 h-1 origin-center rounded-full blur-[0.5px] ${
+                    dangerous ? "bg-red-400/85" : highlightLiangDaoChoice ? "bg-sky-300/90" : "bg-yellow-300/90"
+                  } ${canPengTile ? "human-hand-tile-glow--pulse" : ""}`}
                 />
               ) : null}
               <Image

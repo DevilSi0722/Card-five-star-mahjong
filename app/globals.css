@@ -92,6 +92,10 @@ button {
   animation: human-hand-tile-enter 240ms ease-out;
 }
 
+.human-hand-tile-glow--pulse {
+  animation: human-hand-tile-glow-pulse 1.1s ease-in-out infinite;
+}
+
 @keyframes human-hand-tile-enter {
   from {
     opacity: 0;
@@ -100,6 +104,18 @@ button {
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes human-hand-tile-glow-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scaleX(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: scaleX(1.08);
   }
 }
 

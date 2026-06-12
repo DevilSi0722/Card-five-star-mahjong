@@ -12,6 +12,12 @@ function handTransform(seat: Player["seat"]) {
   return { center: [2.75, 0.24, 0] as const, step: [0, 0, -0.34] as const, rotation: [0, -Math.PI / 2, 0] as [number, number, number] };
 }
 
+function lyingRotationForSeat(seat: Player["seat"]): [number, number, number] {
+  if (seat === "left") return [0, -Math.PI / 2, 0];
+  if (seat === "right") return [0, Math.PI / 2, 0];
+  return [0, 0, 0];
+}
+
 function wallSourcePosition(seat: Player["seat"]): [number, number, number] {
   if (seat === "left") return [-1.7, 0.55, -1.15];
   if (seat === "right") return [1.7, 0.55, 1.15];
@@ -120,6 +126,7 @@ export function PlayerHand3D({
         const lying = isTileRevealed();
         // 平铺亮出的牌一定正面；其余牌：人类看自己手牌为正面，AI 暗置
         const faceUp = lying || isHuman;
+        const tileRotation = lying ? lyingRotationForSeat(player.seat) : transform.rotation;
         return (
           <TileMesh
             key={tile.id}
@@ -137,9 +144,9 @@ export function PlayerHand3D({
               transform.center[1],
               transform.center[2] + transform.step[2] * delta,
             ]}
-            rotation={transform.rotation}
+            rotation={tileRotation}
             flyFrom={animatedTileIds.has(tile.id) ? wallSourcePosition(player.seat) : undefined}
-            flyFromRotation={transform.rotation}
+            flyFromRotation={tileRotation}
             onClick={isHuman ? () => onTileClick?.(tile.id) : undefined}
             onDoubleClick={isHuman ? () => onTileDoubleClick?.(tile.id) : undefined}
             onHoverChange={

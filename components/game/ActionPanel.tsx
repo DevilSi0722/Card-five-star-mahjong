@@ -3,6 +3,7 @@
 import { Check, Eye, HandMetal, Octagon, Shield, X } from "lucide-react";
 import type { Meld, TileKind } from "@/types/mahjong";
 import { useGameStore } from "@/store/gameStore";
+import { useUiStore } from "@/store/uiStore";
 import { useResponsiveGameLayout } from "@/hooks/useResponsiveGameLayout";
 import { TILE_KIND_LABEL } from "@/utils/mahjong/tiles";
 
@@ -64,25 +65,22 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
   const { isMobileLandscape } = useResponsiveGameLayout();
   const phase = useGameStore((state) => state.phase);
   const currentPlayerId = useGameStore((state) => state.currentPlayerId);
-  const selectedTileId = useGameStore((state) => state.selectedTileId);
   const pendingReactions = useGameStore((state) => state.pendingReactions);
   const reactionPasses = useGameStore((state) => state.reactionPasses);
   const players = useGameStore((state) => state.players);
-  const declareLiangDao = useGameStore((state) => state.declareLiangDao);
   const claimHu = useGameStore((state) => state.claimHu);
   const claimPeng = useGameStore((state) => state.claimPeng);
   const claimMingGang = useGameStore((state) => state.claimMingGang);
   const claimAnGang = useGameStore((state) => state.claimAnGang);
   const claimBuGang = useGameStore((state) => state.claimBuGang);
   const passReaction = useGameStore((state) => state.passReaction);
+  const liangDaoArmed = useUiStore((state) => state.liangDaoArmed);
+  const setLiangDaoArmed = useUiStore((state) => state.setLiangDaoArmed);
 
   const human = players.human;
   const isHumanTurn = phase === "playing" && currentPlayerId === "human";
   const playable = isHumanTurn && !human.autoPlay;
   const canClaimSelfHu = isHumanTurn && canSelfHu;
-  const selectedTingOption = selectedTileId
-    ? tingOptions.find((option) => option.discardTileId === selectedTileId)
-    : tingOptions[0];
   const humanReaction =
     phase === "responding" && pendingReactions
       ? (
@@ -166,13 +164,14 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
     );
   }
 
-  if (playable && selectedTingOption) {
+  if (playable && tingOptions.length > 0) {
     rightActions.unshift(
       <ActionButton
         key="liang-dao"
+        tone={liangDaoArmed ? "primary" : "default"}
         label="亮倒"
         icon={<Eye />}
-        onClick={() => declareLiangDao("human", selectedTingOption.discardTileId)}
+        onClick={() => setLiangDaoArmed(!liangDaoArmed)}
         compact={isMobileLandscape}
       >
         亮倒

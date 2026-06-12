@@ -56,7 +56,7 @@ export function useAiTurn() {
         return;
       }
 
-      const liangDao = shouldDeclareLiangDao(current);
+      const liangDao = shouldDeclareLiangDao(current, latest.players);
       if (liangDao?.tileId) {
         latest.declareLiangDao(player.id, liangDao.tileId);
         return;

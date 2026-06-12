@@ -43,7 +43,7 @@ interface GameStore extends GameState {
   declareLiangDao: (playerId: PlayerId, discardTileId: string) => void;
   claimHu: (playerId: PlayerId) => void;
   resolveReactions: () => void;
-  nextTurn: () => void;
+  nextTurn: (delayMs?: number) => void;
   settleWin: (winnerId: PlayerId, method: WinMethod, loserId?: PlayerId, winningTile?: TileInstance) => void;
   settleNoSafeDiscard: (playerId: PlayerId) => void;
   resetRound: () => void;
@@ -201,6 +201,7 @@ function buyHorseValue(tile: TileInstance): number {
 }
 
 const initialPlayers = createPlayers();
+const DISCARD_TO_DRAW_DELAY_MS = 420;
 
 export const useGameStore = create<GameStore>((set, get) => ({
   wall: [],
@@ -354,7 +355,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       players,
       lastDiscard,
       pendingReactions: hasOptions ? { discard: lastDiscard, options } : undefined,
-      phase: hasOptions ? "responding" : "playing",
+      phase: hasOptions ? "responding" : "dealing",
       reactionPasses: [],
       selectedTileId: undefined,
       canHumanLiangDao: false,
@@ -363,7 +364,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       actionNonce: state.actionNonce + 1,
     });
 
-    if (!hasOptions) get().nextTurn();
+    if (!hasOptions) get().nextTurn(DISCARD_TO_DRAW_DELAY_MS);
   },
 
   selectTile: (tileId) => set({ selectedTileId: tileId }),
@@ -644,6 +645,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (player.isLiangDao || state.currentPlayerId !== playerId || state.phase !== "playing") return;
     const tile = player.hand.find((item) => item.id === discardTileId);
     if (!tile) return;
+    const forbiddenOwner = forbiddenDiscardOwner(state.players, playerId, tile.kind);
+    if (forbiddenOwner) {
+      set({
+        logs: pushLog(state.logs, `${TILE_KIND_LABEL[tile.kind]} 是 ${forbiddenOwner.name} 的亮倒听牌，不能亮倒打出`),
+        actionNonce: state.actionNonce + 1,
+      });
+      return;
+    }
     const remaining = player.hand.filter((item) => item.id !== discardTileId);
     const waits = getWinningKinds(remaining, player.melds);
     if (waits.length === 0) return;
@@ -744,18 +753,29 @@ export const useGameStore = create<GameStore>((set, get) => ({
       pendingReactions: undefined,
       pendingBuGang: undefined,
       reactionPasses: [],
-      phase: "playing",
+      phase: "dealing",
       supplementContext: undefined,
       actionNonce: state.actionNonce + 1,
     });
-    get().nextTurn();
+    get().nextTurn(DISCARD_TO_DRAW_DELAY_MS);
   },
 
-  nextTurn: () => {
-    const state = get();
-    if (state.phase === "settled" || state.phase === "draw") return;
-    const next = getNextPlayerId(state.lastDiscard?.playerId ?? state.currentPlayerId);
-    get().drawTile(next);
+  nextTurn: (delayMs = 0) => {
+    const expectedActionNonce = get().actionNonce;
+    const advance = () => {
+      const state = get();
+      if (state.actionNonce !== expectedActionNonce) return;
+      if (state.phase === "settled" || state.phase === "draw" || state.phase === "responding") return;
+      const next = getNextPlayerId(state.lastDiscard?.playerId ?? state.currentPlayerId);
+      get().drawTile(next);
+    };
+
+    if (delayMs > 0) {
+      window.setTimeout(advance, delayMs);
+      return;
+    }
+
+    advance();
   },
 
   settleWin: (winnerId, method, loserId, winningTile) => {

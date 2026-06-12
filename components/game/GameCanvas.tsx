@@ -98,6 +98,7 @@ export function GameCanvas() {
   // 牌局结束（结算/流局）时，三家手牌全部亮出并平放
   const revealAll = phase === "settled" || phase === "draw";
   const showHumanTableHand = revealAll || players.human.isLiangDao;
+  const turnIndicatorActive = phase !== "settled" && phase !== "draw";
 
   return (
     <Canvas
@@ -123,7 +124,7 @@ export function GameCanvas() {
           <TurnIndicator3D
             players={players}
             currentPlayerId={currentPlayerId}
-            active={phase === "playing"}
+            active={turnIndicatorActive}
           />
 
           {showHumanTableHand ? (
