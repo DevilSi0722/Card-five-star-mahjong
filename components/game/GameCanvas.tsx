@@ -1,9 +1,10 @@
 "use client";
 
 import { Canvas } from "@react-three/fiber";
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useThree } from "@react-three/fiber";
-import { Environment, useTexture } from "@react-three/drei";
+import { useTexture } from "@react-three/drei";
+import { PerspectiveCamera, SRGBColorSpace } from "three";
 import { useGameStore } from "@/store/gameStore";
 import { MahjongTable } from "@/components/three/MahjongTable";
 import { PlayerHand3D } from "@/components/three/PlayerHand3D";
@@ -11,18 +12,53 @@ import { DiscardArea3D } from "@/components/three/DiscardArea3D";
 import { MeldArea3D } from "@/components/three/MeldArea3D";
 import { TurnIndicator3D } from "@/components/three/TurnIndicator3D";
 import { ALL_TILE_TEXTURE_SRCS } from "@/utils/mahjong/tileTextures";
+import { useResponsiveGameLayout } from "@/hooks/useResponsiveGameLayout";
 
 // 启动即预加载全部牌面贴图，避免游戏中途首次加载触发 Suspense 导致画面闪黑
 useTexture.preload(ALL_TILE_TEXTURE_SRCS);
 
-function FixedCamera() {
+const MAX_RENDER_WIDTH = 1920;
+const MAX_RENDER_HEIGHT = 1080;
+
+function getCappedCanvasDpr() {
+  if (typeof window === "undefined") return 1;
+  const width = Math.max(1, window.innerWidth);
+  const height = Math.max(1, window.innerHeight);
+  return Math.min(1, MAX_RENDER_WIDTH / width, MAX_RENDER_HEIGHT / height);
+}
+
+function useCappedCanvasDpr() {
+  const [dpr, setDpr] = useState(getCappedCanvasDpr);
+
+  useEffect(() => {
+    function update() {
+      setDpr(getCappedCanvasDpr());
+    }
+
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+
+  return dpr;
+}
+
+function FixedCamera({ mobileLandscape }: { mobileLandscape: boolean }) {
   const camera = useThree((state) => state.camera);
 
   useEffect(() => {
-    camera.position.set(0, 6.8, 4.1);
-    camera.lookAt(0, 0.12, 0);
-    camera.updateProjectionMatrix();
-  }, [camera]);
+    const perspectiveCamera = camera as PerspectiveCamera;
+    if (mobileLandscape) {
+      perspectiveCamera.position.set(0, 7.35, 4.55);
+      perspectiveCamera.fov = 46;
+      perspectiveCamera.lookAt(0, -0.05, 0);
+    } else {
+      perspectiveCamera.position.set(0, 6.8, 4.1);
+      perspectiveCamera.fov = 40;
+      perspectiveCamera.lookAt(0, 0.12, 0);
+    }
+    perspectiveCamera.updateProjectionMatrix();
+  }, [camera, mobileLandscape]);
 
   return null;
 }
@@ -35,10 +71,28 @@ function LoadingTableFallback() {
   );
 }
 
+function TileTextureWarmup() {
+  const gl = useThree((state) => state.gl);
+  const textures = useTexture(ALL_TILE_TEXTURE_SRCS);
+
+  useEffect(() => {
+    for (const texture of textures) {
+      texture.colorSpace = SRGBColorSpace;
+      texture.anisotropy = 16;
+      texture.needsUpdate = true;
+      gl.initTexture(texture);
+    }
+  }, [gl, textures]);
+
+  return null;
+}
+
 export function GameCanvas() {
   const players = useGameStore((state) => state.players);
   const currentPlayerId = useGameStore((state) => state.currentPlayerId);
   const phase = useGameStore((state) => state.phase);
+  const { isMobileLandscape } = useResponsiveGameLayout();
+  const canvasDpr = useCappedCanvasDpr();
 
   // 牌局结束（结算/流局）时，三家手牌全部亮出并平放
   const revealAll = phase === "settled" || phase === "draw";
@@ -46,17 +100,22 @@ export function GameCanvas() {
   return (
     <Canvas
       shadows
-      camera={{ position: [0, 6.8, 4.1], fov: 40 }}
+      dpr={canvasDpr}
+      camera={{
+        position: isMobileLandscape ? [0, 7.35, 4.55] : [0, 6.8, 4.1],
+        fov: isMobileLandscape ? 46 : 40,
+      }}
       className="absolute inset-0"
-      gl={{ antialias: true, preserveDrawingBuffer: true }}
+      gl={{ antialias: true }}
     >
-      <FixedCamera />
+      <FixedCamera mobileLandscape={isMobileLandscape} />
       <color attach="background" args={["#081418"]} />
       <ambientLight intensity={0.85} />
       <directionalLight position={[3, 7, 4]} intensity={1.8} castShadow />
+      <hemisphereLight args={["#d8f6ff", "#19362f", 0.45]} />
       <Suspense fallback={<LoadingTableFallback />}>
-        <Environment preset="city" />
-        <group scale={[1.16, 1.16, 1.16]}>
+        <TileTextureWarmup />
+        <group scale={isMobileLandscape ? [1.04, 1.04, 1.04] : [1.16, 1.16, 1.16]}>
           <MahjongTable />
 
           <TurnIndicator3D

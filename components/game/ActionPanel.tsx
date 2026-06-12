@@ -3,6 +3,7 @@
 import { Check, Eye, HandMetal, Octagon, Shield, X } from "lucide-react";
 import type { Meld, TileKind } from "@/types/mahjong";
 import { useGameStore } from "@/store/gameStore";
+import { useResponsiveGameLayout } from "@/hooks/useResponsiveGameLayout";
 import { TILE_KIND_LABEL } from "@/utils/mahjong/tiles";
 
 interface ActionPanelProps {
@@ -18,12 +19,14 @@ function ActionButton({
   children,
   onClick,
   tone = "default",
+  compact = false,
 }: {
   label: string;
   icon: React.ReactNode;
   children: React.ReactNode;
   onClick: () => void;
   tone?: "default" | "primary" | "danger";
+  compact?: boolean;
 }) {
   const toneClass =
     tone === "primary"
@@ -39,15 +42,26 @@ function ActionButton({
       onClick={onClick}
       aria-label={label}
       title={label}
-      className={`group flex h-20 w-20 shrink-0 flex-col items-center justify-center rounded-full border-2 text-sm font-bold leading-none shadow-panel backdrop-blur-md transition active:scale-95 sm:h-24 sm:w-24 sm:text-base ${toneClass}`}
+      className={`group flex shrink-0 flex-col items-center justify-center rounded-full border-2 font-bold leading-none shadow-panel backdrop-blur-md transition active:scale-95 ${
+        compact ? "h-14 w-14 text-[11px]" : "h-20 w-20 text-sm sm:h-24 sm:w-24 sm:text-base"
+      } ${toneClass}`}
     >
-      <span className="mb-1.5 flex h-7 w-7 items-center justify-center sm:h-8 sm:w-8">{icon}</span>
+      <span
+        className={`flex items-center justify-center ${
+          compact
+            ? "mb-0.5 h-5 w-5 [&>svg]:h-5 [&>svg]:w-5"
+            : "mb-1.5 h-7 w-7 sm:h-8 sm:w-8 [&>svg]:h-7 [&>svg]:w-7 sm:[&>svg]:h-8 sm:[&>svg]:w-8"
+        }`}
+      >
+        {icon}
+      </span>
       {children}
     </button>
   );
 }
 
 export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }: ActionPanelProps) {
+  const { isMobileLandscape } = useResponsiveGameLayout();
   const phase = useGameStore((state) => state.phase);
   const currentPlayerId = useGameStore((state) => state.currentPlayerId);
   const selectedTileId = useGameStore((state) => state.selectedTileId);
@@ -84,7 +98,7 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
 
   if (humanReaction?.canPeng) {
     rightActions.push(
-      <ActionButton key="peng" label="碰" icon={<HandMetal className="h-7 w-7 sm:h-8 sm:w-8" />} onClick={() => claimPeng("human")}>
+      <ActionButton compact={isMobileLandscape} key="peng" label="碰" icon={<HandMetal />} onClick={() => claimPeng("human")}>
         碰
       </ActionButton>,
     );
@@ -92,7 +106,7 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
 
   if (humanReaction?.canGang) {
     rightActions.push(
-      <ActionButton key="ming-gang" label="杠" icon={<Octagon className="h-7 w-7 sm:h-8 sm:w-8" />} onClick={() => claimMingGang("human")}>
+      <ActionButton compact={isMobileLandscape} key="ming-gang" label="杠" icon={<Octagon />} onClick={() => claimMingGang("human")}>
         杠
       </ActionButton>,
     );
@@ -104,8 +118,9 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
         <ActionButton
           key={`an-gang-${kind}`}
           label={`暗杠 ${TILE_KIND_LABEL[kind]}`}
-          icon={<Octagon className="h-7 w-7 sm:h-8 sm:w-8" />}
+          icon={<Octagon />}
           onClick={() => claimAnGang("human", kind)}
+          compact={isMobileLandscape}
         >
           暗杠
         </ActionButton>,
@@ -117,8 +132,9 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
         <ActionButton
           key={meld.id}
           label={`补杠 ${TILE_KIND_LABEL[meld.tiles[0].kind]}`}
-          icon={<Shield className="h-7 w-7 sm:h-8 sm:w-8" />}
+          icon={<Shield />}
           onClick={() => claimBuGang("human", meld.id)}
+          compact={isMobileLandscape}
         >
           补杠
         </ActionButton>,
@@ -128,7 +144,7 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
 
   if (humanReaction?.canHu) {
     rightActions.unshift(
-      <ActionButton key="hu" tone="primary" label="胡" icon={<Check className="h-7 w-7 sm:h-8 sm:w-8" />} onClick={() => claimHu("human")}>
+      <ActionButton compact={isMobileLandscape} key="hu" tone="primary" label="胡" icon={<Check />} onClick={() => claimHu("human")}>
         胡
       </ActionButton>,
     );
@@ -136,7 +152,7 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
 
   if (humanReaction) {
     rightActions.push(
-      <ActionButton key="pass" tone="danger" label="过" icon={<X className="h-7 w-7 sm:h-8 sm:w-8" />} onClick={() => passReaction("human")}>
+      <ActionButton compact={isMobileLandscape} key="pass" tone="danger" label="过" icon={<X />} onClick={() => passReaction("human")}>
         过
       </ActionButton>,
     );
@@ -144,7 +160,7 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
 
   if (canClaimSelfHu) {
     rightActions.unshift(
-      <ActionButton key="zimo" tone="primary" label="自摸" icon={<Check className="h-7 w-7 sm:h-8 sm:w-8" />} onClick={() => claimHu("human")}>
+      <ActionButton compact={isMobileLandscape} key="zimo" tone="primary" label="自摸" icon={<Check />} onClick={() => claimHu("human")}>
         自摸
       </ActionButton>,
     );
@@ -155,8 +171,9 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
       <ActionButton
         key="liang-dao"
         label="亮倒"
-        icon={<Eye className="h-7 w-7 sm:h-8 sm:w-8" />}
+        icon={<Eye />}
         onClick={() => declareLiangDao("human", selectedTingOption.discardTileId)}
+        compact={isMobileLandscape}
       >
         亮倒
       </ActionButton>,
@@ -165,7 +182,13 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
 
   return (
     rightActions.length > 0 ? (
-      <div className="pointer-events-auto fixed bottom-[168px] left-1/2 z-40 flex max-w-[calc(100vw-1.5rem)] -translate-x-1/2 flex-row flex-wrap items-center justify-center gap-3 sm:bottom-[188px]">
+      <div
+        className={`pointer-events-auto fixed z-40 flex items-center justify-center ${
+          isMobileLandscape
+            ? "mobile-landscape-actions top-1/2 max-h-[calc(100dvh-1rem)] -translate-y-1/2 flex-col gap-2 overflow-y-auto"
+            : "bottom-[168px] left-1/2 max-w-[calc(100vw-1.5rem)] -translate-x-1/2 flex-row flex-wrap gap-3 sm:bottom-[188px]"
+        }`}
+      >
         {rightActions}
       </div>
     ) : null

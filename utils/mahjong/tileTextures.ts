@@ -1,26 +1,26 @@
 import type { StaticImageData } from "next/image";
 import type { TileKind } from "@/types/mahjong";
 
-import dot1 from "@/png/1p.png";
-import dot2 from "@/png/2p.png";
-import dot3 from "@/png/3p.png";
-import dot4 from "@/png/4p.png";
-import dot5 from "@/png/5p.png";
-import dot6 from "@/png/6p.png";
-import dot7 from "@/png/7p.png";
-import dot8 from "@/png/8p.png";
-import dot9 from "@/png/9p.png";
-import bamboo1 from "@/png/1s.png";
-import bamboo2 from "@/png/2s.png";
-import bamboo3 from "@/png/3s.png";
-import bamboo4 from "@/png/4s.png";
-import bamboo5 from "@/png/5s.png";
-import bamboo6 from "@/png/6s.png";
-import bamboo7 from "@/png/7s.png";
-import bamboo8 from "@/png/8s.png";
-import bamboo9 from "@/png/9s.png";
-import fa from "@/png/fa.png";
-import zhong from "@/png/zhong.png";
+import dot1 from "@/png/optimized/1p.webp";
+import dot2 from "@/png/optimized/2p.webp";
+import dot3 from "@/png/optimized/3p.webp";
+import dot4 from "@/png/optimized/4p.webp";
+import dot5 from "@/png/optimized/5p.webp";
+import dot6 from "@/png/optimized/6p.webp";
+import dot7 from "@/png/optimized/7p.webp";
+import dot8 from "@/png/optimized/8p.webp";
+import dot9 from "@/png/optimized/9p.webp";
+import bamboo1 from "@/png/optimized/1s.webp";
+import bamboo2 from "@/png/optimized/2s.webp";
+import bamboo3 from "@/png/optimized/3s.webp";
+import bamboo4 from "@/png/optimized/4s.webp";
+import bamboo5 from "@/png/optimized/5s.webp";
+import bamboo6 from "@/png/optimized/6s.webp";
+import bamboo7 from "@/png/optimized/7s.webp";
+import bamboo8 from "@/png/optimized/8s.webp";
+import bamboo9 from "@/png/optimized/9s.webp";
+import fa from "@/png/optimized/fa.webp";
+import zhong from "@/png/optimized/zhong.webp";
 
 const textureMap: Partial<Record<TileKind, StaticImageData>> = {
   "dot-1": dot1,
@@ -53,4 +53,3 @@ export function getTileTextureSrc(kind: TileKind): string | undefined {
 export const ALL_TILE_TEXTURE_SRCS: string[] = Object.values(textureMap)
   .map((image) => image?.src)
   .filter((src): src is string => Boolean(src));
-

@@ -181,6 +181,10 @@ export interface GameState {
   supplementContext?: "gangshang";
   /** 本局已发生的杠次数，用于「杠上杠」翻倍计分 */
   gangCount: number;
+  /** 本局底分。 */
+  baseScore: number;
+  /** 下一局底分。 */
+  nextBaseScore: number;
   /** 可选拓展玩法：亮倒后自摸胡牌触发买马。 */
   liangDaoZimoBuyHorseEnabled: boolean;
   /** 下一局是否启用「亮倒自摸买马」。 */

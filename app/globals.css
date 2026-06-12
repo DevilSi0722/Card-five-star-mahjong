@@ -21,6 +21,9 @@ body {
 body {
   color: #f8fafc;
   font-family: Arial, "Microsoft YaHei", sans-serif;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
 }
 
 button {
@@ -40,6 +43,49 @@ button {
 .hud-scrollbar::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.28);
   border-radius: 999px;
+}
+
+.game-shell {
+  min-height: 100svh;
+}
+
+@supports (height: 100dvh) {
+  .game-shell {
+    min-height: 100dvh;
+  }
+}
+
+.game-shell--mobile-landscape {
+  overscroll-behavior: none;
+}
+
+.mobile-landscape-hud {
+  padding:
+    max(0.35rem, env(safe-area-inset-top))
+    max(0.5rem, env(safe-area-inset-right))
+    max(0.35rem, env(safe-area-inset-bottom))
+    max(0.5rem, env(safe-area-inset-left));
+}
+
+.mobile-landscape-log {
+  top: max(0.35rem, env(safe-area-inset-top));
+}
+
+.mobile-landscape-actions {
+  right: max(0.5rem, env(safe-area-inset-right));
+}
+
+.mobile-landscape-hand {
+  bottom: max(0.35rem, env(safe-area-inset-bottom));
+}
+
+.mobile-landscape-hand-inner {
+  padding-left: max(0.5rem, env(safe-area-inset-left));
+  padding-right: max(0.5rem, env(safe-area-inset-right));
+}
+
+.mobile-landscape-ting {
+  left: max(0.5rem, env(safe-area-inset-left));
 }
 
 /* 四周氛围灯：用内阴影在网页边缘绘制一圈光晕，呼吸式闪烁 */

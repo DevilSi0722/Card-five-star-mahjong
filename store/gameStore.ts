@@ -28,6 +28,7 @@ import { getForbiddenDiscards } from "@/utils/mahjong/ai";
 
 interface GameStore extends GameState {
   setNextLiangDaoZimoBuyHorseEnabled: (enabled: boolean) => void;
+  saveNextRoundSettings: (settings: { baseScore: number; liangDaoZimoBuyHorseEnabled: boolean }) => void;
   startNewRound: () => void;
   shuffleWall: () => void;
   dealInitialHands: () => void;
@@ -176,9 +177,10 @@ function applyBuGangScore(
   players: Record<PlayerId, Player>,
   gangerId: PlayerId,
   gangSequence: number,
+  baseScore: number,
   logs: string[],
 ): { players: Record<PlayerId, Player>; logs: string[] } {
-  const gang = scoreGang({ players, gangType: "bu_gang", gangerId, gangSequence });
+  const gang = scoreGang({ players, gangType: "bu_gang", gangerId, gangSequence, baseScore });
   if (!gang) {
     return { players, logs: pushLog(logs, `${players[gangerId].name} 补杠成功，补摸一张`) };
   }
@@ -212,6 +214,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   actionNonce: 0,
   canHumanLiangDao: false,
   gangCount: 0,
+  baseScore: BASE_SCORE,
+  nextBaseScore: BASE_SCORE,
   liangDaoZimoBuyHorseEnabled: false,
   nextLiangDaoZimoBuyHorseEnabled: false,
 
@@ -219,8 +223,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({ nextLiangDaoZimoBuyHorseEnabled: enabled });
   },
 
+  saveNextRoundSettings: ({ baseScore, liangDaoZimoBuyHorseEnabled }) => {
+    const safeBaseScore = Math.max(1, Math.floor(baseScore));
+    set({
+      nextBaseScore: safeBaseScore,
+      nextLiangDaoZimoBuyHorseEnabled: liangDaoZimoBuyHorseEnabled,
+    });
+  },
+
   startNewRound: () => {
     const nextLiangDaoZimoBuyHorseEnabled = get().nextLiangDaoZimoBuyHorseEnabled;
+    const nextBaseScore = get().nextBaseScore;
     const previous = get().players;
     const players = createPlayers(previous);
     const wall = shuffle(createTileSet());
@@ -251,6 +264,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       supplementContext: undefined,
       canHumanLiangDao: updateHumanLiangDaoHint(dealt.human),
       gangCount: 0,
+      baseScore: nextBaseScore,
       liangDaoZimoBuyHorseEnabled: nextLiangDaoZimoBuyHorseEnabled,
       logs: pushLog([], "新局开始，庄家先出牌"),
       actionNonce: get().actionNonce + 1,
@@ -462,6 +476,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       gangerId: playerId,
       dianGangPlayerId: pending.discard.playerId,
       gangSequence,
+      baseScore: state.baseScore,
     });
     const scoredPlayers = gang ? applyGangScore(players, gang.scoreChanges) : players;
 
@@ -530,6 +545,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       gangType: "an_gang",
       gangerId: playerId,
       gangSequence,
+      baseScore: state.baseScore,
     });
     const scoredPlayers = gang ? applyGangScore(players, gang.scoreChanges) : players;
     set({
@@ -611,7 +627,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return;
     }
     const buGangSequence = state.gangCount + 1;
-    const scored = applyBuGangScore(players, playerId, buGangSequence, state.logs);
+    const scored = applyBuGangScore(players, playerId, buGangSequence, state.baseScore, state.logs);
     set({
       wall,
       players: scored.players,
@@ -707,7 +723,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         return;
       }
       const buGangSequence = state.gangCount + 1;
-      const scored = applyBuGangScore(players, playerId, buGangSequence, state.logs);
+      const scored = applyBuGangScore(players, playerId, buGangSequence, state.baseScore, state.logs);
       set({
         wall,
         players: scored.players,
@@ -761,6 +777,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       loserId,
       method,
       win,
+      baseScore: state.baseScore,
       isGangShangPao,
       isHaiDiLao,
     });
@@ -773,17 +790,20 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     if (buyHorseTile) {
       const value = buyHorseValue(buyHorseTile);
-      const bonus = value * BASE_SCORE;
+      const bonus = value * state.baseScore;
+      const scoreChanges = { ...result.scoreChanges };
+      const ids = Object.keys(state.players) as PlayerId[];
+      for (const id of ids) {
+        if (id === winnerId) continue;
+        scoreChanges[id] -= bonus;
+        scoreChanges[winnerId] += bonus;
+      }
       result = {
         ...result,
-        scoreChanges: {
-          ...result.scoreChanges,
-          [winnerId]: result.scoreChanges[winnerId] + bonus,
-        },
-        totalScores: {
-          ...result.totalScores,
-          [winnerId]: result.totalScores[winnerId] + bonus,
-        },
+        scoreChanges,
+        totalScores: Object.fromEntries(
+          ids.map((id) => [id, state.players[id].score + scoreChanges[id]]),
+        ) as Record<PlayerId, number>,
         buyHorse: {
           tile: buyHorseTile,
           value,

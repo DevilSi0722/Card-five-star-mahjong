@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useGameStore } from "@/store/gameStore";
 import { useAiTurn } from "@/hooks/useAiTurn";
+import { useResponsiveGameLayout } from "@/hooks/useResponsiveGameLayout";
 import { GameCanvas } from "./GameCanvas";
 import { GameHUD } from "./GameHUD";
 import { AmbientLights } from "./AmbientLights";
@@ -11,6 +12,7 @@ import { HumanHandOverlay } from "./HumanHandOverlay";
 import { SettlementModal } from "./SettlementModal";
 
 export function MahjongGame() {
+  const { isMobileLandscape } = useResponsiveGameLayout();
   const startNewRound = useGameStore((state) => state.startNewRound);
   const roundResult = useGameStore((state) => state.roundResult);
   const selectedTileId = useGameStore((state) => state.selectedTileId);
@@ -23,7 +25,9 @@ export function MahjongGame() {
 
   return (
     <main
-      className="relative h-dvh w-screen overflow-hidden bg-[#071014]"
+      className={`game-shell relative h-dvh w-screen overflow-hidden bg-[#071014] ${
+        isMobileLandscape ? "game-shell--mobile-landscape" : ""
+      }`}
       onPointerDown={() => {
         if (selectedTileId) selectTile(undefined);
       }}

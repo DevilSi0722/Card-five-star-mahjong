@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useMemo } from "react";
 import { useGameStore } from "@/store/gameStore";
 import { useUiStore } from "@/store/uiStore";
+import { useResponsiveGameLayout } from "@/hooks/useResponsiveGameLayout";
 import { getWaitDetails, type WaitDetail } from "@/utils/mahjong/tingInfo";
 import { TILE_KIND_LABEL } from "@/utils/mahjong/tiles";
 import { getTileTextureSrc } from "@/utils/mahjong/tileTextures";
@@ -41,6 +42,7 @@ function WaitTile({ wait }: { wait: WaitDetail }) {
 }
 
 export function TingInfoBar() {
+  const { isMobileLandscape } = useResponsiveGameLayout();
   const players = useGameStore((state) => state.players);
   const phase = useGameStore((state) => state.phase);
   const hoveredTileId = useUiStore((state) => state.hoveredTileId);
@@ -92,16 +94,26 @@ export function TingInfoBar() {
   const totalRemaining = info.waits.reduce((sum, wait) => sum + wait.remaining, 0);
 
   return (
-    <div className="pointer-events-none fixed right-5 top-1/2 z-20 w-[min(260px,calc(100vw-1.5rem))] -translate-y-1/2">
-      <div className="pointer-events-auto flex max-h-[calc(100dvh-2rem)] flex-col gap-3 overflow-auto rounded-lg border border-yellow-300/35 bg-slate-950/86 px-4 py-4 shadow-panel backdrop-blur-md hud-scrollbar">
-        <div className="flex flex-col gap-1.5 text-sm font-semibold text-yellow-200">
+    <div
+      className={`pointer-events-none fixed z-20 ${
+        isMobileLandscape
+          ? "mobile-landscape-ting top-1/2 w-[min(210px,30vw)] -translate-y-1/2"
+          : "right-5 top-1/2 w-[min(260px,calc(100vw-1.5rem))] -translate-y-1/2"
+      }`}
+    >
+      <div
+        className={`pointer-events-auto flex flex-col overflow-auto rounded-lg border border-yellow-300/35 bg-slate-950/86 shadow-panel backdrop-blur-md hud-scrollbar ${
+          isMobileLandscape ? "max-h-[calc(100dvh-1rem)] gap-2 px-2.5 py-2.5" : "max-h-[calc(100dvh-2rem)] gap-3 px-4 py-4"
+        }`}
+      >
+        <div className={`flex flex-col font-semibold text-yellow-200 ${isMobileLandscape ? "gap-1 text-xs" : "gap-1.5 text-sm"}`}>
           <span className="flex items-center gap-2">
             <span className="h-2.5 w-2.5 rounded-full bg-yellow-400" />
             {info.title}
           </span>
           <span className="font-normal text-slate-400">共 {totalRemaining} 张可胡</span>
         </div>
-        <div className="flex flex-col gap-2.5">
+        <div className={`flex flex-col ${isMobileLandscape ? "gap-1.5" : "gap-2.5"}`}>
           {info.waits.map((wait) => <WaitTile key={wait.kind} wait={wait} />)}
         </div>
       </div>

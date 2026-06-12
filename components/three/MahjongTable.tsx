@@ -1,8 +1,9 @@
 "use client";
 
-import { useTexture, Text } from "@react-three/drei";
-import { SRGBColorSpace } from "three";
-import tableTextureSrc from "@/png/table/table.png";
+import { useMemo } from "react";
+import { useTexture } from "@react-three/drei";
+import { CanvasTexture, SRGBColorSpace } from "three";
+import tableTextureSrc from "@/png/optimized/table.webp";
 
 // 四个座位角落的装饰点位（绕桌心对称）
 const CORNER_POSITIONS: Array<[number, number]> = [
@@ -12,13 +13,11 @@ const CORNER_POSITIONS: Array<[number, number]> = [
   [3.2, 2.5],
 ];
 
-const TABLE_FONT_URL = "/fonts/MaShanZheng-Regular.ttf";
-
 // 四向座位风位标识：按座位方位显示，文字朝各自玩家方向平铺
 const SEAT_MARKERS: Array<{ pos: [number, number, number]; rotation: [number, number, number]; label: string }> = [
   { pos: [0, 0.171, 2.12], rotation: [-Math.PI / 2, 0, 0], label: "南" },
   { pos: [2.58, 0.171, 0], rotation: [-Math.PI / 2, 0, -Math.PI / 2], label: "东" },
-  { pos: [0, 0.171, -2.12], rotation: [-Math.PI / 2, 0, Math.PI], label: "北" },
+  { pos: [0, 0.171, -2.12], rotation: [-Math.PI / 2, 0, 0], label: "北" },
   { pos: [-2.58, 0.171, 0], rotation: [-Math.PI / 2, 0, Math.PI / 2], label: "西" },
 ];
 
@@ -31,6 +30,39 @@ function TableSurfaceImage() {
     <mesh receiveShadow position={[0, 0.147, 0]} rotation={[-Math.PI / 2, 0, 0]}>
       <planeGeometry args={[7.38, 5.78]} />
       <meshStandardMaterial map={texture} roughness={0.82} toneMapped={false} />
+    </mesh>
+  );
+}
+
+function SeatMarker({ marker }: { marker: (typeof SEAT_MARKERS)[number] }) {
+  const texture = useMemo(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 192;
+    canvas.height = 192;
+    const context = canvas.getContext("2d");
+    if (!context) return null;
+
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    context.font = '700 104px "Microsoft YaHei", "SimHei", sans-serif';
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.fillStyle = "#F8C887";
+    context.shadowColor = "rgba(48, 24, 8, 0.55)";
+    context.shadowBlur = 8;
+    context.fillText(marker.label, canvas.width / 2, canvas.height / 2 + 4);
+
+    const canvasTexture = new CanvasTexture(canvas);
+    canvasTexture.colorSpace = SRGBColorSpace;
+    canvasTexture.needsUpdate = true;
+    return canvasTexture;
+  }, [marker.label]);
+
+  if (!texture) return null;
+
+  return (
+    <mesh position={marker.pos} rotation={marker.rotation}>
+      <planeGeometry args={[0.5, 0.5]} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} />
     </mesh>
   );
 }
@@ -73,18 +105,10 @@ export function MahjongTable({ textured = true }: { textured?: boolean }) {
 
       {/* 四向座位方位标识 */}
       {SEAT_MARKERS.map((marker) => (
-        <Text
+        <SeatMarker
           key={marker.label}
-          position={marker.pos}
-          rotation={marker.rotation}
-          font={TABLE_FONT_URL}
-          fontSize={0.38}
-          color="#F8C887"
-          anchorX="center"
-          anchorY="middle"
-        >
-          {marker.label}
-        </Text>
+          marker={marker}
+        />
       ))}
     </group>
   );

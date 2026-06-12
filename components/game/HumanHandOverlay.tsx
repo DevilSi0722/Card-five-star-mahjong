@@ -2,9 +2,10 @@
 
 import Image from "next/image";
 import { useEffect, useMemo } from "react";
-import frontTileFace from "@/png/front.png";
+import frontTileFace from "@/png/optimized/front.webp";
 import { useGameStore } from "@/store/gameStore";
 import { useUiStore } from "@/store/uiStore";
+import { useResponsiveGameLayout } from "@/hooks/useResponsiveGameLayout";
 import { getTingDiscardTileIds } from "@/utils/mahjong/tingInfo";
 import { TILE_KIND_LABEL } from "@/utils/mahjong/tiles";
 import { ALL_TILE_TEXTURE_SRCS, getTileTextureSrc } from "@/utils/mahjong/tileTextures";
@@ -12,6 +13,7 @@ import { ALL_TILE_TEXTURE_SRCS, getTileTextureSrc } from "@/utils/mahjong/tileTe
 const DRAWN_TILE_GAP_CLASS = "ml-3 sm:ml-5";
 
 export function HumanHandOverlay() {
+  const { isMobileLandscape } = useResponsiveGameLayout();
   const human = useGameStore((state) => state.players.human);
   const phase = useGameStore((state) => state.phase);
   const currentPlayerId = useGameStore((state) => state.currentPlayerId);
@@ -26,10 +28,12 @@ export function HumanHandOverlay() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    for (const src of ALL_TILE_TEXTURE_SRCS) {
+    const sources = [frontTileFace.src, ...ALL_TILE_TEXTURE_SRCS];
+    for (const src of sources) {
       const image = new window.Image();
       image.decoding = "async";
       image.src = src;
+      void image.decode?.().catch(() => undefined);
     }
   }, []);
 
@@ -71,8 +75,16 @@ export function HumanHandOverlay() {
   if (human.hand.length === 0) return null;
 
   return (
-    <div className="pointer-events-none fixed bottom-4 left-0 right-0 z-20">
-      <div className="mx-auto flex w-full items-end justify-start gap-0 overflow-x-auto px-4 pb-1 pt-5 hud-scrollbar sm:justify-center sm:px-6">
+    <div
+      className={`pointer-events-none fixed left-0 right-0 z-20 ${
+        isMobileLandscape ? "mobile-landscape-hand" : "bottom-4"
+      }`}
+    >
+      <div
+        className={`mx-auto flex w-full items-end gap-0 overflow-x-auto pb-1 hud-scrollbar ${
+          isMobileLandscape ? "mobile-landscape-hand-inner justify-center pt-3" : "justify-start px-4 pt-5 sm:justify-center sm:px-6"
+        }`}
+      >
         {tiles.map((tile) => {
           const textureSrc = getTileTextureSrc(tile.kind);
           const selected = selectedTileId === tile.id;
@@ -98,17 +110,19 @@ export function HumanHandOverlay() {
               onMouseLeave={() => {
                 if (interactive) setHoveredTileId(undefined);
               }}
-              className={`relative h-[126px] w-[86px] shrink-0 overflow-visible rounded-lg bg-transparent transition sm:h-[138px] sm:w-[94px] ${
+              className={`relative shrink-0 overflow-visible rounded-lg bg-transparent transition ${
+                isMobileLandscape ? "h-[92px] w-[63px]" : "h-[126px] w-[86px] sm:h-[138px] sm:w-[94px]"
+              } ${
                 isDrawn ? DRAWN_TILE_GAP_CLASS : ""
               } ${
                 selected
-                  ? "-translate-y-3 shadow-[0_14px_28px_rgba(250,204,21,0.26),0_0_18px_rgba(250,204,21,0.28)]"
+                  ? `${isMobileLandscape ? "-translate-y-2" : "-translate-y-3"} shadow-[0_14px_28px_rgba(250,204,21,0.26),0_0_18px_rgba(250,204,21,0.28)]`
                   : canPengTile
                     ? "animate-pulse shadow-[0_12px_24px_rgba(250,204,21,0.22),0_0_14px_rgba(250,204,21,0.24)]"
                   : dangerous
                     ? "shadow-[0_12px_24px_rgba(239,68,68,0.22),0_0_14px_rgba(239,68,68,0.22)]"
                   : "shadow-panel"
-              } ${interactive ? "pointer-events-auto cursor-pointer hover:-translate-y-4" : "pointer-events-auto cursor-default"}`}
+              } ${interactive ? `pointer-events-auto cursor-pointer ${isMobileLandscape ? "hover:-translate-y-2" : "hover:-translate-y-4"}` : "pointer-events-auto cursor-default"}`}
             >
               {selected || canPengTile || dangerous ? (
                 <span
@@ -121,7 +135,7 @@ export function HumanHandOverlay() {
                 src={frontTileFace}
                 alt=""
                 fill
-                sizes="94px"
+                sizes={isMobileLandscape ? "63px" : "94px"}
                 className="object-fill"
                 unoptimized
                 priority
@@ -133,7 +147,9 @@ export function HumanHandOverlay() {
                   alt={label}
                   width={62}
                   height={86}
-                  className="absolute left-1/2 top-[53%] h-[84px] w-[60px] -translate-x-1/2 -translate-y-1/2 object-contain sm:h-[92px] sm:w-[66px]"
+                  className={`absolute left-1/2 top-[53%] -translate-x-1/2 -translate-y-1/2 object-contain ${
+                    isMobileLandscape ? "h-[61px] w-[44px]" : "h-[84px] w-[60px] sm:h-[92px] sm:w-[66px]"
+                  }`}
                   unoptimized
                   priority
                   loading="eager"

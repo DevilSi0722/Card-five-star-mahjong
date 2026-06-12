@@ -73,10 +73,12 @@ export function scoreWin(options: {
   loserId?: PlayerId;
   method: WinMethod;
   win: WinResult;
+  baseScore?: number;
   isGangShangPao?: boolean;
   isHaiDiLao?: boolean;
 }): ScoreResult {
   const { players, winnerId, loserId, method, win } = options;
+  const scoreUnit = options.baseScore ?? BASE_SCORE;
   const fans = calculateFans(win, {
     isLiangDao: players[winnerId].isLiangDao,
     method,
@@ -85,7 +87,7 @@ export function scoreWin(options: {
   });
   const multiplier = fans.reduce((product, item) => product * item.fan, 1);
   const totalFan = multiplier;
-  const baseScore = BASE_SCORE * multiplier;
+  const baseScore = scoreUnit * multiplier;
   const ids = Object.keys(players) as PlayerId[];
   const scoreChanges = Object.fromEntries(ids.map((id) => [id, 0])) as Record<PlayerId, number>;
   const loserPayment = (id: PlayerId) =>
@@ -164,16 +166,19 @@ export function scoreGang(options: {
   dianGangPlayerId?: PlayerId;
   /** 本局第几次杠，从 1 开始 */
   gangSequence: number;
+  /** 本局底分。 */
+  baseScore?: number;
 }): { scoreChanges: Record<PlayerId, number>; label: string; perPlayer: number } | null {
   const { players, gangType, gangerId, dianGangPlayerId, gangSequence } = options;
   const ids = Object.keys(players) as PlayerId[];
   const scoreChanges = Object.fromEntries(ids.map((id) => [id, 0])) as Record<PlayerId, number>;
   const multiplier = 2 ** Math.max(0, gangSequence - 1);
+  const scoreUnit = options.baseScore ?? GANG_UNIT;
 
   if (gangType === "ming_gang") {
     // 直杠（点杠）：放杠者单独赔 2 份
     if (!dianGangPlayerId) return null;
-    const amount = 2 * GANG_UNIT * multiplier;
+    const amount = 2 * scoreUnit * multiplier;
     scoreChanges[dianGangPlayerId] -= amount;
     scoreChanges[gangerId] += amount;
     return { scoreChanges, label: `直杠 +${amount}`, perPlayer: amount };
@@ -181,7 +186,7 @@ export function scoreGang(options: {
 
   if (gangType === "bu_gang") {
     // 明杠（蓄杠）：其余两家各赔 1 份
-    const amount = 1 * GANG_UNIT * multiplier;
+    const amount = 1 * scoreUnit * multiplier;
     let total = 0;
     for (const id of ids) {
       if (id === gangerId) continue;
@@ -194,7 +199,7 @@ export function scoreGang(options: {
 
   if (gangType === "an_gang") {
     // 暗杠：其余两家各赔 2 份
-    const amount = 2 * GANG_UNIT * multiplier;
+    const amount = 2 * scoreUnit * multiplier;
     let total = 0;
     for (const id of ids) {
       if (id === gangerId) continue;
