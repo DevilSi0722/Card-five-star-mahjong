@@ -46,15 +46,14 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
   const baseScore = useGameStore((state) => state.baseScore);
   const nextBaseScore = useGameStore((state) => state.nextBaseScore);
   const liangDaoZimoBuyHorseEnabled = useGameStore((state) => state.liangDaoZimoBuyHorseEnabled);
-  const nextLiangDaoZimoBuyHorseEnabled = useGameStore((state) => state.nextLiangDaoZimoBuyHorseEnabled);
   const saveNextRoundSettings = useGameStore((state) => state.saveNextRoundSettings);
   const [draftBaseScore, setDraftBaseScore] = useState(String(nextBaseScore));
-  const [draftBuyHorseEnabled, setDraftBuyHorseEnabled] = useState(nextLiangDaoZimoBuyHorseEnabled);
+  const [draftBuyHorseEnabled, setDraftBuyHorseEnabled] = useState(liangDaoZimoBuyHorseEnabled);
 
   useEffect(() => {
     setDraftBaseScore(String(nextBaseScore));
-    setDraftBuyHorseEnabled(nextLiangDaoZimoBuyHorseEnabled);
-  }, [nextBaseScore, nextLiangDaoZimoBuyHorseEnabled]);
+    setDraftBuyHorseEnabled(liangDaoZimoBuyHorseEnabled);
+  }, [nextBaseScore, liangDaoZimoBuyHorseEnabled]);
 
   function saveSettings() {
     const parsedBaseScore = Number.parseInt(draftBaseScore, 10);
@@ -109,7 +108,7 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
           </label>
 
           <label className="flex cursor-pointer items-center justify-between gap-3 rounded-md border border-white/12 bg-slate-900/80 px-3 py-2.5 text-sm text-slate-200">
-            <span>下局亮倒自摸买马</span>
+            <span>本局亮倒自摸买马</span>
             <input
               type="checkbox"
               checked={draftBuyHorseEnabled}

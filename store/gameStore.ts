@@ -238,6 +238,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const safeBaseScore = Math.max(1, Math.floor(baseScore));
     set({
       nextBaseScore: safeBaseScore,
+      liangDaoZimoBuyHorseEnabled,
       nextLiangDaoZimoBuyHorseEnabled: liangDaoZimoBuyHorseEnabled,
     });
   },
