@@ -21,25 +21,26 @@ useTexture.preload(ALL_TILE_TEXTURE_SRCS);
 const MAX_RENDER_WIDTH = 1920;
 const MAX_RENDER_HEIGHT = 1080;
 
-function getCappedCanvasDpr() {
+function getCappedCanvasDpr(mobileLandscape: boolean) {
   if (typeof window === "undefined") return 1;
   const width = Math.max(1, window.innerWidth);
   const height = Math.max(1, window.innerHeight);
-  return Math.min(1, MAX_RENDER_WIDTH / width, MAX_RENDER_HEIGHT / height);
+  const maxDpr = mobileLandscape ? 1.5 : 1;
+  return Math.min(maxDpr, MAX_RENDER_WIDTH / width, MAX_RENDER_HEIGHT / height);
 }
 
-function useCappedCanvasDpr() {
-  const [dpr, setDpr] = useState(getCappedCanvasDpr);
+function useCappedCanvasDpr(mobileLandscape: boolean) {
+  const [dpr, setDpr] = useState(() => getCappedCanvasDpr(mobileLandscape));
 
   useEffect(() => {
     function update() {
-      setDpr(getCappedCanvasDpr());
+      setDpr(getCappedCanvasDpr(mobileLandscape));
     }
 
     update();
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);
-  }, []);
+  }, [mobileLandscape]);
 
   return dpr;
 }
@@ -51,7 +52,7 @@ function FixedCamera({ mobileLandscape }: { mobileLandscape: boolean }) {
     const perspectiveCamera = camera as PerspectiveCamera;
     if (mobileLandscape) {
       perspectiveCamera.position.set(0, 7.35, 4.55);
-      perspectiveCamera.fov = 46;
+      perspectiveCamera.fov = 42;
       perspectiveCamera.lookAt(0, -0.05, 0);
     } else {
       perspectiveCamera.position.set(0, 6.8, 4.1);
@@ -93,7 +94,7 @@ export function GameCanvas() {
   const currentPlayerId = useGameStore((state) => state.currentPlayerId);
   const phase = useGameStore((state) => state.phase);
   const { isMobileLandscape } = useResponsiveGameLayout();
-  const canvasDpr = useCappedCanvasDpr();
+  const canvasDpr = useCappedCanvasDpr(isMobileLandscape);
 
   // 牌局结束（结算/流局）时，三家手牌全部亮出并平放
   const revealAll = phase === "settled" || phase === "draw";
@@ -106,7 +107,7 @@ export function GameCanvas() {
       dpr={canvasDpr}
       camera={{
         position: isMobileLandscape ? [0, 7.35, 4.55] : [0, 6.8, 4.1],
-        fov: isMobileLandscape ? 46 : 40,
+        fov: isMobileLandscape ? 42 : 40,
       }}
       className="absolute inset-0"
       gl={{ antialias: true }}
@@ -118,7 +119,7 @@ export function GameCanvas() {
       <hemisphereLight args={["#d8f6ff", "#19362f", 0.45]} />
       <Suspense fallback={<LoadingTableFallback />}>
         <TileTextureWarmup />
-        <group scale={isMobileLandscape ? [1.04, 1.04, 1.04] : [1.16, 1.16, 1.16]}>
+        <group scale={isMobileLandscape ? [1.1, 1.1, 1.1] : [1.16, 1.16, 1.16]}>
           <MahjongTable />
 
           <TurnIndicator3D
@@ -132,21 +133,24 @@ export function GameCanvas() {
               player={players.human}
               current={currentPlayerId === "human" && phase === "playing"}
               revealAll={revealAll}
-              scale={0.72}
+              scale={isMobileLandscape ? 0.66 : 0.72}
+              compact={isMobileLandscape}
             />
           ) : null}
           <PlayerHand3D
             player={players.ai_left}
             current={currentPlayerId === "ai_left" && phase === "playing"}
             revealAll={revealAll}
-            scale={0.72}
+            scale={isMobileLandscape ? 0.64 : 0.72}
+            compact={isMobileLandscape}
             showWaitingPreview
           />
           <PlayerHand3D
             player={players.ai_right}
             current={currentPlayerId === "ai_right" && phase === "playing"}
             revealAll={revealAll}
-            scale={0.72}
+            scale={isMobileLandscape ? 0.64 : 0.72}
+            compact={isMobileLandscape}
             showWaitingPreview
           />
 

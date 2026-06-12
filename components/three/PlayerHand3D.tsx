@@ -6,10 +6,20 @@ import { getTingDiscardTileIds } from "@/utils/mahjong/tingInfo";
 import { useUiStore } from "@/store/uiStore";
 import { TileKindPreview3D, TileMesh } from "./TileMesh";
 
-function handTransform(seat: Player["seat"]) {
-  if (seat === "bottom") return { center: [0, 0.24, 2.05] as const, step: [0.36, 0, 0] as const, rotation: [0, 0, 0] as [number, number, number] };
-  if (seat === "left") return { center: [-2.75, 0.24, 0] as const, step: [0, 0, 0.34] as const, rotation: [0, Math.PI / 2, 0] as [number, number, number] };
-  return { center: [2.75, 0.24, 0] as const, step: [0, 0, -0.34] as const, rotation: [0, -Math.PI / 2, 0] as [number, number, number] };
+function handTransform(seat: Player["seat"], compact: boolean) {
+  const bottom = compact
+    ? { center: [0, 0.24, 2.1] as const, step: [0.32, 0, 0] as const }
+    : { center: [0, 0.24, 2.05] as const, step: [0.36, 0, 0] as const };
+  const side = compact
+    ? { center: [-2.56, 0.24, 0] as const, step: [0, 0, 0.29] as const }
+    : { center: [-2.75, 0.24, 0] as const, step: [0, 0, 0.34] as const };
+  const right = compact
+    ? { center: [2.56, 0.24, 0] as const, step: [0, 0, -0.29] as const }
+    : { center: [2.75, 0.24, 0] as const, step: [0, 0, -0.34] as const };
+
+  if (seat === "bottom") return { ...bottom, rotation: [0, 0, 0] as [number, number, number] };
+  if (seat === "left") return { ...side, rotation: [0, Math.PI / 2, 0] as [number, number, number] };
+  return { ...right, rotation: [0, -Math.PI / 2, 0] as [number, number, number] };
 }
 
 function lyingRotationForSeat(seat: Player["seat"]): [number, number, number] {
@@ -46,6 +56,7 @@ export function PlayerHand3D({
   revealAll,
   selectedTileId,
   scale = 1,
+  compact = false,
   onTileClick,
   onTileDoubleClick,
   showWaitingPreview = false,
@@ -55,11 +66,12 @@ export function PlayerHand3D({
   revealAll?: boolean;
   selectedTileId?: string;
   scale?: number;
+  compact?: boolean;
   onTileClick?: (tileId: string) => void;
   onTileDoubleClick?: (tileId: string) => void;
   showWaitingPreview?: boolean;
 }) {
-  const transform = handTransform(player.seat);
+  const transform = handTransform(player.seat, compact);
   const renderedTileIdsRef = useRef<Set<string> | null>(null);
   const currentTileIds = player.hand.map((tile) => tile.id);
   const newTileIds = renderedTileIdsRef.current
@@ -114,7 +126,7 @@ export function PlayerHand3D({
             <TileKindPreview3D
               key={`${player.id}-wait-${kind}`}
               kind={kind}
-              scale={0.5}
+              scale={compact ? 0.46 : 0.5}
               position={waitingPreviewPosition(player.seat, transform, index, player.waitingKinds.length, scale)}
               rotation={transform.rotation}
             />

@@ -134,7 +134,7 @@ export function HumanHandOverlay() {
                 if (interactive) setHoveredTileId(undefined);
               }}
               className={`relative shrink-0 overflow-visible rounded-lg bg-transparent transition ${
-                isMobileLandscape ? "h-[92px] w-[63px]" : "h-[126px] w-[86px] sm:h-[138px] sm:w-[94px]"
+                isMobileLandscape ? "h-[84px] w-[57px]" : "h-[126px] w-[86px] sm:h-[138px] sm:w-[94px]"
               } ${isDrawn ? "human-hand-tile--enter" : ""} ${
                 isDrawn ? DRAWN_TILE_GAP_CLASS : ""
               } ${
@@ -160,7 +160,7 @@ export function HumanHandOverlay() {
                 src={frontTileFace}
                 alt=""
                 fill
-                sizes={isMobileLandscape ? "63px" : "94px"}
+                sizes={isMobileLandscape ? "57px" : "94px"}
                 className={`object-fill ${isDrawn ? "human-hand-tile-fly-in" : ""}`}
                 unoptimized
                 priority
@@ -173,7 +173,7 @@ export function HumanHandOverlay() {
                   width={62}
                   height={86}
                   className={`absolute left-1/2 top-[53%] -translate-x-1/2 -translate-y-1/2 object-contain ${
-                    isMobileLandscape ? "h-[61px] w-[44px]" : "h-[84px] w-[60px] sm:h-[92px] sm:w-[66px]"
+                    isMobileLandscape ? "h-[56px] w-[40px]" : "h-[84px] w-[60px] sm:h-[92px] sm:w-[66px]"
                   } ${isDrawn ? "human-hand-tile-fly-in" : ""}`}
                   unoptimized
                   priority
