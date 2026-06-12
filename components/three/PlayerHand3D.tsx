@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { Player } from "@/types/mahjong";
 import { getTingDiscardTileIds } from "@/utils/mahjong/tingInfo";
 import { useUiStore } from "@/store/uiStore";
@@ -10,6 +10,12 @@ function handTransform(seat: Player["seat"]) {
   if (seat === "bottom") return { center: [0, 0.24, 2.05] as const, step: [0.36, 0, 0] as const, rotation: [0, 0, 0] as [number, number, number] };
   if (seat === "left") return { center: [-2.75, 0.24, 0] as const, step: [0, 0, 0.34] as const, rotation: [0, Math.PI / 2, 0] as [number, number, number] };
   return { center: [2.75, 0.24, 0] as const, step: [0, 0, -0.34] as const, rotation: [0, -Math.PI / 2, 0] as [number, number, number] };
+}
+
+function wallSourcePosition(seat: Player["seat"]): [number, number, number] {
+  if (seat === "left") return [-1.7, 0.55, -1.15];
+  if (seat === "right") return [1.7, 0.55, 1.15];
+  return [0, 0.55, 1.15];
 }
 
 // 新摸牌与已有手牌之间额外留出的间隔（以一个牌位的比例表示）
@@ -48,6 +54,12 @@ export function PlayerHand3D({
   showWaitingPreview?: boolean;
 }) {
   const transform = handTransform(player.seat);
+  const renderedTileIdsRef = useRef<Set<string> | null>(null);
+  const currentTileIds = player.hand.map((tile) => tile.id);
+  const newTileIds = renderedTileIdsRef.current
+    ? currentTileIds.filter((tileId) => !renderedTileIdsRef.current?.has(tileId))
+    : [];
+  const animatedTileIds = newTileIds.length > 0 && newTileIds.length <= 4 ? new Set(newTileIds) : new Set<string>();
   const isHuman = player.id === "human";
   // 结算/流局时所有玩家全亮牌
   const revealAllTiles = Boolean(revealAll);
@@ -72,6 +84,10 @@ export function PlayerHand3D({
         : new Set<string>(),
     [isHuman, current, player.isLiangDao, player.hand, player.melds],
   );
+
+  useEffect(() => {
+    renderedTileIdsRef.current = new Set(currentTileIds);
+  }, [currentTileIds]);
 
   // 先排出“非新摸牌”的牌，再把新摸牌放到末尾（带额外间隔的槽位）
   const rest = hasDrawn ? player.hand.filter((tile) => tile.id !== drawnId) : player.hand;
@@ -122,6 +138,8 @@ export function PlayerHand3D({
               transform.center[2] + transform.step[2] * delta,
             ]}
             rotation={transform.rotation}
+            flyFrom={animatedTileIds.has(tile.id) ? wallSourcePosition(player.seat) : undefined}
+            flyFromRotation={transform.rotation}
             onClick={isHuman ? () => onTileClick?.(tile.id) : undefined}
             onDoubleClick={isHuman ? () => onTileDoubleClick?.(tile.id) : undefined}
             onHoverChange={

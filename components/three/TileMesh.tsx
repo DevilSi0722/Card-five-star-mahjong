@@ -19,6 +19,8 @@ interface TileMeshProps {
   hoverable?: boolean;
   tingHint?: boolean;
   scale?: number;
+  flyFrom?: [number, number, number];
+  flyFromRotation?: [number, number, number];
   onClick?: () => void;
   onDoubleClick?: () => void;
   onHoverChange?: (hovered: boolean) => void;
@@ -154,21 +156,33 @@ export function TileMesh({
   hoverable = false,
   tingHint = false,
   scale = 1,
+  flyFrom,
+  flyFromRotation,
   onClick,
   onDoubleClick,
   onHoverChange,
 }: TileMeshProps) {
   const isStanding = standing && !liangDao;
   const [hovered, setHovered] = useState(false);
+  const targetPosition = [
+    position[0],
+    position[1] + (isStanding ? 0.25 : 0) + (hovered ? 0.16 : 0),
+    position[2],
+  ] as [number, number, number];
+  const startPosition = flyFrom
+    ? ([flyFrom[0], flyFrom[1] + 0.56, flyFrom[2]] as [number, number, number])
+    : undefined;
   // 仅悬浮才抬升（双击打出）；单击仅作选中（用于亮倒选张），不再「拿起」抬升
   const spring = useSpring({
-    position: [
-      position[0],
-      position[1] + (isStanding ? 0.25 : 0) + (hovered ? 0.16 : 0),
-      position[2],
-    ] as [number, number, number],
+    from: startPosition
+      ? {
+          position: startPosition,
+          rotation: flyFromRotation ?? rotation,
+        }
+      : undefined,
+    position: targetPosition,
     rotation,
-    config: { tension: 260, friction: 24 },
+    config: flyFrom ? { tension: 190, friction: 22 } : { tension: 260, friction: 24 },
   });
 
   const textureSrc = tile && faceUp ? getTileTextureSrc(tile.kind) : undefined;

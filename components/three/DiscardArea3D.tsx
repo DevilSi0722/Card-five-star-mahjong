@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import type { Player } from "@/types/mahjong";
 import { TileMesh } from "./TileMesh";
 
@@ -26,8 +27,30 @@ function discardLayout(seat: Player["seat"]): DiscardLayout {
   return { origin: [0.98, 0.25, 0.82], col: [0, -0.25], row: [0.32, 0], rotationY: Math.PI / 2 };
 }
 
+function handSourcePosition(seat: Player["seat"]): [number, number, number] {
+  if (seat === "bottom") return [0, 0.42, 2.22];
+  if (seat === "left") return [-2.75, 0.48, 0];
+  return [2.75, 0.48, 0];
+}
+
+function handSourceRotation(seat: Player["seat"]): [number, number, number] {
+  if (seat === "left") return [0, Math.PI / 2, 0];
+  if (seat === "right") return [0, -Math.PI / 2, 0];
+  return [0, 0, 0];
+}
+
 export function DiscardArea3D({ player }: { player: Player }) {
   const layout = discardLayout(player.seat);
+  const renderedTileIdsRef = useRef<Set<string> | null>(null);
+  const currentTileIds = player.discards.map((tile) => tile.id);
+  const animatedTileIds = renderedTileIdsRef.current
+    ? new Set(currentTileIds.filter((tileId) => !renderedTileIdsRef.current?.has(tileId)))
+    : new Set<string>();
+
+  useEffect(() => {
+    renderedTileIdsRef.current = new Set(currentTileIds);
+  }, [currentTileIds]);
+
   return (
     <group>
       {player.discards.slice(-18).map((tile, index) => {
@@ -45,6 +68,8 @@ export function DiscardArea3D({ player }: { player: Player }) {
               layout.origin[2] + layout.col[1] * col + layout.row[1] * row,
             ]}
             rotation={[0, layout.rotationY, 0]}
+            flyFrom={animatedTileIds.has(tile.id) ? handSourcePosition(player.seat) : undefined}
+            flyFromRotation={handSourceRotation(player.seat)}
           />
         );
       })}

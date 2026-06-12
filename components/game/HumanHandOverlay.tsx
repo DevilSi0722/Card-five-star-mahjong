@@ -72,7 +72,7 @@ export function HumanHandOverlay() {
       ? pendingReactions?.discard.tile.kind
       : undefined;
 
-  if (human.hand.length === 0) return null;
+  if (human.hand.length === 0 || human.isLiangDao || revealAll) return null;
 
   return (
     <div
@@ -112,7 +112,7 @@ export function HumanHandOverlay() {
               }}
               className={`relative shrink-0 overflow-visible rounded-lg bg-transparent transition ${
                 isMobileLandscape ? "h-[92px] w-[63px]" : "h-[126px] w-[86px] sm:h-[138px] sm:w-[94px]"
-              } ${
+              } ${isDrawn ? "human-hand-tile--enter" : ""} ${
                 isDrawn ? DRAWN_TILE_GAP_CLASS : ""
               } ${
                 selected

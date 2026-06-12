@@ -88,6 +88,21 @@ button {
   left: max(0.5rem, env(safe-area-inset-left));
 }
 
+.human-hand-tile--enter {
+  animation: human-hand-tile-enter 240ms ease-out;
+}
+
+@keyframes human-hand-tile-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-18px) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 /* 四周氛围灯：用内阴影在网页边缘绘制一圈光晕，呼吸式闪烁 */
 .ambient-frame {
   position: absolute;

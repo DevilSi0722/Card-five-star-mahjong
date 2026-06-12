@@ -4,7 +4,8 @@ import { Canvas } from "@react-three/fiber";
 import { Suspense, useEffect, useState } from "react";
 import { useThree } from "@react-three/fiber";
 import { useTexture } from "@react-three/drei";
-import { PerspectiveCamera, SRGBColorSpace } from "three";
+import { SRGBColorSpace } from "three";
+import type { PerspectiveCamera } from "three";
 import { useGameStore } from "@/store/gameStore";
 import { MahjongTable } from "@/components/three/MahjongTable";
 import { PlayerHand3D } from "@/components/three/PlayerHand3D";
@@ -96,6 +97,7 @@ export function GameCanvas() {
 
   // 牌局结束（结算/流局）时，三家手牌全部亮出并平放
   const revealAll = phase === "settled" || phase === "draw";
+  const showHumanTableHand = revealAll || players.human.isLiangDao;
 
   return (
     <Canvas
@@ -124,6 +126,14 @@ export function GameCanvas() {
             active={phase === "playing"}
           />
 
+          {showHumanTableHand ? (
+            <PlayerHand3D
+              player={players.human}
+              current={currentPlayerId === "human" && phase === "playing"}
+              revealAll={revealAll}
+              scale={0.72}
+            />
+          ) : null}
           <PlayerHand3D
             player={players.ai_left}
             current={currentPlayerId === "ai_left" && phase === "playing"}
