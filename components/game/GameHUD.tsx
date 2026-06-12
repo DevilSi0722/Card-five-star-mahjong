@@ -48,6 +48,8 @@ export function GameHUD() {
   const phase = useGameStore((state) => state.phase);
   const logs = useGameStore((state) => state.logs);
   const resetRound = useGameStore((state) => state.resetRound);
+  const nextLiangDaoZimoBuyHorseEnabled = useGameStore((state) => state.nextLiangDaoZimoBuyHorseEnabled);
+  const setNextLiangDaoZimoBuyHorseEnabled = useGameStore((state) => state.setNextLiangDaoZimoBuyHorseEnabled);
   const logPanelRef = useRef<HTMLDivElement>(null);
 
   const human = players.human;
@@ -104,6 +106,15 @@ export function GameHUD() {
             <RotateCcw className="h-4 w-4" />
             新局
           </button>
+          <label className="pointer-events-auto flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-white/12 bg-slate-950/70 px-3 py-2 text-xs text-slate-200 shadow-panel backdrop-blur-md">
+            <span>下局亮倒自摸买马</span>
+            <input
+              type="checkbox"
+              checked={nextLiangDaoZimoBuyHorseEnabled}
+              onChange={(event) => setNextLiangDaoZimoBuyHorseEnabled(event.target.checked)}
+              className="h-4 w-4 accent-emerald-300"
+            />
+          </label>
         </div>
       </div>
 

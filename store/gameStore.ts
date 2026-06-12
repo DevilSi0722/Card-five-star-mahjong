@@ -16,7 +16,7 @@ import type {
 } from "@/types/mahjong";
 import { createTileSet, sortTiles, TILE_KIND_LABEL } from "@/utils/mahjong/tiles";
 import { shuffle } from "@/utils/mahjong/shuffle";
-import { getNextPlayerId, getPlayersAfter, INITIAL_SCORE } from "@/utils/mahjong/rules";
+import { BASE_SCORE, getNextPlayerId, getPlayersAfter, INITIAL_SCORE } from "@/utils/mahjong/rules";
 import {
   analyzeWin,
   getAnGangKinds,
@@ -27,6 +27,7 @@ import { applyGangScore, scoreDraw, scoreGang, scoreWin } from "@/utils/mahjong/
 import { getForbiddenDiscards } from "@/utils/mahjong/ai";
 
 interface GameStore extends GameState {
+  setNextLiangDaoZimoBuyHorseEnabled: (enabled: boolean) => void;
   startNewRound: () => void;
   shuffleWall: () => void;
   dealInitialHands: () => void;
@@ -193,6 +194,10 @@ function forbiddenDiscardOwner(players: Record<PlayerId, Player>, selfId: Player
   );
 }
 
+function buyHorseValue(tile: TileInstance): number {
+  return typeof tile.rank === "number" ? tile.rank : 10;
+}
+
 const initialPlayers = createPlayers();
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -207,8 +212,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
   actionNonce: 0,
   canHumanLiangDao: false,
   gangCount: 0,
+  liangDaoZimoBuyHorseEnabled: false,
+  nextLiangDaoZimoBuyHorseEnabled: false,
+
+  setNextLiangDaoZimoBuyHorseEnabled: (enabled) => {
+    set({ nextLiangDaoZimoBuyHorseEnabled: enabled });
+  },
 
   startNewRound: () => {
+    const nextLiangDaoZimoBuyHorseEnabled = get().nextLiangDaoZimoBuyHorseEnabled;
     const previous = get().players;
     const players = createPlayers(previous);
     const wall = shuffle(createTileSet());
@@ -239,6 +251,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       supplementContext: undefined,
       canHumanLiangDao: updateHumanLiangDaoHint(dealt.human),
       gangCount: 0,
+      liangDaoZimoBuyHorseEnabled: nextLiangDaoZimoBuyHorseEnabled,
       logs: pushLog([], "新局开始，庄家先出牌"),
       actionNonce: get().actionNonce + 1,
     });
@@ -731,6 +744,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   settleWin: (winnerId, method, loserId, winningTile) => {
     const state = get();
+    const wall = [...state.wall];
     const player = state.players[winnerId];
     const tile = winningTile ?? player.hand.find((item) => item.id === player.lastDrawnTileId);
     const tilesForWin =
@@ -741,7 +755,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!win.isWin) return;
     const isGangShangPao = method === "discard" && state.supplementContext === "gangshang";
     const isHaiDiLao = method === "zimo" && state.wall.length === 0;
-    const result = scoreWin({
+    let result = scoreWin({
       players: state.players,
       winnerId,
       loserId,
@@ -750,14 +764,47 @@ export const useGameStore = create<GameStore>((set, get) => ({
       isGangShangPao,
       isHaiDiLao,
     });
+    const shouldBuyHorse =
+      state.liangDaoZimoBuyHorseEnabled &&
+      player.isLiangDao &&
+      (method === "zimo" || method === "gangshang") &&
+      wall.length > 0;
+    const buyHorseTile = shouldBuyHorse ? wall.shift() : undefined;
+
+    if (buyHorseTile) {
+      const value = buyHorseValue(buyHorseTile);
+      const bonus = value * BASE_SCORE;
+      result = {
+        ...result,
+        scoreChanges: {
+          ...result.scoreChanges,
+          [winnerId]: result.scoreChanges[winnerId] + bonus,
+        },
+        totalScores: {
+          ...result.totalScores,
+          [winnerId]: result.totalScores[winnerId] + bonus,
+        },
+        buyHorse: {
+          tile: buyHorseTile,
+          value,
+          bonus,
+        },
+      };
+    }
     set({
+      wall,
       players: applyRoundResult(state.players, result),
       phase: "settled",
       roundResult: result,
       pendingReactions: undefined,
       pendingBuGang: undefined,
       reactionPasses: [],
-      logs: pushLog(state.logs, result.title),
+      logs: pushLog(
+        state.logs,
+        buyHorseTile
+          ? `${result.title}，买马 ${TILE_KIND_LABEL[buyHorseTile.kind]} +${result.buyHorse?.bonus ?? 0}`
+          : result.title,
+      ),
       actionNonce: state.actionNonce + 1,
     });
   },

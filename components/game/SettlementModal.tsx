@@ -3,6 +3,7 @@
 import { RotateCcw, Trophy } from "lucide-react";
 import type { PlayerId, ScoreResult } from "@/types/mahjong";
 import { useGameStore } from "@/store/gameStore";
+import { TILE_KIND_LABEL } from "@/utils/mahjong/tiles";
 
 const PLAYER_LABEL: Record<PlayerId, string> = {
   human: "你",
@@ -50,6 +51,11 @@ export function SettlementModal({ result }: { result: ScoreResult }) {
             )}
           </div>
           <div className="mt-3 text-sm text-slate-200">总倍率：×{result.multiplier}，单份分：{result.baseScore}</div>
+          {result.buyHorse ? (
+            <div className="mt-2 rounded-md border border-sky-300/20 bg-sky-400/10 px-2 py-1.5 text-sm text-sky-100">
+              买马：{TILE_KIND_LABEL[result.buyHorse.tile.kind]}，点数 {result.buyHorse.value}，额外 +{result.buyHorse.bonus}
+            </div>
+          ) : null}
         </div>
 
         <div className="mt-4 overflow-hidden rounded-md border border-white/10">
