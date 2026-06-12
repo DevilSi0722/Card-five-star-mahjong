@@ -3,7 +3,7 @@
 import { Suspense, useMemo, useState } from "react";
 import { useTexture } from "@react-three/drei";
 import { animated, useSpring } from "@react-spring/three";
-import { CanvasTexture, SRGBColorSpace } from "three";
+import { ExtrudeGeometry, Shape, SRGBColorSpace } from "three";
 import type { TileInstance, TileKind } from "@/types/mahjong";
 import { getTileTextureSrc } from "@/utils/mahjong/tileTextures";
 
@@ -25,47 +25,107 @@ interface TileMeshProps {
 }
 
 const FACE_BACKGROUND = "#f5f1df";
-const FACE_TEXTURE_CACHE = new WeakMap<object, CanvasTexture>();
+const TILE_BACK_COLOR = "#182446";
+const TILE_WIDTH = 0.34;
+const TILE_LENGTH = 0.5;
+const TILE_THICKNESS = 0.12;
+const TILE_CORNER_RADIUS = 0.035;
+const TILE_EDGE_BEVEL = 0.018;
+const TILE_RENDERED_HALF_THICKNESS = TILE_THICKNESS / 2 + TILE_EDGE_BEVEL;
+const TILE_SURFACE_OFFSET = 0.0005;
+const STANDING_FACE_SIZE: [number, number] = [0.255, 0.355];
+const LYING_FACE_SIZE: [number, number] = [0.275, 0.383];
+const BODY_MATERIAL_INDEX = 0;
+const BACK_MATERIAL_INDEX = 1;
+
+function createRoundedRectangleShape(width: number, height: number, radius: number) {
+  const halfWidth = width / 2;
+  const halfHeight = height / 2;
+  const safeRadius = Math.min(radius, halfWidth, halfHeight);
+  const shape = new Shape();
+
+  shape.moveTo(-halfWidth + safeRadius, -halfHeight);
+  shape.lineTo(halfWidth - safeRadius, -halfHeight);
+  shape.quadraticCurveTo(halfWidth, -halfHeight, halfWidth, -halfHeight + safeRadius);
+  shape.lineTo(halfWidth, halfHeight - safeRadius);
+  shape.quadraticCurveTo(halfWidth, halfHeight, halfWidth - safeRadius, halfHeight);
+  shape.lineTo(-halfWidth + safeRadius, halfHeight);
+  shape.quadraticCurveTo(-halfWidth, halfHeight, -halfWidth, halfHeight - safeRadius);
+  shape.lineTo(-halfWidth, -halfHeight + safeRadius);
+  shape.quadraticCurveTo(-halfWidth, -halfHeight, -halfWidth + safeRadius, -halfHeight);
+
+  return shape;
+}
+
+function TileBody({
+  standing,
+  selected,
+  faceUp,
+}: {
+  standing: boolean;
+  selected: boolean;
+  faceUp: boolean;
+}) {
+  const bodyGeometry = useMemo(() => {
+    const shape = createRoundedRectangleShape(TILE_WIDTH, TILE_LENGTH, TILE_CORNER_RADIUS);
+    const roundedGeometry = new ExtrudeGeometry(shape, {
+      depth: TILE_THICKNESS,
+      bevelEnabled: true,
+      bevelSegments: 5,
+      bevelSize: TILE_EDGE_BEVEL,
+      bevelThickness: TILE_EDGE_BEVEL,
+      curveSegments: 10,
+    });
+
+    const capGroup = roundedGeometry.groups[0];
+    const sideGroup = roundedGeometry.groups[1];
+    const capHalfCount = capGroup.count / 2;
+    roundedGeometry.clearGroups();
+    roundedGeometry.addGroup(capGroup.start, capHalfCount, BODY_MATERIAL_INDEX);
+    roundedGeometry.addGroup(capGroup.start + capHalfCount, capGroup.count - capHalfCount, faceUp ? BODY_MATERIAL_INDEX : BACK_MATERIAL_INDEX);
+    roundedGeometry.addGroup(sideGroup.start, sideGroup.count, BODY_MATERIAL_INDEX);
+
+    roundedGeometry.center();
+    if (!standing) {
+      roundedGeometry.rotateX(-Math.PI / 2);
+    }
+    roundedGeometry.computeVertexNormals();
+
+    return roundedGeometry;
+  }, [faceUp, standing]);
+
+  return (
+    <mesh castShadow receiveShadow geometry={bodyGeometry}>
+      <meshStandardMaterial
+        attach="material-0"
+        color={FACE_BACKGROUND}
+        emissive={selected ? "#facc15" : "#000000"}
+        emissiveIntensity={selected ? 0.45 : 0}
+        roughness={0.55}
+      />
+      <meshStandardMaterial attach="material-1" color={TILE_BACK_COLOR} roughness={0.48} />
+    </mesh>
+  );
+}
 
 function TileFaceTexture({ src, standing = false }: { src: string; standing?: boolean }) {
   const sourceTexture = useTexture(src);
   const texture = useMemo(() => {
-    const sourceImage = sourceTexture.image as HTMLImageElement | HTMLCanvasElement | ImageBitmap | undefined;
-    if (!sourceImage) return sourceTexture;
-    const cached = FACE_TEXTURE_CACHE.get(sourceImage);
-    if (cached) return cached;
-
-    const width = sourceImage.width;
-    const height = sourceImage.height;
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-
-    const context = canvas.getContext("2d");
-    if (!context) return sourceTexture;
-    context.fillStyle = FACE_BACKGROUND;
-    context.fillRect(0, 0, width, height);
-    context.imageSmoothingEnabled = true;
-    context.imageSmoothingQuality = "high";
-    context.drawImage(sourceImage, 0, 0, width, height);
-
-    const bakedTexture = new CanvasTexture(canvas);
-    bakedTexture.colorSpace = SRGBColorSpace;
-    bakedTexture.anisotropy = 16;
-    bakedTexture.needsUpdate = true;
-    FACE_TEXTURE_CACHE.set(sourceImage, bakedTexture);
-    return bakedTexture;
+    sourceTexture.colorSpace = SRGBColorSpace;
+    sourceTexture.anisotropy = 16;
+    sourceTexture.needsUpdate = true;
+    return sourceTexture;
   }, [sourceTexture]);
 
   return standing ? (
-    <mesh position={[0, 0, 0.0605]} rotation={[0, 0, 0]}>
-      <planeGeometry args={[0.255, 0.355]} />
-      <meshBasicMaterial map={texture} toneMapped={false} />
+    <mesh position={[0, 0, TILE_RENDERED_HALF_THICKNESS + TILE_SURFACE_OFFSET]} rotation={[0, 0, 0]}>
+      <planeGeometry args={STANDING_FACE_SIZE} />
+      <meshBasicMaterial alphaTest={0.02} map={texture} toneMapped={false} transparent />
     </mesh>
   ) : (
-    <mesh position={[0, 0.0605, 0.01]} rotation={[-Math.PI / 2, 0, 0]}>
-      <planeGeometry args={[0.255, 0.355]} />
-      <meshBasicMaterial map={texture} toneMapped={false} />
+    <mesh position={[0, TILE_RENDERED_HALF_THICKNESS + TILE_SURFACE_OFFSET, 0.01]} rotation={[-Math.PI / 2, 0, 0]}>
+      <planeGeometry args={LYING_FACE_SIZE} />
+      <meshBasicMaterial alphaTest={0.02} map={texture} toneMapped={false} transparent />
     </mesh>
   );
 }
@@ -144,15 +204,7 @@ export function TileMesh({
         setHover(false);
       }}
     >
-      <mesh castShadow receiveShadow>
-        <boxGeometry args={isStanding ? [0.34, 0.5, 0.12] : [0.34, 0.12, 0.5]} />
-        <meshStandardMaterial
-          color={faceUp ? "#f5f1df" : "#235b78"}
-          emissive={selected ? "#facc15" : "#000000"}
-          emissiveIntensity={selected ? 0.45 : 0}
-          roughness={0.55}
-        />
-      </mesh>
+      <TileBody standing={isStanding} selected={selected} faceUp={faceUp} />
       {textureSrc ? (
         <Suspense fallback={null}>
           <TileFaceTexture src={textureSrc} standing={isStanding} />

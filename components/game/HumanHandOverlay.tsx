@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useMemo } from "react";
+import frontTileFace from "@/png/front.png";
 import { useGameStore } from "@/store/gameStore";
 import { useUiStore } from "@/store/uiStore";
 import { getTingDiscardTileIds } from "@/utils/mahjong/tingInfo";
@@ -71,7 +72,7 @@ export function HumanHandOverlay() {
 
   return (
     <div className="pointer-events-none fixed bottom-4 left-0 right-0 z-20">
-      <div className="mx-auto flex w-full items-end justify-start gap-1 overflow-x-auto px-4 pb-1 pt-5 hud-scrollbar sm:justify-center sm:gap-1.5 sm:px-6">
+      <div className="mx-auto flex w-full items-end justify-start gap-0 overflow-x-auto px-4 pb-1 pt-5 hud-scrollbar sm:justify-center sm:px-6">
         {tiles.map((tile) => {
           const textureSrc = getTileTextureSrc(tile.kind);
           const selected = selectedTileId === tile.id;
@@ -97,7 +98,7 @@ export function HumanHandOverlay() {
               onMouseLeave={() => {
                 if (interactive) setHoveredTileId(undefined);
               }}
-              className={`relative h-[126px] w-[86px] shrink-0 rounded-lg border bg-[#f5f1df] shadow-panel transition sm:h-[138px] sm:w-[94px] ${
+              className={`relative h-[126px] w-[86px] shrink-0 overflow-hidden rounded-lg bg-transparent shadow-panel transition sm:h-[138px] sm:w-[94px] ${
                 isDrawn ? DRAWN_TILE_GAP_CLASS : ""
               } ${
                 selected
@@ -106,17 +107,26 @@ export function HumanHandOverlay() {
                     ? "animate-pulse border-yellow-300 ring-2 ring-yellow-300/90"
                   : dangerous
                     ? "border-red-500 ring-2 ring-red-500/80"
-                  : "border-slate-300/80"
+                  : ""
               } ${interactive ? "pointer-events-auto cursor-pointer hover:-translate-y-4" : "pointer-events-auto cursor-default"}`}
             >
-              <span className="absolute inset-[7px] rounded-md border border-slate-300/80 bg-[#fbf6ea]" />
+              <Image
+                src={frontTileFace}
+                alt=""
+                fill
+                sizes="94px"
+                className="object-fill"
+                unoptimized
+                priority
+                aria-hidden
+              />
               {textureSrc ? (
                 <Image
                   src={textureSrc}
                   alt={label}
                   width={62}
                   height={86}
-                  className="absolute left-1/2 top-1/2 h-[86px] w-[62px] -translate-x-1/2 -translate-y-1/2 object-contain sm:h-[96px] sm:w-[70px]"
+                  className="absolute left-1/2 top-[53%] h-[84px] w-[60px] -translate-x-1/2 -translate-y-1/2 object-contain sm:h-[92px] sm:w-[66px]"
                   unoptimized
                   priority
                   loading="eager"
