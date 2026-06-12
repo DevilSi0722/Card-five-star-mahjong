@@ -98,18 +98,25 @@ export function HumanHandOverlay() {
               onMouseLeave={() => {
                 if (interactive) setHoveredTileId(undefined);
               }}
-              className={`relative h-[126px] w-[86px] shrink-0 overflow-hidden rounded-lg bg-transparent shadow-panel transition sm:h-[138px] sm:w-[94px] ${
+              className={`relative h-[126px] w-[86px] shrink-0 overflow-visible rounded-lg bg-transparent transition sm:h-[138px] sm:w-[94px] ${
                 isDrawn ? DRAWN_TILE_GAP_CLASS : ""
               } ${
                 selected
-                  ? "-translate-y-3 border-yellow-300 ring-2 ring-yellow-300/70"
+                  ? "-translate-y-3 shadow-[0_14px_28px_rgba(250,204,21,0.26),0_0_18px_rgba(250,204,21,0.28)]"
                   : canPengTile
-                    ? "animate-pulse border-yellow-300 ring-2 ring-yellow-300/90"
+                    ? "animate-pulse shadow-[0_12px_24px_rgba(250,204,21,0.22),0_0_14px_rgba(250,204,21,0.24)]"
                   : dangerous
-                    ? "border-red-500 ring-2 ring-red-500/80"
-                  : ""
+                    ? "shadow-[0_12px_24px_rgba(239,68,68,0.22),0_0_14px_rgba(239,68,68,0.22)]"
+                  : "shadow-panel"
               } ${interactive ? "pointer-events-auto cursor-pointer hover:-translate-y-4" : "pointer-events-auto cursor-default"}`}
             >
+              {selected || canPengTile || dangerous ? (
+                <span
+                  className={`pointer-events-none absolute inset-x-3 -bottom-1 z-10 h-1 rounded-full blur-[0.5px] ${
+                    dangerous ? "bg-red-400/85" : "bg-yellow-300/90"
+                  }`}
+                />
+              ) : null}
               <Image
                 src={frontTileFace}
                 alt=""
