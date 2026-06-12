@@ -119,7 +119,10 @@ export function GameCanvas() {
       <hemisphereLight args={["#d8f6ff", "#19362f", 0.45]} />
       <Suspense fallback={<LoadingTableFallback />}>
         <TileTextureWarmup />
-        <group scale={isMobileLandscape ? [1.1, 1.1, 1.1] : [1.16, 1.16, 1.16]}>
+        <group
+          position={isMobileLandscape ? [0, 0, -0.22] : [0, 0, 0]}
+          scale={isMobileLandscape ? [1.18, 1.18, 1.18] : [1.16, 1.16, 1.16]}
+        >
           <MahjongTable />
 
           <TurnIndicator3D

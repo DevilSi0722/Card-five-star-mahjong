@@ -1,6 +1,5 @@
 "use client";
 
-import { Check, Eye, HandMetal, Octagon, Shield, X } from "lucide-react";
 import type { Meld, TileKind } from "@/types/mahjong";
 import { useGameStore } from "@/store/gameStore";
 import { useUiStore } from "@/store/uiStore";
@@ -16,14 +15,12 @@ interface ActionPanelProps {
 
 function ActionButton({
   label,
-  icon,
   children,
   onClick,
   tone = "default",
   compact = false,
 }: {
   label: string;
-  icon: React.ReactNode;
   children: React.ReactNode;
   onClick: () => void;
   tone?: "default" | "primary" | "danger";
@@ -44,18 +41,9 @@ function ActionButton({
       aria-label={label}
       title={label}
       className={`group flex shrink-0 flex-col items-center justify-center rounded-full border-2 font-bold leading-none shadow-panel backdrop-blur-md transition active:scale-95 ${
-        compact ? "h-14 w-14 text-[11px]" : "h-20 w-20 text-sm sm:h-24 sm:w-24 sm:text-base"
+        compact ? "h-11 w-11 text-xl" : "h-16 w-16 text-2xl sm:h-[72px] sm:w-[72px] sm:text-3xl"
       } ${toneClass}`}
     >
-      <span
-        className={`flex items-center justify-center ${
-          compact
-            ? "mb-0.5 h-5 w-5 [&>svg]:h-5 [&>svg]:w-5"
-            : "mb-1.5 h-7 w-7 sm:h-8 sm:w-8 [&>svg]:h-7 [&>svg]:w-7 sm:[&>svg]:h-8 sm:[&>svg]:w-8"
-        }`}
-      >
-        {icon}
-      </span>
       {children}
     </button>
   );
@@ -109,7 +97,7 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
 
   if (humanReaction?.canPeng) {
     rightActions.push(
-      <ActionButton compact={isMobileLandscape} key="peng" label="碰" icon={<HandMetal />} onClick={() => claimPeng("human")}>
+      <ActionButton compact={isMobileLandscape} key="peng" label="碰" onClick={() => claimPeng("human")}>
         碰
       </ActionButton>,
     );
@@ -117,7 +105,7 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
 
   if (humanReaction?.canGang) {
     rightActions.push(
-      <ActionButton compact={isMobileLandscape} key="ming-gang" label="杠" icon={<Octagon />} onClick={() => claimMingGang("human")}>
+      <ActionButton compact={isMobileLandscape} key="ming-gang" label="杠" onClick={() => claimMingGang("human")}>
         杠
       </ActionButton>,
     );
@@ -129,11 +117,10 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
         <ActionButton
           key={`an-gang-${kind}`}
           label={`暗杠 ${TILE_KIND_LABEL[kind]}`}
-          icon={<Octagon />}
           onClick={() => claimAnGang("human", kind)}
           compact={isMobileLandscape}
         >
-          暗杠
+          杠
         </ActionButton>,
       );
     }
@@ -143,11 +130,10 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
         <ActionButton
           key={meld.id}
           label={`补杠 ${TILE_KIND_LABEL[meld.tiles[0].kind]}`}
-          icon={<Shield />}
           onClick={() => claimBuGang("human", meld.id)}
           compact={isMobileLandscape}
         >
-          补杠
+          杠
         </ActionButton>,
       );
     }
@@ -159,7 +145,6 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
           key="skip-liang-dao-gang"
           tone="danger"
           label="过"
-          icon={<X />}
           onClick={() => discardTile("human", drawnTile.id)}
         >
           过
@@ -170,7 +155,7 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
 
   if (humanReaction?.canHu) {
     rightActions.unshift(
-      <ActionButton compact={isMobileLandscape} key="hu" tone="primary" label="胡" icon={<Check />} onClick={() => claimHu("human")}>
+      <ActionButton compact={isMobileLandscape} key="hu" tone="primary" label="胡" onClick={() => claimHu("human")}>
         胡
       </ActionButton>,
     );
@@ -178,7 +163,7 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
 
   if (humanReaction) {
     rightActions.push(
-      <ActionButton compact={isMobileLandscape} key="pass" tone="danger" label="过" icon={<X />} onClick={() => passReaction("human")}>
+      <ActionButton compact={isMobileLandscape} key="pass" tone="danger" label="过" onClick={() => passReaction("human")}>
         过
       </ActionButton>,
     );
@@ -186,8 +171,8 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
 
   if (canClaimSelfHu) {
     rightActions.unshift(
-      <ActionButton compact={isMobileLandscape} key="zimo" tone="primary" label="自摸" icon={<Check />} onClick={() => claimHu("human")}>
-        自摸
+      <ActionButton compact={isMobileLandscape} key="zimo" tone="primary" label="自摸" onClick={() => claimHu("human")}>
+        胡
       </ActionButton>,
     );
   }
@@ -198,11 +183,10 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
         key="liang-dao"
         tone={liangDaoArmed ? "primary" : "default"}
         label="亮倒"
-        icon={<Eye />}
         onClick={() => setLiangDaoArmed(!liangDaoArmed)}
         compact={isMobileLandscape}
       >
-        亮倒
+        亮
       </ActionButton>,
     );
   }

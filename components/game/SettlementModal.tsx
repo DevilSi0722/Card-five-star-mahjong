@@ -3,6 +3,7 @@
 import { RotateCcw, Trophy } from "lucide-react";
 import type { PlayerId, ScoreResult } from "@/types/mahjong";
 import { useGameStore } from "@/store/gameStore";
+import { useResponsiveGameLayout } from "@/hooks/useResponsiveGameLayout";
 import { TILE_KIND_LABEL } from "@/utils/mahjong/tiles";
 
 const PLAYER_LABEL: Record<PlayerId, string> = {
@@ -19,6 +20,7 @@ const METHOD_LABEL: Record<NonNullable<ScoreResult["method"]>, string> = {
 };
 
 export function SettlementModal({ result }: { result: ScoreResult }) {
+  const { isMobileLandscape } = useResponsiveGameLayout();
   const resetRound = useGameStore((state) => state.resetRound);
   const ids = Object.keys(result.scoreChanges) as PlayerId[];
   const winDetails =
@@ -39,41 +41,47 @@ export function SettlementModal({ result }: { result: ScoreResult }) {
       : []);
 
   return (
-    <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/35 p-4">
-      <div className="w-full max-w-md rounded-lg border border-white/12 bg-slate-950/95 p-5 shadow-panel">
-        <div className="flex items-center gap-2 text-lg font-semibold text-white">
-          <Trophy className="h-5 w-5 text-yellow-300" />
+    <div className={`absolute inset-0 z-30 flex items-center justify-center bg-black/35 ${isMobileLandscape ? "p-2" : "p-4"}`}>
+      <div
+        className={`w-full overflow-y-auto rounded-lg border border-white/12 bg-slate-950/95 shadow-panel hud-scrollbar ${
+          isMobileLandscape ? "max-h-[calc(100dvh-1rem)] max-w-[min(560px,calc(100vw-1rem))] p-3" : "max-w-md p-5"
+        }`}
+      >
+        <div className={`flex items-center gap-2 font-semibold text-white ${isMobileLandscape ? "text-base" : "text-lg"}`}>
+          <Trophy className={`${isMobileLandscape ? "h-4 w-4" : "h-5 w-5"} text-yellow-300`} />
           {result.title}
         </div>
         {result.winnerId ? (
-          <div className="mt-2 text-sm text-slate-300">
+          <div className={`${isMobileLandscape ? "mt-1 text-xs" : "mt-2 text-sm"} text-slate-300`}>
             胡牌玩家：{winDetails.map((detail) => PLAYER_LABEL[detail.winnerId]).join("、")}，方式：
             {result.method ? METHOD_LABEL[result.method] : ""}
           </div>
         ) : (
-          <div className="mt-2 text-sm text-slate-300">牌墙摸空，本局不计分。</div>
+          <div className={`${isMobileLandscape ? "mt-1 text-xs" : "mt-2 text-sm"} text-slate-300`}>牌墙摸空，本局不计分。</div>
         )}
 
-        <div className="mt-4 rounded-md bg-white/6 p-3">
-          <div className="text-sm font-medium text-slate-100">番型</div>
+        <div className={`${isMobileLandscape ? "mt-2 p-2" : "mt-4 p-3"} rounded-md bg-white/6`}>
+          <div className={`${isMobileLandscape ? "text-xs" : "text-sm"} font-medium text-slate-100`}>番型</div>
           {winDetails.length > 0 ? (
-            <div className="mt-2 space-y-3">
+            <div className={`${isMobileLandscape ? "mt-1 space-y-1.5" : "mt-2 space-y-3"}`}>
               {winDetails.map((detail) => (
-                <div key={detail.winnerId} className="rounded-md border border-white/8 bg-slate-900/60 p-2.5">
+                <div key={detail.winnerId} className={`rounded-md border border-white/8 bg-slate-900/60 ${isMobileLandscape ? "p-1.5" : "p-2.5"}`}>
                   <div className="text-xs font-medium text-slate-200">
                     {PLAYER_LABEL[detail.winnerId]} · {METHOD_LABEL[detail.method]}
                   </div>
-                  <div className="mt-2 flex flex-wrap gap-2">
+                  <div className={`${isMobileLandscape ? "mt-1 gap-1" : "mt-2 gap-2"} flex flex-wrap`}>
                     {detail.fans.map((fan) => (
                       <span
                         key={fan.type}
-                        className="rounded-md border border-emerald-300/25 bg-emerald-400/12 px-2 py-1 text-xs text-emerald-100"
+                        className={`rounded-md border border-emerald-300/25 bg-emerald-400/12 text-xs text-emerald-100 ${
+                          isMobileLandscape ? "px-1.5 py-0.5" : "px-2 py-1"
+                        }`}
                       >
                         {fan.name} ×{fan.fan}
                       </span>
                     ))}
                   </div>
-                  <div className="mt-2 text-xs text-slate-300">
+                  <div className={`${isMobileLandscape ? "mt-1" : "mt-2"} text-xs text-slate-300`}>
                     总倍率：×{detail.multiplier}，单份分：{detail.baseScore}
                   </div>
                 </div>
@@ -83,15 +91,15 @@ export function SettlementModal({ result }: { result: ScoreResult }) {
             <div className="mt-2 text-xs text-slate-400">无</div>
           )}
           {result.buyHorse ? (
-            <div className="mt-2 rounded-md border border-sky-300/20 bg-sky-400/10 px-2 py-1.5 text-sm text-sky-100">
+            <div className={`${isMobileLandscape ? "mt-1 px-1.5 py-1 text-xs" : "mt-2 px-2 py-1.5 text-sm"} rounded-md border border-sky-300/20 bg-sky-400/10 text-sky-100`}>
               买马：{TILE_KIND_LABEL[result.buyHorse.tile.kind]}，点数 {result.buyHorse.value}，额外 +{result.buyHorse.bonus}
             </div>
           ) : null}
         </div>
 
-        <div className="mt-4 overflow-hidden rounded-md border border-white/10">
+        <div className={`${isMobileLandscape ? "mt-2" : "mt-4"} overflow-hidden rounded-md border border-white/10`}>
           {ids.map((id) => (
-            <div key={id} className="grid grid-cols-3 border-b border-white/8 px-3 py-2 text-sm last:border-b-0">
+            <div key={id} className={`grid grid-cols-3 border-b border-white/8 last:border-b-0 ${isMobileLandscape ? "px-2 py-1 text-xs" : "px-3 py-2 text-sm"}`}>
               <span className="text-slate-200">{PLAYER_LABEL[id]}</span>
               <span className={result.scoreChanges[id] >= 0 ? "text-emerald-200" : "text-rose-200"}>
                 {result.scoreChanges[id] >= 0 ? "+" : ""}
@@ -105,9 +113,11 @@ export function SettlementModal({ result }: { result: ScoreResult }) {
         <button
           type="button"
           onClick={resetRound}
-          className="mt-5 inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-emerald-400 text-sm font-semibold text-slate-950 hover:bg-emerald-300"
+          className={`inline-flex w-full items-center justify-center gap-2 rounded-md bg-emerald-400 font-semibold text-slate-950 hover:bg-emerald-300 ${
+            isMobileLandscape ? "mt-2 h-8 text-xs" : "mt-5 h-10 text-sm"
+          }`}
         >
-          <RotateCcw className="h-4 w-4" />
+          <RotateCcw className={isMobileLandscape ? "h-3.5 w-3.5" : "h-4 w-4"} />
           新局
         </button>
       </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import frontTileFace from "@/png/optimized/front.webp";
 import { useGameStore } from "@/store/gameStore";
 import { useUiStore } from "@/store/uiStore";
@@ -11,6 +11,8 @@ import { TILE_KIND_LABEL } from "@/utils/mahjong/tiles";
 import { ALL_TILE_TEXTURE_SRCS, getTileTextureSrc } from "@/utils/mahjong/tileTextures";
 
 const DRAWN_TILE_GAP_CLASS = "ml-3 sm:ml-5";
+const DOUBLE_TAP_MS = 320;
+const HAND_REORDER_ANIMATION_MS = 220;
 
 export function HumanHandOverlay() {
   const { isMobileLandscape } = useResponsiveGameLayout();
@@ -28,6 +30,9 @@ export function HumanHandOverlay() {
   const setHoveredTileId = useUiStore((state) => state.setHoveredTileId);
   const liangDaoArmed = useUiStore((state) => state.liangDaoArmed);
   const setLiangDaoArmed = useUiStore((state) => state.setLiangDaoArmed);
+  const lastClickRef = useRef<{ tileId: string; time: number } | null>(null);
+  const tileElementRefs = useRef(new Map<string, HTMLButtonElement>());
+  const previousTileRects = useRef(new Map<string, DOMRect>());
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -82,7 +87,65 @@ export function HumanHandOverlay() {
     }
   }, [human.isLiangDao, interactive, liangDaoArmed, liangDaoDiscardTileIds.size, revealAll, setLiangDaoArmed]);
 
+  useLayoutEffect(() => {
+    const nextRects = new Map<string, DOMRect>();
+
+    for (const tile of tiles) {
+      const element = tileElementRefs.current.get(tile.id);
+      if (!element) continue;
+
+      const nextRect = element.getBoundingClientRect();
+      const previousRect = previousTileRects.current.get(tile.id);
+      nextRects.set(tile.id, nextRect);
+
+      if (!previousRect) continue;
+      const deltaX = previousRect.left - nextRect.left;
+      const deltaY = previousRect.top - nextRect.top;
+      if (Math.abs(deltaX) < 1 && Math.abs(deltaY) < 1) continue;
+
+      element.animate(
+        [
+          { transform: `translate(${deltaX}px, ${deltaY}px)` },
+          { transform: "translate(0, 0)" },
+        ],
+        {
+          duration: HAND_REORDER_ANIMATION_MS,
+          easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+        },
+      );
+    }
+
+    previousTileRects.current = nextRects;
+  });
+
   if (human.hand.length === 0 || human.isLiangDao || revealAll) return null;
+
+  function playTile(tileId: string, canLiangDaoWithTile: boolean) {
+    if (!interactive) return;
+    if (liangDaoArmed) {
+      if (canLiangDaoWithTile) {
+        setLiangDaoArmed(false);
+        declareLiangDao("human", tileId);
+        return;
+      }
+      setLiangDaoArmed(false);
+      discardTile("human", tileId);
+      return;
+    }
+    discardTile("human", tileId);
+  }
+
+  function handleTileClick(tileId: string, canLiangDaoWithTile: boolean) {
+    const now = window.performance.now();
+    const previous = lastClickRef.current;
+    const isDoubleTap = previous?.tileId === tileId && now - previous.time <= DOUBLE_TAP_MS;
+    lastClickRef.current = { tileId, time: now };
+    selectTile(tileId);
+    if (isDoubleTap) {
+      lastClickRef.current = null;
+      playTile(tileId, canLiangDaoWithTile);
+    }
+  }
 
   return (
     <div
@@ -107,26 +170,16 @@ export function HumanHandOverlay() {
 
           return (
             <button
+              ref={(element) => {
+                if (element) tileElementRefs.current.set(tile.id, element);
+                else tileElementRefs.current.delete(tile.id);
+              }}
               key={tile.id}
               type="button"
               title={label}
               aria-label={label}
               onPointerDown={(event) => event.stopPropagation()}
-              onClick={() => selectTile(tile.id)}
-              onDoubleClick={() => {
-                if (!interactive) return;
-                if (liangDaoArmed) {
-                  if (canLiangDaoWithTile) {
-                    setLiangDaoArmed(false);
-                    declareLiangDao("human", tile.id);
-                    return;
-                  }
-                  setLiangDaoArmed(false);
-                  discardTile("human", tile.id);
-                  return;
-                }
-                discardTile("human", tile.id);
-              }}
+              onClick={() => handleTileClick(tile.id, canLiangDaoWithTile)}
               onMouseEnter={() => {
                 if (interactive) setHoveredTileId(tile.id);
               }}
