@@ -32,7 +32,9 @@ export function HumanHandOverlay() {
   const setLiangDaoArmed = useUiStore((state) => state.setLiangDaoArmed);
   const lastClickRef = useRef<{ tileId: string; time: number } | null>(null);
   const tileElementRefs = useRef(new Map<string, HTMLButtonElement>());
+  const tileContentRefs = useRef(new Map<string, HTMLDivElement>());
   const previousTileRects = useRef(new Map<string, DOMRect>());
+  const previousLayoutKey = useRef("");
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -53,6 +55,7 @@ export function HumanHandOverlay() {
   const rest = hasDrawn ? human.hand.filter((tile) => tile.id !== drawnId) : human.hand;
   const drawn = hasDrawn ? human.hand.find((tile) => tile.id === drawnId) : undefined;
   const tiles = drawn ? [...rest, drawn] : rest;
+  const layoutKey = tiles.map((tile) => tile.id).join("|");
   const exposedWaitKinds = useMemo(
     () =>
       new Set(
@@ -89,6 +92,7 @@ export function HumanHandOverlay() {
 
   useLayoutEffect(() => {
     const nextRects = new Map<string, DOMRect>();
+    const layoutChanged = previousLayoutKey.current !== "" && previousLayoutKey.current !== layoutKey;
 
     for (const tile of tiles) {
       const element = tileElementRefs.current.get(tile.id);
@@ -96,16 +100,16 @@ export function HumanHandOverlay() {
 
       const nextRect = element.getBoundingClientRect();
       const previousRect = previousTileRects.current.get(tile.id);
+      const contentElement = tileContentRefs.current.get(tile.id);
       nextRects.set(tile.id, nextRect);
 
-      if (!previousRect) continue;
+      if (!layoutChanged || !previousRect || !contentElement) continue;
       const deltaX = previousRect.left - nextRect.left;
-      const deltaY = previousRect.top - nextRect.top;
-      if (Math.abs(deltaX) < 1 && Math.abs(deltaY) < 1) continue;
+      if (Math.abs(deltaX) < 1) continue;
 
-      element.animate(
+      contentElement.animate(
         [
-          { transform: `translate(${deltaX}px, ${deltaY}px)` },
+          { transform: `translateX(${deltaX}px)` },
           { transform: "translate(0, 0)" },
         ],
         {
@@ -116,7 +120,8 @@ export function HumanHandOverlay() {
     }
 
     previousTileRects.current = nextRects;
-  });
+    previousLayoutKey.current = layoutKey;
+  }, [layoutKey, tiles]);
 
   if (human.hand.length === 0 || human.isLiangDao || revealAll) return null;
 
@@ -202,40 +207,48 @@ export function HumanHandOverlay() {
                   : "shadow-panel"
               } ${interactive ? `pointer-events-auto cursor-pointer ${isMobileLandscape ? "hover:-translate-y-2" : "hover:-translate-y-4"}` : "pointer-events-auto cursor-default"}`}
             >
-              {selected || highlightLiangDaoChoice || canPengTile || dangerous ? (
-                <span
-                  className={`pointer-events-none absolute inset-x-3 -bottom-1 z-10 h-1 origin-center rounded-full blur-[0.5px] ${
-                    dangerous ? "bg-red-400/85" : highlightLiangDaoChoice ? "bg-sky-300/90" : "bg-yellow-300/90"
-                  } ${canPengTile ? "human-hand-tile-glow--pulse" : ""}`}
-                />
-              ) : null}
-              <Image
-                src={frontTileFace}
-                alt=""
-                fill
-                sizes={isMobileLandscape ? "57px" : "94px"}
-                className={`object-fill ${isDrawn ? "human-hand-tile-fly-in" : ""}`}
-                unoptimized
-                priority
-                aria-hidden
-              />
-              {textureSrc ? (
+              <div
+                ref={(element) => {
+                  if (element) tileContentRefs.current.set(tile.id, element);
+                  else tileContentRefs.current.delete(tile.id);
+                }}
+                className="pointer-events-none relative h-full w-full overflow-visible"
+              >
+                {selected || highlightLiangDaoChoice || canPengTile || dangerous ? (
+                  <span
+                    className={`absolute inset-x-3 -bottom-1 z-10 h-1 origin-center rounded-full blur-[0.5px] ${
+                      dangerous ? "bg-red-400/85" : highlightLiangDaoChoice ? "bg-sky-300/90" : "bg-yellow-300/90"
+                    } ${canPengTile ? "human-hand-tile-glow--pulse" : ""}`}
+                  />
+                ) : null}
                 <Image
-                  src={textureSrc}
-                  alt={label}
-                  width={62}
-                  height={86}
-                  className={`absolute left-1/2 top-[53%] -translate-x-1/2 -translate-y-1/2 object-contain ${
-                    isMobileLandscape ? "h-[56px] w-[40px]" : "h-[84px] w-[60px] sm:h-[92px] sm:w-[66px]"
-                  } ${isDrawn ? "human-hand-tile-fly-in" : ""}`}
+                  src={frontTileFace}
+                  alt=""
+                  fill
+                  sizes={isMobileLandscape ? "57px" : "94px"}
+                  className="object-fill"
                   unoptimized
                   priority
-                  loading="eager"
+                  aria-hidden
                 />
-              ) : null}
-              {tingTileIds.has(tile.id) ? (
-                <span className="absolute left-1/2 top-1.5 h-2.5 w-2.5 -translate-x-1/2 rounded-full bg-yellow-400 shadow-[0_0_12px_rgba(250,204,21,0.9)]" />
-              ) : null}
+                {textureSrc ? (
+                  <Image
+                    src={textureSrc}
+                    alt={label}
+                    width={62}
+                    height={86}
+                    className={`absolute left-1/2 top-[53%] -translate-x-1/2 -translate-y-1/2 object-contain ${
+                      isMobileLandscape ? "h-[56px] w-[40px]" : "h-[84px] w-[60px] sm:h-[92px] sm:w-[66px]"
+                    }`}
+                    unoptimized
+                    priority
+                    loading="eager"
+                  />
+                ) : null}
+                {tingTileIds.has(tile.id) ? (
+                  <span className="absolute left-1/2 top-1.5 h-2.5 w-2.5 -translate-x-1/2 rounded-full bg-yellow-400 shadow-[0_0_12px_rgba(250,204,21,0.9)]" />
+                ) : null}
+              </div>
             </button>
           );
         })}
