@@ -290,11 +290,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
   netWinds: undefined,
 
   configureNet: ({ role, seat, forward }) => {
-    // 切换联机角色时清掉上一局残留的对局状态，避免重新加入房间时闪现上一次的结算窗口。
+    // 切换联机角色时清掉上一局残留的对局状态，避免新房间继承旧分数/名册/结算窗口。
     set({
       netRole: role,
       netSeat: seat,
       netForward: forward,
+      netRoster: undefined,
+      netWinds: undefined,
+      wall: [],
+      deadWall: [],
+      players: createPlayers(),
+      currentPlayerId: "human",
+      dealerId: "human",
       phase: "ready",
       roundResult: undefined,
       pendingReactions: undefined,
@@ -303,6 +310,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
       lastDiscard: undefined,
       selectedTileId: undefined,
       supplementContext: undefined,
+      logs: [],
+      canHumanLiangDao: false,
+      gangCount: 0,
+      baseScore: BASE_SCORE,
+      liangDaoZimoBuyHorseEnabled: false,
     });
   },
 
@@ -445,7 +457,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const tile = player.hand.find((item) => item.id === tileId);
     if (!tile) return;
     if (state.netRole === "guest") {
-      state.netForward?.({ type: "discard", tileId, seat: state.netSeat });
+      if (!state.netForward) return;
+      state.netForward({ type: "discard", tileId, seat: state.netSeat });
       const players = { ...state.players };
       players[playerId] = {
         ...player,
