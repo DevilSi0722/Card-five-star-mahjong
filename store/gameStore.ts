@@ -403,7 +403,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       gangCount: 0,
       baseScore: nextBaseScore,
       liangDaoZimoBuyHorseEnabled: nextLiangDaoZimoBuyHorseEnabled,
-      logs: pushLog([], `新局开始，${dealt[dealerId].name} 坐庄先出牌`),
+      logs: pushLog([], `新局开始，${dealtWithRoster[dealerId].name} 坐庄先出牌`),
       actionNonce: state.actionNonce + 1,
     });
   },
