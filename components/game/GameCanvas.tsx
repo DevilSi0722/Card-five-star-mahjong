@@ -58,9 +58,9 @@ function FixedCamera({ mobileLandscape }: { mobileLandscape: boolean }) {
   useEffect(() => {
     const perspectiveCamera = camera as PerspectiveCamera;
     if (mobileLandscape) {
-      perspectiveCamera.position.set(0, 7.35, 4.55);
-      perspectiveCamera.fov = 42;
-      perspectiveCamera.lookAt(0, -0.05, 0);
+      perspectiveCamera.position.set(0, 7.15, 4.35);
+      perspectiveCamera.fov = 39;
+      perspectiveCamera.lookAt(0, -0.05, -0.18);
     } else {
       perspectiveCamera.position.set(0, 6.8, 4.1);
       perspectiveCamera.fov = 40;
@@ -113,8 +113,8 @@ export function GameCanvas() {
       shadows
       dpr={canvasDpr}
       camera={{
-        position: isMobileLandscape ? [0, 7.35, 4.55] : [0, 6.8, 4.1],
-        fov: isMobileLandscape ? 42 : 40,
+        position: isMobileLandscape ? [0, 7.15, 4.35] : [0, 6.8, 4.1],
+        fov: isMobileLandscape ? 39 : 40,
       }}
       className="absolute inset-0"
       gl={{ antialias: true }}
@@ -127,8 +127,8 @@ export function GameCanvas() {
       <Suspense fallback={<LoadingTableFallback />}>
         <TileTextureWarmup />
         <group
-          position={isMobileLandscape ? [0, 0, -0.22] : [0, 0, 0]}
-          scale={isMobileLandscape ? [1.18, 1.18, 1.18] : [1.16, 1.16, 1.16]}
+          position={isMobileLandscape ? [0, 0, -0.38] : [0, 0, 0]}
+          scale={isMobileLandscape ? [1.25, 1.25, 1.25] : [1.16, 1.16, 1.16]}
         >
           <MahjongTable />
 
