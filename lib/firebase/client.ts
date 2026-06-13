@@ -1,7 +1,7 @@
 "use client";
 
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
-import { getFirestore, type Firestore } from "firebase/firestore";
+import { initializeFirestore, getFirestore, type Firestore } from "firebase/firestore";
 
 // Firebase 客户端配置全部来自 NEXT_PUBLIC_* 环境变量。
 // 这些值是「公开」的（前端必然能拿到），真正的访问控制由 Firestore 安全规则负责。
@@ -36,6 +36,14 @@ function getFirebaseApp(): FirebaseApp {
 /** 获取 Firestore 实例（惰性初始化，仅在客户端调用）。 */
 export function getDb(): Firestore {
   if (cachedDb) return cachedDb;
-  cachedDb = getFirestore(getFirebaseApp());
+  const app = getFirebaseApp();
+  try {
+    // 牌局快照含大量可选字段（开局时多为 undefined）。
+    // 默认 Firestore 会拒绝含 undefined 的文档写入，这里开启忽略以保证视图能正常发布。
+    cachedDb = initializeFirestore(app, { ignoreUndefinedProperties: true });
+  } catch {
+    // 已初始化过（例如热更新/重复调用）则回退到既有实例。
+    cachedDb = getFirestore(app);
+  }
   return cachedDb;
 }
