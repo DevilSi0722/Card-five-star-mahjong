@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useGameStore } from "@/store/gameStore";
 import { useAiTurn } from "@/hooks/useAiTurn";
+import { useNetBridge } from "@/hooks/useNetBridge";
 import { useResponsiveGameLayout } from "@/hooks/useResponsiveGameLayout";
 import { GameCanvas } from "./GameCanvas";
 import { GameHUD } from "./GameHUD";
@@ -18,12 +19,15 @@ export function MahjongGame() {
   const roundResult = useGameStore((state) => state.roundResult);
   const selectedTileId = useGameStore((state) => state.selectedTileId);
   const selectTile = useGameStore((state) => state.selectTile);
+  const netRole = useGameStore((state) => state.netRole);
   const [showSettlement, setShowSettlement] = useState(false);
   useAiTurn();
+  useNetBridge();
 
   useEffect(() => {
-    startNewRound();
-  }, [startNewRound]);
+    // 单机模式直接开局；联机模式由房主根据房间状态触发发牌，guest 仅渲染。
+    if (netRole === "single") startNewRound();
+  }, [startNewRound, netRole]);
 
   useEffect(() => {
     if (!roundResult) {

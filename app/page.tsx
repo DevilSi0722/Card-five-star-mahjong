@@ -1,5 +1,5 @@
-import { MahjongGame } from "@/components/game/MahjongGame";
+import { AppRouter } from "@/components/AppRouter";
 
 export default function Home() {
-  return <MahjongGame />;
+  return <AppRouter />;
 }

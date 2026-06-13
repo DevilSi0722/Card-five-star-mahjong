@@ -25,8 +25,28 @@ import {
 } from "@/utils/mahjong/handAnalyzer";
 import { applyGangScore, scoreDraw, scoreGang, scoreWin } from "@/utils/mahjong/scoring";
 import { getForbiddenDiscards } from "@/utils/mahjong/ai";
+import type {
+  EngineSeatId,
+  GuestActionInput,
+  NetGameSnapshot,
+  NetRole,
+} from "@/types/multiplayer";
 
 interface GameStore extends GameState {
+  /** 联机角色：single（单机）/ host（房主跑引擎）/ guest（访客渲染视图）。 */
+  netRole: NetRole;
+  /** 本客户端的真实引擎座位（host 恒为 human）。 */
+  netSeat: EngineSeatId;
+  /** host 端持久保存的座位名册（区分真人/AI），每局发牌后重新套用。 */
+  netRoster?: Partial<Record<EngineSeatId, { name: string; isAi: boolean }>>;
+  /** guest 发起动作时的转发回调，由对局桥接层注入；host/single 为 undefined。 */
+  netForward?: (action: GuestActionInput) => void;
+  /** 配置联机角色与转发回调。 */
+  configureNet: (config: { role: NetRole; seat: EngineSeatId; forward?: (action: GuestActionInput) => void }) => void;
+  /** guest 用收到的房主视图快照覆盖本地渲染状态。 */
+  applyNetSnapshot: (snapshot: NetGameSnapshot) => void;
+  /** host 按房间名册修正各座位的玩家类型与昵称（真人座位 type=human，AI 座位 type=ai）。 */
+  applyNetRoster: (roster: Partial<Record<EngineSeatId, { name: string; isAi: boolean }>>) => void;
   setNextLiangDaoZimoBuyHorseEnabled: (enabled: boolean) => void;
   saveNextRoundSettings: (settings: { baseScore: number; liangDaoZimoBuyHorseEnabled: boolean }) => void;
   startNewRound: () => void;
@@ -213,6 +233,33 @@ function buyHorseValue(tile: TileInstance): number {
 const initialPlayers = createPlayers();
 const DISCARD_TO_DRAW_DELAY_MS = 420;
 
+/** 把名册（真人/AI、昵称）套用到玩家表，返回新表。 */
+function applyRoster(
+  players: Record<PlayerId, Player>,
+  roster: Partial<Record<EngineSeatId, { name: string; isAi: boolean }>>,
+): Record<PlayerId, Player> {
+  const next = { ...players };
+  for (const seat of Object.keys(roster) as EngineSeatId[]) {
+    const entry = roster[seat];
+    if (!entry) continue;
+    next[seat] = { ...next[seat], type: entry.isAi ? "ai" : "human", name: entry.name };
+  }
+  return next;
+}
+
+/**
+ * guest 客户端不跑引擎：把本地发起的动作转发给房主，返回 true 表示已转发、调用方应直接 return。
+ * host/single 返回 false，照常执行引擎逻辑。
+ */
+function forwardIfGuest(
+  state: { netRole: NetRole; netSeat: EngineSeatId; netForward?: (action: GuestActionInput) => void },
+  action: Omit<GuestActionInput, "seat">,
+): boolean {
+  if (state.netRole !== "guest") return false;
+  state.netForward?.({ ...action, seat: state.netSeat });
+  return true;
+}
+
 export const useGameStore = create<GameStore>((set, get) => ({
   wall: [],
   deadWall: [],
@@ -229,6 +276,28 @@ export const useGameStore = create<GameStore>((set, get) => ({
   nextBaseScore: BASE_SCORE,
   liangDaoZimoBuyHorseEnabled: false,
   nextLiangDaoZimoBuyHorseEnabled: false,
+  netRole: "single",
+  netSeat: "human",
+  netForward: undefined,
+  netRoster: undefined,
+
+  configureNet: ({ role, seat, forward }) => {
+    set({ netRole: role, netSeat: seat, netForward: forward });
+  },
+
+  applyNetSnapshot: (snapshot) => {
+    // guest 只渲染房主下发的视图，不跑引擎逻辑。
+    set({
+      ...snapshot,
+      canHumanLiangDao: updateHumanLiangDaoHint(snapshot.players.human),
+    });
+  },
+
+  applyNetRoster: (roster) => {
+    const state = get();
+    const players = applyRoster(state.players, roster);
+    set({ players, netRoster: roster });
+  },
 
   setNextLiangDaoZimoBuyHorseEnabled: (enabled) => {
     set({ nextLiangDaoZimoBuyHorseEnabled: enabled });
@@ -245,6 +314,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   startNewRound: () => {
     const state = get();
+    // guest 不跑引擎，发牌由房主权威进行并下发快照。
+    if (state.netRole === "guest") return;
     const nextLiangDaoZimoBuyHorseEnabled = get().nextLiangDaoZimoBuyHorseEnabled;
     const nextBaseScore = get().nextBaseScore;
     const dealerId = state.roundResult?.winnerId ?? state.dealerId ?? "human";
@@ -263,10 +334,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
     dealt.ai_left.hand = sortTiles(dealt.ai_left.hand);
     dealt.ai_right.hand = sortTiles(dealt.ai_right.hand);
 
+    // 联机房主：每局发牌后重新套用座位名册，避免真人座位被重置为 AI。
+    const dealtWithRoster = state.netRoster ? applyRoster(dealt, state.netRoster) : dealt;
+
     set({
       wall: nextWall,
       deadWall: [],
-      players: dealt,
+      players: dealtWithRoster,
       currentPlayerId: dealerId,
       dealerId,
       phase: "playing",
@@ -330,6 +404,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   discardTile: (playerId, tileId) => {
     const state = get();
+    if (forwardIfGuest(state, { type: "discard", tileId })) return;
     if (state.phase !== "playing" || state.currentPlayerId !== playerId) return;
     const player = state.players[playerId];
     const tile = player.hand.find((item) => item.id === tileId);
@@ -385,6 +460,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   passReaction: (playerId) => {
     const state = get();
+    if (forwardIfGuest(state, { type: "pass" })) return;
     if (!state.pendingReactions) return;
     set({
       reactionPasses: Array.from(new Set([...state.reactionPasses, playerId])),
@@ -396,6 +472,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   claimPeng: (playerId) => {
     const state = get();
+    if (forwardIfGuest(state, { type: "peng" })) return;
     const pending = state.pendingReactions;
     if (!pending) return;
     const top = topPriorityReaction(pending, state.reactionPasses);
@@ -441,6 +518,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   claimMingGang: (playerId) => {
     const state = get();
+    if (forwardIfGuest(state, { type: "ming_gang" })) return;
     const pending = state.pendingReactions;
     if (!pending) return;
     const top = topPriorityReaction(pending, state.reactionPasses);
@@ -515,6 +593,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   claimAnGang: (playerId, tileType) => {
     const state = get();
+    if (forwardIfGuest(state, { type: "an_gang", tileKind: tileType })) return;
     const player = state.players[playerId];
     if (state.phase !== "playing" || state.currentPlayerId !== playerId) return;
     if (!getAnGangKinds(player.hand).includes(tileType)) return;
@@ -576,6 +655,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   claimBuGang: (playerId, meldId) => {
     const state = get();
+    if (forwardIfGuest(state, { type: "bu_gang", meldId })) return;
     const player = state.players[playerId];
     if (state.phase !== "playing" || state.currentPlayerId !== playerId) return;
     const meld = player.melds.find((item) => item.id === meldId && item.type === "peng");
@@ -649,6 +729,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   declareLiangDao: (playerId, discardTileId) => {
     const state = get();
+    if (forwardIfGuest(state, { type: "liang_dao", tileId: discardTileId })) return;
     const player = state.players[playerId];
     if (player.isLiangDao || state.currentPlayerId !== playerId || state.phase !== "playing") return;
     const tile = player.hand.find((item) => item.id === discardTileId);
@@ -682,6 +763,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   claimHu: (playerId) => {
     const state = get();
+    if (forwardIfGuest(state, { type: "hu" })) return;
     if (state.pendingBuGang) {
       if (state.pendingReactions) {
         const top = topPriorityReaction(state.pendingReactions, state.reactionPasses);

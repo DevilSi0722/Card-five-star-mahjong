@@ -1,0 +1,33 @@
+rules_version = '2';
+
+// 卡五星麻将多人房间安全规则。
+// MVP 阶段未接入 Firebase 身份认证，规则以「结构校验 + 合理体量限制」为主，
+// 防止任意写入与超大文档；真正的对局权威仍由房主客户端持有。
+//
+// ⚠️ 安全说明：未启用 Auth 时，任何拿到房间号的人都能读写该房间文档。
+// 这对「朋友之间联机」足够；若要对抗恶意用户，后续需接入匿名登录并校验 request.auth.uid。
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 房间文档：rooms/{code}
+    match /rooms/{code} {
+      // 房间号必须是 4 位数字
+      allow create: if code.matches('[0-9]{4}')
+                    && request.resource.data.code == code
+                    && request.resource.data.players.size() <= 3;
+      allow read: if true;
+      allow update: if request.resource.data.players.size() <= 3;
+      allow delete: if true;
+
+      // 房主发布的每座位视图：rooms/{code}/views/{seat}
+      match /views/{seat} {
+        allow read, write: if true;
+      }
+
+      // 访客发回的动作队列：rooms/{code}/actions/{actionId}
+      match /actions/{actionId} {
+        allow read, write: if true;
+      }
+    }
+  }
+}

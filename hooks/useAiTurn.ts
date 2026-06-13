@@ -17,10 +17,13 @@ export function useAiTurn() {
       reactionPasses: state.reactionPasses,
       actionNonce: state.actionNonce,
       supplementContext: state.supplementContext,
+      netRole: state.netRole,
     })),
   );
 
   useEffect(() => {
+    // guest 端不跑引擎与 AI，只渲染房主下发的视图。
+    if (snapshot.netRole === "guest") return;
     if (snapshot.phase !== "playing") return;
     const player = snapshot.players[snapshot.currentPlayerId];
     const isAutomated = player.type === "ai" || player.autoPlay;
@@ -82,9 +85,10 @@ export function useAiTurn() {
     }, actionDelay());
 
     return () => window.clearTimeout(timeout);
-  }, [snapshot.actionNonce, snapshot.currentPlayerId, snapshot.phase, snapshot.players, snapshot.supplementContext]);
+  }, [snapshot.actionNonce, snapshot.currentPlayerId, snapshot.phase, snapshot.players, snapshot.supplementContext, snapshot.netRole]);
 
   useEffect(() => {
+    if (snapshot.netRole === "guest") return;
     if (snapshot.phase !== "responding" || !snapshot.pendingReactions) return;
     const pending = snapshot.pendingReactions;
     const remaining = pending.options.filter((option) => !snapshot.reactionPasses.includes(option.playerId));
@@ -124,5 +128,5 @@ export function useAiTurn() {
     }, actionDelay());
 
     return () => window.clearTimeout(timeout);
-  }, [snapshot.actionNonce, snapshot.pendingReactions, snapshot.phase, snapshot.players, snapshot.reactionPasses]);
+  }, [snapshot.actionNonce, snapshot.pendingReactions, snapshot.phase, snapshot.players, snapshot.reactionPasses, snapshot.netRole]);
 }
