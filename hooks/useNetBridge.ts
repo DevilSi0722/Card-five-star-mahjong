@@ -102,6 +102,13 @@ export function useNetBridge() {
     () => (room ? engineSeatForClient(room.players, clientId) : null),
     [room, clientId],
   );
+  const guestViewSeats = useMemo(() => {
+    if (!room) return [];
+    return room.players
+      .filter((player) => !player.isAi && player.clientId !== room.hostClientId)
+      .map((player) => engineSeatForClient(room.players, player.clientId))
+      .filter((seat): seat is EngineSeatId => Boolean(seat));
+  }, [room]);
 
   // guest：座位推导出来后校正本地 netSeat（join 时用的是占位座位）。
   useEffect(() => {
@@ -166,7 +173,7 @@ export function useNetBridge() {
     return () => unsub();
   }, [isHost, code]);
 
-  // host：引擎状态变化时为每个座位发布裁剪 + 旋转后的视图（含旋转后的风位）。
+  // host：引擎状态变化时为真人 guest 发布裁剪 + 旋转后的视图（含旋转后的风位）。
   useEffect(() => {
     if (!isHost || !code || !realWinds) return;
     const publish = () => {
@@ -179,7 +186,7 @@ export function useNetBridge() {
       const snapshot = extractSnapshot(state);
       revRef.current += 1;
       const rev = revRef.current;
-      for (const seat of ENGINE_SEATS) {
+      for (const seat of guestViewSeats) {
         void publishView(code, {
           forSeat: seat,
           rev,
@@ -191,7 +198,7 @@ export function useNetBridge() {
     publish();
     const unsub = useGameStore.subscribe(publish);
     return () => unsub();
-  }, [isHost, code, realWinds]);
+  }, [isHost, code, realWinds, guestViewSeats]);
 
   // guest：订阅本座位视图，渲染到本地 store（含风位）。
   useEffect(() => {

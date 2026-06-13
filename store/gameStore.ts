@@ -440,11 +440,33 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   discardTile: (playerId, tileId) => {
     const state = get();
-    if (forwardIfGuest(state, { type: "discard", tileId })) return;
     if (state.phase !== "playing" || state.currentPlayerId !== playerId) return;
     const player = state.players[playerId];
     const tile = player.hand.find((item) => item.id === tileId);
     if (!tile) return;
+    if (state.netRole === "guest") {
+      state.netForward?.({ type: "discard", tileId, seat: state.netSeat });
+      const players = { ...state.players };
+      players[playerId] = {
+        ...player,
+        hand: sortTiles(player.hand.filter((item) => item.id !== tileId)),
+        discards: [...player.discards, tile],
+        lastDrawnTileId: undefined,
+      };
+      set({
+        players,
+        lastDiscard: { playerId, tile },
+        pendingReactions: undefined,
+        reactionPasses: [],
+        pendingBuGang: undefined,
+        phase: "dealing",
+        selectedTileId: undefined,
+        canHumanLiangDao: false,
+        logs: pushLog(state.logs, `${player.name} 打出 ${TILE_KIND_LABEL[tile.kind]}`),
+        actionNonce: state.actionNonce + 1,
+      });
+      return;
+    }
 
     const forbiddenOwner = forbiddenDiscardOwner(state.players, playerId, tile.kind);
     const mustAvoidLiangDaoWaits = !player.isLiangDao && !player.autoPlay;

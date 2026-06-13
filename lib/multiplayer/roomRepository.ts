@@ -37,6 +37,14 @@ function actionsCol(code: string) {
   return collection(getDb(), ROOMS, code, "actions");
 }
 
+function presenceCol(code: string) {
+  return collection(getDb(), ROOMS, code, "presence");
+}
+
+function presenceRef(code: string, clientId: string) {
+  return doc(getDb(), ROOMS, code, "presence", clientId);
+}
+
 /** 读取房间一次。 */
 export async function fetchRoom(code: string): Promise<Room | null> {
   const snap = await getDoc(roomRef(code));
@@ -155,13 +163,10 @@ export async function beginNextRound(code: string, nextRound: number): Promise<v
 
 /** 成员心跳：刷新自己的 lastSeen。 */
 export async function heartbeat(code: string, clientId: string): Promise<void> {
-  const room = await fetchRoom(code);
-  if (!room) return;
-  const players = room.players.map((p) => (p.clientId === clientId ? { ...p, lastSeen: Date.now() } : p));
-  await updateDoc(roomRef(code), { players });
+  await setDoc(presenceRef(code, clientId), { clientId, lastSeen: Date.now() });
 }
 
-/** 删除房间的所有子集合文档（views/* 与 actions/*）。Firestore 删文档不级联删子集合，需手动清理。 */
+/** 删除房间的所有子集合文档（views/*、actions/* 与 presence/*）。Firestore 删文档不级联删子集合，需手动清理。 */
 async function deleteRoomSubcollections(code: string): Promise<void> {
   // views：座位固定为三个，直接逐个删。
   await Promise.all(SEAT_TURN_ORDER.map((seat) => deleteDoc(viewRef(code, seat)).catch(() => undefined)));
@@ -169,6 +174,10 @@ async function deleteRoomSubcollections(code: string): Promise<void> {
   const actionsSnap = await getDocs(actionsCol(code)).catch(() => null);
   if (actionsSnap) {
     await Promise.all(actionsSnap.docs.map((d) => deleteDoc(d.ref).catch(() => undefined)));
+  }
+  const presenceSnap = await getDocs(presenceCol(code)).catch(() => null);
+  if (presenceSnap) {
+    await Promise.all(presenceSnap.docs.map((d) => deleteDoc(d.ref).catch(() => undefined)));
   }
 }
 
@@ -183,7 +192,10 @@ export async function leaveRoom(code: string, clientId: string): Promise<void> {
     return;
   }
   const players = room.players.filter((p) => p.clientId !== clientId);
-  await updateDoc(roomRef(code), { players, updatedAt: Date.now() });
+  await Promise.all([
+    updateDoc(roomRef(code), { players, updatedAt: Date.now() }),
+    deleteDoc(presenceRef(code, clientId)).catch(() => undefined),
+  ]);
 }
 
 /** 订阅房间文档变化。 */

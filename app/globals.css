@@ -109,7 +109,7 @@ button {
 }
 
 .mobile-landscape-actions {
-  right: max(0.5rem, env(safe-area-inset-right));
+  right: max(5.75rem, calc(env(safe-area-inset-right) + 5.25rem));
 }
 
 .mobile-landscape-hand {

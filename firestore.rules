@@ -28,6 +28,11 @@ service cloud.firestore {
       match /actions/{actionId} {
         allow read, write: if true;
       }
+
+      // 成员在线心跳：rooms/{code}/presence/{clientId}
+      match /presence/{clientId} {
+        allow read, write: if true;
+      }
     }
   }
 }
