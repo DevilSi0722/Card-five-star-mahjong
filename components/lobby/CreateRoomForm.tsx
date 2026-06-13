@@ -22,20 +22,24 @@ export function CreateRoomForm() {
       <div className="grid gap-1.5">
         <span className="text-xs font-medium text-slate-300">总局数</span>
         <div className="grid grid-cols-4 gap-2">
-          {ROUND_OPTIONS.map((r) => (
-            <button
-              key={r}
-              type="button"
-              onClick={() => patch({ rounds: r })}
-              className={`h-9 rounded-lg border text-xs font-semibold transition ${
-                settings.rounds === r
-                  ? "border-gold/60 bg-gold/15 text-gold-soft"
-                  : "border-white/12 bg-slate-900/60 text-slate-300 hover:border-white/25"
-              }`}
-            >
-              {r} 局
-            </button>
-          ))}
+          {ROUND_OPTIONS.map((r) => {
+            const active = settings.rounds === r;
+            return (
+              <button
+                key={r}
+                type="button"
+                aria-pressed={active}
+                onClick={() => patch({ rounds: r })}
+                className={`relative h-9 rounded-lg border text-xs font-bold transition ${
+                  active
+                    ? "border-gold bg-gradient-to-b from-[#f7e6b8] via-gold to-gold-deep text-slate-900 shadow-[0_4px_14px_rgba(233,196,106,0.45)] scale-[1.04]"
+                    : "border-white/12 bg-slate-900/60 text-slate-300 hover:border-gold/40 hover:text-gold-soft"
+                }`}
+              >
+                {r} 局
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -88,9 +92,11 @@ export function CreateRoomForm() {
         type="button"
         disabled={busy}
         onClick={() => createNewRoom(settings, autoCode ? undefined : code)}
-        className="mt-1 inline-flex h-11 items-center justify-center rounded-xl bg-gradient-to-b from-gold-soft to-gold-deep font-semibold text-ink shadow-[0_8px_22px_rgba(233,196,106,0.4)] transition hover:brightness-110 disabled:opacity-60"
+        className="surface-panel mt-1 inline-flex h-11 items-center justify-center rounded-xl border-gold/40 font-semibold transition hover:border-gold/70 hover:brightness-110 disabled:opacity-60"
       >
-        {busy ? "创建中…" : "创建房间"}
+        <span className="bg-gradient-to-b from-[#f7e6b8] via-gold to-gold-deep bg-clip-text text-transparent">
+          {busy ? "创建中…" : "创建房间"}
+        </span>
       </button>
     </div>
   );

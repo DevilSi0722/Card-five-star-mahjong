@@ -97,13 +97,12 @@ export function useAiTurn() {
     const firstHu = remaining.find((option) => option.canHu);
     const firstGang = remaining.find((option) => option.canGang);
     const firstPeng = remaining.find((option) => option.canPeng);
-    const humanCanHu = remaining.some((option) => option.playerId === "human" && option.canHu);
     const option = firstHu ?? firstGang ?? firstPeng;
     if (!option) return;
     const player = snapshot.players[option.playerId];
-    if (humanCanHu) return;
-    const isAutomated = player.type === "ai" || player.autoPlay;
-    if (!isAutomated) return;
+    // 仅纯 AI 由引擎自动响应；真人（包括亮倒托管中 autoPlay 为真的真人）必须自己点胡/碰/杠。
+    // 否则联机时房主会替访客真人自动点胡，导致点炮后还没点击就直接弹结算。
+    if (player.type !== "ai") return;
 
     const timeout = window.setTimeout(() => {
       const latest = useGameStore.getState();

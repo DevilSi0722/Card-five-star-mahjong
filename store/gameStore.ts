@@ -30,6 +30,7 @@ import type {
   GuestActionInput,
   NetGameSnapshot,
   NetRole,
+  Wind,
 } from "@/types/multiplayer";
 
 interface GameStore extends GameState {
@@ -37,12 +38,18 @@ interface GameStore extends GameState {
   netRole: NetRole;
   /** 本客户端的真实引擎座位（host 恒为 human）。 */
   netSeat: EngineSeatId;
+  /** 各显示座位（human/ai_right/ai_left）对应的风位标签，用于在玩家名下显示风位。 */
+  netWinds?: Record<EngineSeatId, Wind>;
   /** host 端持久保存的座位名册（区分真人/AI），每局发牌后重新套用。 */
   netRoster?: Partial<Record<EngineSeatId, { name: string; isAi: boolean }>>;
   /** guest 发起动作时的转发回调，由对局桥接层注入；host/single 为 undefined。 */
   netForward?: (action: GuestActionInput) => void;
   /** 配置联机角色与转发回调。 */
   configureNet: (config: { role: NetRole; seat: EngineSeatId; forward?: (action: GuestActionInput) => void }) => void;
+  /** 单独校正本客户端的引擎座位（访客在三人就座、座位推导出来后调用）。 */
+  setNetSeat: (seat: EngineSeatId) => void;
+  /** 设置各显示座位的风位标签。 */
+  setNetWinds: (winds: Record<EngineSeatId, Wind>) => void;
   /** guest 用收到的房主视图快照覆盖本地渲染状态。 */
   applyNetSnapshot: (snapshot: NetGameSnapshot) => void;
   /** host 按房间名册修正各座位的玩家类型与昵称（真人座位 type=human，AI 座位 type=ai）。 */
@@ -280,15 +287,44 @@ export const useGameStore = create<GameStore>((set, get) => ({
   netSeat: "human",
   netForward: undefined,
   netRoster: undefined,
+  netWinds: undefined,
 
   configureNet: ({ role, seat, forward }) => {
-    set({ netRole: role, netSeat: seat, netForward: forward });
+    // 切换联机角色时清掉上一局残留的对局状态，避免重新加入房间时闪现上一次的结算窗口。
+    set({
+      netRole: role,
+      netSeat: seat,
+      netForward: forward,
+      phase: "ready",
+      roundResult: undefined,
+      pendingReactions: undefined,
+      pendingBuGang: undefined,
+      reactionPasses: [],
+      lastDiscard: undefined,
+      selectedTileId: undefined,
+      supplementContext: undefined,
+    });
+  },
+
+  setNetSeat: (seat) => {
+    set({ netSeat: seat });
+  },
+
+  setNetWinds: (winds) => {
+    set({ netWinds: winds });
   },
 
   applyNetSnapshot: (snapshot) => {
     // guest 只渲染房主下发的视图，不跑引擎逻辑。
+    // 注意：Firestore 开了 ignoreUndefinedProperties，写入时会剥掉值为 undefined 的字段，
+    // 所以新一局的视图文档里可能根本没有 roundResult/lastDiscard 等键。这里必须显式列出这些
+    // 可选字段（取不到即 undefined），强制覆盖掉上一局的残留值，否则进了新局会立刻又弹旧结算。
     set({
       ...snapshot,
+      lastDiscard: snapshot.lastDiscard,
+      pendingReactions: snapshot.pendingReactions,
+      pendingBuGang: snapshot.pendingBuGang,
+      roundResult: snapshot.roundResult,
       canHumanLiangDao: updateHumanLiangDaoHint(snapshot.players.human),
     });
   },

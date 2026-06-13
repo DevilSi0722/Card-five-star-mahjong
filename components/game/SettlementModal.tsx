@@ -1,16 +1,11 @@
 "use client";
 
-import { RotateCcw, Trophy } from "lucide-react";
+import { Check, LogOut, RotateCcw, Trophy } from "lucide-react";
 import type { PlayerId, ScoreResult } from "@/types/mahjong";
 import { useGameStore } from "@/store/gameStore";
+import { useRoomStore } from "@/store/roomStore";
 import { useResponsiveGameLayout } from "@/hooks/useResponsiveGameLayout";
 import { TILE_KIND_LABEL } from "@/utils/mahjong/tiles";
-
-const PLAYER_LABEL: Record<PlayerId, string> = {
-  human: "你",
-  ai_left: "左家 AI",
-  ai_right: "右家 AI",
-};
 
 const METHOD_LABEL: Record<NonNullable<ScoreResult["method"]>, string> = {
   zimo: "自摸",
@@ -19,10 +14,13 @@ const METHOD_LABEL: Record<NonNullable<ScoreResult["method"]>, string> = {
   gangshang: "杠上开花",
 };
 
-// 用自然语句描述某位玩家如何赢牌，例如「左家 AI 给你点炮」「你自摸」
-function describeWin(detail: { winnerId: PlayerId; loserId?: PlayerId; method: NonNullable<ScoreResult["method"]> }): string {
-  const winner = PLAYER_LABEL[detail.winnerId];
-  const loser = detail.loserId ? PLAYER_LABEL[detail.loserId] : undefined;
+// 用自然语句描述某位玩家如何赢牌，例如「左家给你点炮」「你自摸」。name 解析适应各自视角。
+function describeWin(
+  detail: { winnerId: PlayerId; loserId?: PlayerId; method: NonNullable<ScoreResult["method"]> },
+  nameOf: (id: PlayerId) => string,
+): string {
+  const winner = nameOf(detail.winnerId);
+  const loser = detail.loserId ? nameOf(detail.loserId) : undefined;
   switch (detail.method) {
     case "zimo":
       return `${winner}自摸`;
@@ -40,6 +38,16 @@ function describeWin(detail: { winnerId: PlayerId; loserId?: PlayerId; method: N
 export function SettlementModal({ result }: { result: ScoreResult }) {
   const { isMobileLandscape } = useResponsiveGameLayout();
   const resetRound = useGameStore((state) => state.resetRound);
+  const players = useGameStore((state) => state.players);
+  const netRole = useGameStore((state) => state.netRole);
+  const room = useRoomStore((state) => state.room);
+  const myClientId = useRoomStore((state) => state.clientId);
+  const markReady = useRoomStore((state) => state.markReady);
+  const leaveRoom = useRoomStore((state) => state.leave);
+
+  // 玩家名解析：自己（底部 human）显示「你」，其余用引擎中的真实昵称（已按视角旋转）。
+  const nameOf = (id: PlayerId): string => (id === "human" ? "你" : players[id]?.name ?? id);
+
   const ids = Object.keys(result.scoreChanges) as PlayerId[];
   const winDetails =
     result.winDetails ??
@@ -60,8 +68,17 @@ export function SettlementModal({ result }: { result: ScoreResult }) {
 
   const isDraw = !result.winnerId;
   const hasMultipleWinners = winDetails.length > 1;
-  const winnerNames = winDetails.map((detail) => PLAYER_LABEL[detail.winnerId]).join("、");
-  const winDescription = winDetails.map((detail) => describeWin(detail)).join("，");
+  const winnerNames = winDetails.map((detail) => nameOf(detail.winnerId)).join("、");
+  const winDescription = winDetails.map((detail) => describeWin(detail, nameOf)).join("，");
+
+  // 多人模式准备状态。
+  const isMultiplayer = netRole !== "single";
+  const humans = room ? room.players.filter((p) => !p.isAi) : [];
+  const readySet = new Set(room?.readyClients ?? []);
+  const iAmReady = readySet.has(myClientId);
+  const readyCount = humans.filter((p) => readySet.has(p.clientId)).length;
+  // 是否已是设定局数的最后一局：最后一局结束后不再提供「准备」，只能退出。
+  const isLastRound = Boolean(room && room.currentRound >= room.settings.rounds);
 
   return (
     <div className={`absolute inset-0 z-30 flex items-center justify-center bg-black/45 backdrop-blur-sm ${isMobileLandscape ? "p-2" : "p-4"}`}>
@@ -94,7 +111,7 @@ export function SettlementModal({ result }: { result: ScoreResult }) {
                 <div key={detail.winnerId} className={isMobileLandscape ? "py-1.5 first:pt-0 last:pb-0" : "py-2.5 first:pt-0 last:pb-0"}>
                   {hasMultipleWinners ? (
                     <div className="mb-1 text-xs font-medium text-slate-200">
-                      {PLAYER_LABEL[detail.winnerId]} · {METHOD_LABEL[detail.method]}
+                      {nameOf(detail.winnerId)} · {METHOD_LABEL[detail.method]}
                     </div>
                   ) : null}
                   <div className="flex flex-wrap gap-1.5">
@@ -145,7 +162,7 @@ export function SettlementModal({ result }: { result: ScoreResult }) {
                 key={id}
                 className={`grid grid-cols-3 items-center border-b border-white/8 last:border-b-0 ${isHuman ? "bg-gold/10" : ""} ${isMobileLandscape ? "px-2 py-1 text-xs" : "px-3 py-2 text-sm"}`}
               >
-                <span className={isHuman ? "font-semibold text-bone" : "text-slate-200"}>{PLAYER_LABEL[id]}</span>
+                <span className={isHuman ? "font-semibold text-bone" : "text-slate-200"}>{nameOf(id)}</span>
                 <span className={`text-center font-semibold tabular-nums ${change > 0 ? "text-jade-soft" : change < 0 ? "text-rose-300" : "text-slate-400"}`}>
                   {change > 0 ? `+${change}` : change}
                 </span>
@@ -155,16 +172,76 @@ export function SettlementModal({ result }: { result: ScoreResult }) {
           })}
         </div>
 
-        <button
-          type="button"
-          onClick={resetRound}
-          className={`inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-jade-soft to-jade-deep font-semibold text-white shadow-[0_8px_22px_rgba(15,155,117,0.4)] transition hover:brightness-110 ${
-            isMobileLandscape ? "mt-2 h-8 text-xs" : "mt-5 h-10 text-sm"
-          }`}
-        >
-          <RotateCcw className={isMobileLandscape ? "h-3.5 w-3.5" : "h-4 w-4"} />
-          新局
-        </button>
+        {isMultiplayer ? (
+          isLastRound ? (
+            <div className={isMobileLandscape ? "mt-2" : "mt-5"}>
+              <div className={`text-center text-gold-soft ${isMobileLandscape ? "mb-1.5 text-[11px]" : "mb-2.5 text-xs"}`}>
+                已打满 {room?.settings.rounds} 局，本局为最后一局
+              </div>
+              <button
+                type="button"
+                onClick={() => void leaveRoom()}
+                className={`inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/12 bg-white/5 font-semibold text-slate-200 transition hover:border-rose-300/40 hover:bg-rose-400/15 hover:text-rose-200 ${
+                  isMobileLandscape ? "h-8 text-xs" : "h-10 text-sm"
+                }`}
+              >
+                <LogOut className={isMobileLandscape ? "h-3.5 w-3.5" : "h-4 w-4"} />
+                退出
+              </button>
+            </div>
+          ) : (
+            <div className={`grid grid-cols-2 gap-2 ${isMobileLandscape ? "mt-2" : "mt-5"}`}>
+              <button
+                type="button"
+                disabled={iAmReady}
+                onClick={() => void markReady()}
+                className={`inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition ${
+                  iAmReady
+                    ? "border border-jade/40 bg-jade/15 text-jade-soft"
+                    : "bg-gradient-to-b from-jade-soft to-jade-deep text-white shadow-[0_8px_22px_rgba(15,155,117,0.4)] hover:brightness-110"
+                } ${isMobileLandscape ? "h-8 text-xs" : "h-10 text-sm"}`}
+              >
+                {iAmReady ? (
+                  <>
+                    <Check className={isMobileLandscape ? "h-3.5 w-3.5" : "h-4 w-4"} />
+                    已准备 {readyCount}/{humans.length}
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw className={isMobileLandscape ? "h-3.5 w-3.5" : "h-4 w-4"} />
+                    准备
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => void leaveRoom()}
+                className={`inline-flex items-center justify-center gap-2 rounded-xl border border-white/12 bg-white/5 font-semibold text-slate-200 transition hover:border-rose-300/40 hover:bg-rose-400/15 hover:text-rose-200 ${
+                  isMobileLandscape ? "h-8 text-xs" : "h-10 text-sm"
+                }`}
+              >
+                <LogOut className={isMobileLandscape ? "h-3.5 w-3.5" : "h-4 w-4"} />
+                退出
+              </button>
+            </div>
+          )
+        ) : (
+          <button
+            type="button"
+            onClick={resetRound}
+            className={`inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-jade-soft to-jade-deep font-semibold text-white shadow-[0_8px_22px_rgba(15,155,117,0.4)] transition hover:brightness-110 ${
+              isMobileLandscape ? "mt-2 h-8 text-xs" : "mt-5 h-10 text-sm"
+            }`}
+          >
+            <RotateCcw className={isMobileLandscape ? "h-3.5 w-3.5" : "h-4 w-4"} />
+            新局
+          </button>
+        )}
+        {isMultiplayer && iAmReady && !isLastRound ? (
+          <div className={`text-center text-slate-500 ${isMobileLandscape ? "mt-1 text-[10px]" : "mt-2 text-[11px]"}`}>
+            等待其他玩家准备，全部就绪后自动开始下一局
+          </div>
+        ) : null}
       </div>
     </div>
   );

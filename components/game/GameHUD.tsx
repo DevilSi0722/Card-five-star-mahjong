@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { BadgeCheck, CircleDot, RotateCcw, Settings, X } from "lucide-react";
+import { BadgeCheck, CircleDot, LogOut, RotateCcw, Settings, X } from "lucide-react";
+import type { Player } from "@/types/mahjong";
+import { WIND_LABEL, type EngineSeatId, type Wind } from "@/types/multiplayer";
 import { useGameStore } from "@/store/gameStore";
+import { useRoomStore } from "@/store/roomStore";
 import { useResponsiveGameLayout } from "@/hooks/useResponsiveGameLayout";
 import { analyzeWin, getAnGangKinds, getTingDiscardOptions } from "@/utils/mahjong/handAnalyzer";
 import { ActionPanel } from "./ActionPanel";
@@ -16,6 +19,47 @@ const PLAYER_TONES: Array<{ name: string; chip: string; dot: string; text: strin
 
 function playerTone(name: string) {
   return PLAYER_TONES.find((tone) => tone.name === name);
+}
+
+// 牌桌左右两侧玩家名称标签（多人模式用，让左右两位玩家身份一眼可辨）。
+function SideNameTag({
+  player,
+  side,
+  isCurrent,
+  compact,
+  wind,
+}: {
+  player: Player;
+  side: "left" | "right";
+  isCurrent: boolean;
+  compact: boolean;
+  wind?: Wind;
+}) {
+  return (
+    <div
+      className={`pointer-events-none fixed top-1/2 z-10 -translate-y-1/2 ${
+        side === "left" ? "left-0" : "right-0"
+      } ${compact ? "px-1" : "px-2"}`}
+    >
+      <div
+        className={`surface-panel flex flex-col gap-0.5 rounded-xl ${
+          compact ? "px-2 py-1 text-[10px]" : "px-3 py-1.5 text-xs"
+        } ${isCurrent ? "ring-1 ring-inset ring-gold/40" : ""}`}
+      >
+        <div className="flex items-center gap-1.5">
+          <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${isCurrent ? "bg-gold" : "bg-slate-500"}`} />
+          {player.isLiangDao ? <BadgeCheck className={`${compact ? "h-3 w-3" : "h-3.5 w-3.5"} text-gold`} /> : null}
+          <span className={`max-w-[72px] truncate font-semibold ${isCurrent ? "text-gold-soft" : "text-bone"}`}>
+            {player.name}
+          </span>
+          <span className={`font-semibold tabular-nums ${scoreClass(player.score)}`}>
+            {player.score > 0 ? `+${player.score}` : player.score}
+          </span>
+        </div>
+        {wind ? <span className="text-[10px] font-medium text-gold-soft/80">{WIND_LABEL[wind]}风</span> : null}
+      </div>
+    </div>
+  );
 }
 
 // 把一条日志拆成「玩家 + 事件正文」，无玩家前缀的视为系统事件
@@ -131,7 +175,7 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
           <button
             type="button"
             onClick={saveSettings}
-            className="inline-flex h-9 items-center justify-center rounded-lg bg-gradient-to-b from-jade-soft to-jade-deep px-4 text-xs font-semibold text-slate-950 shadow-[0_6px_18px_rgba(15,155,117,0.4)] transition hover:brightness-110"
+            className="inline-flex h-9 items-center justify-center rounded-lg bg-gradient-to-b from-jade-soft to-jade-deep px-4 text-xs font-semibold text-white shadow-[0_6px_18px_rgba(15,155,117,0.4)] transition hover:brightness-110"
           >
             保存
           </button>
@@ -149,8 +193,18 @@ export function GameHUD() {
   const phase = useGameStore((state) => state.phase);
   const logs = useGameStore((state) => state.logs);
   const resetRound = useGameStore((state) => state.resetRound);
+  const netRole = useGameStore((state) => state.netRole);
+  const netWinds = useGameStore((state) => state.netWinds);
+  const leaveRoom = useRoomStore((state) => state.leave);
+  const backToHome = useRoomStore((state) => state.backToHome);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [confirmExit, setConfirmExit] = useState(false);
   const logPanelRef = useRef<HTMLDivElement>(null);
+
+  function handleExit() {
+    if (netRole === "single") backToHome();
+    else void leaveRoom();
+  }
 
   const human = players.human;
   const drawn = human.hand.find((tile) => tile.id === human.lastDrawnTileId);
@@ -174,6 +228,12 @@ export function GameHUD() {
           : "p-3 sm:p-5"
       }`}
     >
+      {netRole !== "single" ? (
+        <>
+          <SideNameTag player={players.ai_left} side="left" isCurrent={currentPlayerId === "ai_left"} compact={isMobileLandscape} wind={netWinds?.ai_left} />
+          <SideNameTag player={players.ai_right} side="right" isCurrent={currentPlayerId === "ai_right"} compact={isMobileLandscape} wind={netWinds?.ai_right} />
+        </>
+      ) : null}
       <div className="flex items-start justify-between gap-3">
         <div
           className={`surface-panel pointer-events-auto flex items-center rounded-xl ${
@@ -195,6 +255,17 @@ export function GameHUD() {
           >
             <Settings className={isMobileLandscape ? "h-3 w-3" : "h-4 w-4"} />
           </button>
+          <button
+            type="button"
+            onClick={() => setConfirmExit(true)}
+            className={`inline-flex items-center justify-center rounded-lg border border-white/12 bg-white/5 text-slate-200 transition hover:border-rose-300/40 hover:bg-rose-400/15 hover:text-rose-200 ${
+              isMobileLandscape ? "h-5 w-5" : "h-7 w-7"
+            }`}
+            aria-label="退出到主页"
+            title="退出到主页"
+          >
+            <LogOut className={isMobileLandscape ? "h-3 w-3" : "h-4 w-4"} />
+          </button>
         </div>
 
         <div className={`pointer-events-auto grid gap-2 ${isMobileLandscape ? "min-w-[118px]" : "min-w-[168px]"}`}>
@@ -206,6 +277,7 @@ export function GameHUD() {
             {Object.values(players).map((player) => {
               const tone = playerTone(player.name);
               const isCurrent = player.id === currentPlayerId;
+              const wind = netRole !== "single" ? netWinds?.[player.id as EngineSeatId] : undefined;
               return (
                 <div
                   key={player.id}
@@ -217,6 +289,7 @@ export function GameHUD() {
                     <span className={`h-1.5 w-1.5 rounded-full ${tone?.dot ?? "bg-slate-400"}`} />
                     {player.isLiangDao ? <BadgeCheck className={`${isMobileLandscape ? "h-3 w-3" : "h-3.5 w-3.5"} text-gold`} /> : null}
                     {player.name}
+                    {wind ? <span className="text-gold-soft/70">·{WIND_LABEL[wind]}</span> : null}
                   </span>
                   <span className={`font-semibold tabular-nums ${scoreClass(player.score)}`}>
                     {player.score > 0 ? `+${player.score}` : player.score}
@@ -286,6 +359,34 @@ export function GameHUD() {
 
       <ActionPanel canSelfHu={canSelfHu} anGangKinds={anGangKinds} buGangMelds={buGangMelds} tingOptions={tingOptions} />
       {settingsOpen ? <SettingsModal onClose={() => setSettingsOpen(false)} /> : null}
+      {confirmExit ? (
+        <div className="pointer-events-auto fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
+          <div className="surface-modal w-full max-w-xs rounded-2xl p-5 text-sm text-slate-100">
+            <div className="text-base font-semibold text-bone">退出到主页</div>
+            <div className="mt-2 text-xs text-slate-400">
+              {netRole === "single"
+                ? "确定要结束当前对局返回主页吗？"
+                : "确定要离开房间返回主页吗？" + (netRole === "host" ? "你是房主，离开将解散整个房间。" : "")}
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmExit(false)}
+                className="inline-flex h-9 items-center justify-center rounded-lg border border-white/12 bg-white/5 px-4 text-xs font-semibold text-slate-200 transition hover:bg-white/12"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={handleExit}
+                className="inline-flex h-9 items-center justify-center rounded-lg bg-gradient-to-b from-rose-400 to-rose-600 px-4 text-xs font-semibold text-white shadow-[0_6px_18px_rgba(244,63,94,0.4)] transition hover:brightness-110"
+              >
+                退出
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

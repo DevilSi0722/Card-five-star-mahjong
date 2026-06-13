@@ -1,5 +1,5 @@
 import type { Meld, Player, PlayerId, TileInstance } from "@/types/mahjong";
-import type { EngineSeatId, NetGameSnapshot } from "@/types/multiplayer";
+import type { EngineSeatId, NetGameSnapshot, Wind } from "@/types/multiplayer";
 import { SEAT_TURN_ORDER } from "@/types/multiplayer";
 
 const SEAT_BY_DISPLAY: Record<EngineSeatId, Player["seat"]> = {
@@ -25,6 +25,21 @@ export function realToDisplaySeat(realSeat: EngineSeatId, viewerSeat: EngineSeat
 export function displayToRealSeat(displaySeat: EngineSeatId, viewerSeat: EngineSeatId): EngineSeatId {
   const ri = (seatIndex(displaySeat) + seatIndex(viewerSeat)) % SEAT_TURN_ORDER.length;
   return SEAT_TURN_ORDER[ri];
+}
+
+/**
+ * 把「真实座位→风位」映射旋转为「某观察者视角下的显示座位→风位」。
+ * 观察者自己的风位落在 human（底部），其余按显示座位归位。
+ */
+export function rotateWindsForSeat(
+  realWinds: Record<EngineSeatId, Wind>,
+  viewerSeat: EngineSeatId,
+): Record<EngineSeatId, Wind> {
+  const result = {} as Record<EngineSeatId, Wind>;
+  for (const realSeat of SEAT_TURN_ORDER) {
+    result[realToDisplaySeat(realSeat, viewerSeat)] = realWinds[realSeat];
+  }
+  return result;
 }
 
 let hiddenCounter = 0;

@@ -3,6 +3,7 @@ import {
   deleteDoc,
   doc,
   getDoc,
+  getDocs,
   onSnapshot,
   runTransaction,
   serverTimestamp,
@@ -18,7 +19,9 @@ import type {
   Room,
   RoomPlayer,
   RoomSettings,
+  Wind,
 } from "@/types/multiplayer";
+import { SEAT_TURN_ORDER, WIND_DISPLAY_ORDER } from "@/types/multiplayer";
 
 const ROOMS = "rooms";
 
@@ -53,10 +56,10 @@ export async function createRoom(room: Room): Promise<void> {
 }
 
 /**
- * 加入房间：事务内校验状态与座位余量，分配空闲座位。
- * 返回分配到的座位。
+ * 加入房间：事务内校验状态与人数，分配一个空闲风位。
+ * 返回分配到的风位。
  */
-export async function joinRoom(code: string, player: Omit<RoomPlayer, "seat">): Promise<EngineSeatId> {
+export async function joinRoom(code: string, player: Omit<RoomPlayer, "wind">): Promise<Wind> {
   return runTransaction(getDb(), async (tx) => {
     const ref = roomRef(code);
     const snap = await tx.get(ref);
@@ -64,23 +67,48 @@ export async function joinRoom(code: string, player: Omit<RoomPlayer, "seat">): 
     const room = snap.data() as Room;
     if (room.status !== "waiting") throw new Error("该房间已开始游戏");
 
-    // 同一 clientId 重连：沿用原座位。
+    // 同一 clientId 重连：沿用原风位。
     const already = room.players.find((p) => p.clientId === player.clientId);
     if (already) {
       const players = room.players.map((p) =>
         p.clientId === player.clientId ? { ...p, lastSeen: Date.now(), name: player.name } : p,
       );
       tx.update(ref, { players, updatedAt: Date.now() });
-      return already.seat;
+      return already.wind;
     }
 
-    const takenSeats = new Set(room.players.map((p) => p.seat));
-    const freeSeat = (["human", "ai_right", "ai_left"] as EngineSeatId[]).find((s) => !takenSeats.has(s));
-    if (!freeSeat) throw new Error("房间已满");
+    // 暂时仍最多三人（留一个风位空着）。
+    if (room.players.length >= 3) throw new Error("房间已满");
+    const takenWinds = new Set(room.players.map((p) => p.wind));
+    const freeWind = WIND_DISPLAY_ORDER.find((w) => !takenWinds.has(w));
+    if (!freeWind) throw new Error("房间已满");
 
-    const seated: RoomPlayer = { ...player, seat: freeSeat };
+    const seated: RoomPlayer = { ...player, wind: freeWind };
     tx.update(ref, { players: [...room.players, seated], updatedAt: Date.now() });
-    return freeSeat;
+    return freeWind;
+  });
+}
+
+/**
+ * 切换自己的风位（仅等候室、目标风位空闲时允许）。
+ * 返回切换后的风位。
+ */
+export async function chooseWind(code: string, clientId: string, wind: Wind): Promise<Wind> {
+  return runTransaction(getDb(), async (tx) => {
+    const ref = roomRef(code);
+    const snap = await tx.get(ref);
+    if (!snap.exists()) throw new Error("房间不存在");
+    const room = snap.data() as Room;
+    if (room.status !== "waiting") throw new Error("游戏已开始，无法切换风位");
+
+    const me = room.players.find((p) => p.clientId === clientId);
+    if (!me) throw new Error("你不在该房间内");
+    if (me.wind === wind) return wind;
+    if (room.players.some((p) => p.wind === wind)) throw new Error("该风位已被占用");
+
+    const players = room.players.map((p) => (p.clientId === clientId ? { ...p, wind } : p));
+    tx.update(ref, { players, updatedAt: Date.now() });
+    return wind;
   });
 }
 
@@ -102,6 +130,29 @@ export async function updateRoomProgress(
   await updateDoc(roomRef(code), { ...patch, updatedAt: Date.now() });
 }
 
+/** 本局结算后，某真人玩家点「准备」（事务内幂等加入 readyClients）。 */
+export async function markReady(code: string, clientId: string): Promise<void> {
+  await runTransaction(getDb(), async (tx) => {
+    const ref = roomRef(code);
+    const snap = await tx.get(ref);
+    if (!snap.exists()) return;
+    const room = snap.data() as Room;
+    const ready = new Set(room.readyClients ?? []);
+    if (ready.has(clientId)) return;
+    ready.add(clientId);
+    tx.update(ref, { readyClients: Array.from(ready), updatedAt: Date.now() });
+  });
+}
+
+/** 房主开下一局：递增局数并清空准备名单。 */
+export async function beginNextRound(code: string, nextRound: number): Promise<void> {
+  await updateDoc(roomRef(code), {
+    currentRound: nextRound,
+    readyClients: [],
+    updatedAt: Date.now(),
+  });
+}
+
 /** 成员心跳：刷新自己的 lastSeen。 */
 export async function heartbeat(code: string, clientId: string): Promise<void> {
   const room = await fetchRoom(code);
@@ -110,11 +161,24 @@ export async function heartbeat(code: string, clientId: string): Promise<void> {
   await updateDoc(roomRef(code), { players });
 }
 
-/** 离开房间：房主离开则删除整个房间，否则移除自己。 */
+/** 删除房间的所有子集合文档（views/* 与 actions/*）。Firestore 删文档不级联删子集合，需手动清理。 */
+async function deleteRoomSubcollections(code: string): Promise<void> {
+  // views：座位固定为三个，直接逐个删。
+  await Promise.all(SEAT_TURN_ORDER.map((seat) => deleteDoc(viewRef(code, seat)).catch(() => undefined)));
+  // actions：数量不定，查询后逐条删。
+  const actionsSnap = await getDocs(actionsCol(code)).catch(() => null);
+  if (actionsSnap) {
+    await Promise.all(actionsSnap.docs.map((d) => deleteDoc(d.ref).catch(() => undefined)));
+  }
+}
+
+/** 离开房间：房主离开则删除整个房间（含子集合），否则移除自己。 */
 export async function leaveRoom(code: string, clientId: string): Promise<void> {
   const room = await fetchRoom(code);
   if (!room) return;
   if (room.hostClientId === clientId) {
+    // 先清子集合（视图/动作），再删房间文档，避免遗留孤儿数据。
+    await deleteRoomSubcollections(code);
     await deleteDoc(roomRef(code));
     return;
   }

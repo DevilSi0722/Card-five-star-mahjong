@@ -1,20 +1,76 @@
 "use client";
 
-import { Crown, Bot, User, LogOut, Plus, Copy, Check } from "lucide-react";
+import { Crown, Bot, User, LogOut, Copy, Check, Plus } from "lucide-react";
 import { useState } from "react";
 import { useRoomStore } from "@/store/roomStore";
-import { SEAT_TURN_ORDER, type EngineSeatId } from "@/types/multiplayer";
+import { WIND_DISPLAY_ORDER, WIND_LABEL, type RoomPlayer, type Wind } from "@/types/multiplayer";
 
-const SEAT_LABEL: Record<EngineSeatId, string> = {
-  human: "座位一",
-  ai_right: "座位二",
-  ai_left: "座位三",
-};
+function WindSeat({
+  wind,
+  player,
+  isMe,
+  canTake,
+  onTake,
+}: {
+  wind: Wind;
+  player?: RoomPlayer;
+  isMe: boolean;
+  canTake: boolean;
+  onTake: () => void;
+}) {
+  const interactive = !player && canTake;
+  return (
+    <button
+      type="button"
+      disabled={!interactive}
+      onClick={onTake}
+      className={`flex flex-1 flex-col items-center gap-1.5 rounded-xl border px-1 py-3 transition ${
+        player
+          ? isMe
+            ? "border-gold/50 bg-gold/12"
+            : "border-white/10 bg-white/5"
+          : interactive
+            ? "cursor-pointer border-dashed border-white/15 bg-transparent hover:border-jade/50 hover:bg-white/5"
+            : "border-dashed border-white/10 bg-transparent"
+      } ${interactive ? "pointer-events-auto" : ""}`}
+    >
+      <span className={`text-lg font-bold ${player ? "text-gold-soft" : "text-slate-500"}`}>
+        {WIND_LABEL[wind]}
+      </span>
+      <span
+        className={`grid h-8 w-8 place-items-center rounded-lg ${
+          player?.isAi ? "bg-sky-400/15" : player ? "bg-jade/15" : "bg-white/5"
+        }`}
+      >
+        {player?.isAi ? (
+          <Bot className="h-4 w-4 text-sky-300" />
+        ) : player ? (
+          <User className="h-4 w-4 text-jade" />
+        ) : interactive ? (
+          <Plus className="h-4 w-4 text-slate-500" />
+        ) : (
+          <User className="h-4 w-4 text-slate-600" />
+        )}
+      </span>
+      <span className="flex items-center gap-1 text-center text-[11px] font-semibold text-bone">
+        {player ? (
+          <>
+            <span className="max-w-[56px] truncate">{player.name}</span>
+            {player.isHost ? <Crown className="h-3 w-3 shrink-0 text-gold" /> : null}
+          </>
+        ) : (
+          <span className="text-slate-500">{interactive ? "点击入座" : "空位"}</span>
+        )}
+      </span>
+    </button>
+  );
+}
 
 export function RoomWaiting() {
   const room = useRoomStore((s) => s.room);
   const isHost = useRoomStore((s) => s.isHost());
-  const fillWithAi = useRoomStore((s) => s.fillWithAi);
+  const myWind = useRoomStore((s) => s.myWind);
+  const chooseWind = useRoomStore((s) => s.chooseWind);
   const startGame = useRoomStore((s) => s.startGame);
   const leave = useRoomStore((s) => s.leave);
   const busy = useRoomStore((s) => s.busy);
@@ -24,8 +80,7 @@ export function RoomWaiting() {
 
   const humans = room.players.filter((p) => !p.isAi);
   const canStart = isHost && humans.length >= 2;
-  const seatFilled = (seat: EngineSeatId) => room.players.find((p) => p.seat === seat);
-  const hasFreeSeat = room.players.length < 3;
+  const playerAt = (wind: Wind) => room.players.find((p) => p.wind === wind);
 
   function copyCode() {
     if (typeof navigator !== "undefined" && navigator.clipboard) {
@@ -38,7 +93,7 @@ export function RoomWaiting() {
   return (
     <main className="relative flex min-h-[100dvh] w-full items-center justify-center overflow-hidden bg-[#071014] p-4">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(80%_60%_at_50%_0%,rgba(233,196,106,0.08),transparent_60%)]" />
-      <div className="surface-modal relative w-full max-w-sm rounded-2xl p-6">
+      <div className="surface-modal relative w-full max-w-md rounded-2xl p-6">
         <div className="flex items-center justify-between">
           <div>
             <div className="text-xs text-slate-400">房间号</div>
@@ -61,41 +116,23 @@ export function RoomWaiting() {
           </button>
         </div>
 
-        <div className="mt-5 grid gap-2">
-          <div className="text-xs font-medium text-slate-400">玩家（{room.players.length}/3）</div>
-          {SEAT_TURN_ORDER.map((seat) => {
-            const player = seatFilled(seat);
-            return (
-              <div
-                key={seat}
-                className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 ${
-                  player ? "border-white/10 bg-white/5" : "border-dashed border-white/10 bg-transparent"
-                }`}
-              >
-                <span
-                  className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${
-                    player?.isAi ? "bg-sky-400/15" : player ? "bg-jade/15" : "bg-white/5"
-                  }`}
-                >
-                  {player?.isAi ? (
-                    <Bot className="h-4 w-4 text-sky-300" />
-                  ) : player ? (
-                    <User className="h-4 w-4 text-jade" />
-                  ) : (
-                    <User className="h-4 w-4 text-slate-600" />
-                  )}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-center gap-1.5 text-sm font-semibold text-bone">
-                    {player ? player.name : <span className="text-slate-500">空位</span>}
-                    {player?.isHost ? <Crown className="h-3.5 w-3.5 text-gold" /> : null}
-                  </span>
-                  <span className="text-[11px] text-slate-500">{SEAT_LABEL[seat]}</span>
-                </span>
-                {player?.isAi ? <span className="text-[11px] text-sky-300/80">电脑</span> : null}
-              </div>
-            );
-          })}
+        <div className="mt-5">
+          <div className="flex items-center justify-between text-xs font-medium text-slate-400">
+            <span>选择风位（{room.players.length}/3）</span>
+            <span className="text-slate-500">点击空位可切换</span>
+          </div>
+          <div className="mt-2 flex gap-2">
+            {WIND_DISPLAY_ORDER.map((wind) => (
+              <WindSeat
+                key={wind}
+                wind={wind}
+                player={playerAt(wind)}
+                isMe={myWind === wind}
+                canTake={room.players.length < 4}
+                onTake={() => void chooseWind(wind)}
+              />
+            ))}
+          </div>
         </div>
 
         {/* 设置摘要 */}
@@ -118,27 +155,19 @@ export function RoomWaiting() {
 
         {isHost ? (
           <div className="mt-4 grid gap-2">
-            {hasFreeSeat ? (
-              <button
-                type="button"
-                onClick={fillWithAi}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/12 bg-white/5 text-xs font-semibold text-slate-200 transition hover:border-sky-300/40 hover:text-sky-200"
-              >
-                <Plus className="h-4 w-4" />
-                添加电脑玩家
-              </button>
-            ) : null}
             <button
               type="button"
               disabled={!canStart || busy}
               onClick={startGame}
-              className="inline-flex h-11 items-center justify-center rounded-xl bg-gradient-to-b from-gold-soft to-gold-deep font-semibold text-ink shadow-[0_8px_22px_rgba(233,196,106,0.4)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+              className="surface-panel inline-flex h-11 items-center justify-center rounded-xl border-gold/40 font-semibold transition hover:border-gold/70 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {busy ? "开始中…" : "开始游戏"}
+              <span className="bg-gradient-to-b from-[#f7e6b8] via-gold to-gold-deep bg-clip-text text-transparent">
+                {busy ? "开始中…" : "开始游戏"}
+              </span>
             </button>
-            {!canStart ? (
-              <div className="text-center text-[11px] text-slate-500">至少需要 2 名真人玩家，不足三人将自动补电脑</div>
-            ) : null}
+            <div className="text-center text-[11px] text-slate-500">
+              {canStart ? "不足三人时空缺风位将自动补电脑" : "至少需要 2 名真人玩家才能开始"}
+            </div>
           </div>
         ) : (
           <div className="mt-4 rounded-xl border border-white/8 bg-white/5 px-4 py-3 text-center text-xs text-slate-400">

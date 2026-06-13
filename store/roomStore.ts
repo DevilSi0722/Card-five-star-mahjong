@@ -3,18 +3,20 @@
 import { create } from "zustand";
 import type { Unsubscribe } from "firebase/firestore";
 import type {
-  EngineSeatId,
   GameMode,
   Room,
   RoomPlayer,
   RoomSettings,
+  Wind,
 } from "@/types/multiplayer";
-import { DEFAULT_ROOM_SETTINGS } from "@/types/multiplayer";
+import { DEFAULT_ROOM_SETTINGS, WIND_DISPLAY_ORDER } from "@/types/multiplayer";
 import {
+  chooseWind as chooseWindRepo,
   createRoom,
   fetchRoom,
   joinRoom,
   leaveRoom,
+  markReady as markReadyRepo,
   sendAction,
   subscribeRoom,
   updateRoomPlayers,
@@ -22,6 +24,7 @@ import {
   updateRoomSettings,
 } from "@/lib/multiplayer/roomRepository";
 import { useGameStore } from "@/store/gameStore";
+import { resolveEngineSeats } from "@/lib/multiplayer/windSeating";
 import type { GuestActionInput, NetAction } from "@/types/multiplayer";
 
 /** 构造一条发送给房主的网络动作。 */
@@ -71,7 +74,8 @@ interface RoomStore {
   clientId: string;
   playerName: string;
   room: Room | null;
-  mySeat: EngineSeatId | null;
+  /** 本客户端选择的风位。 */
+  myWind: Wind | null;
   error: string | null;
   busy: boolean;
   unsubscribe: Unsubscribe | null;
@@ -89,8 +93,11 @@ interface RoomStore {
   createNewRoom: (settings: RoomSettings, code?: string) => Promise<void>;
   joinExistingRoom: (code: string) => Promise<void>;
   changeSettings: (settings: RoomSettings) => Promise<void>;
-  fillWithAi: () => Promise<void>;
+  /** 切换自己的风位（等候室、目标空闲时）。 */
+  chooseWind: (wind: Wind) => Promise<void>;
   startGame: () => Promise<void>;
+  /** 本局结算后点「准备」，等待全员就绪。 */
+  markReady: () => Promise<void>;
   leave: () => Promise<void>;
 }
 
@@ -101,7 +108,7 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
   clientId: getClientId(),
   playerName: loadName(),
   room: null,
-  mySeat: null,
+  myWind: null,
   error: null,
   busy: false,
   unsubscribe: null,
@@ -131,7 +138,7 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
       const host: RoomPlayer = {
         clientId,
         name: playerName,
-        seat: "human",
+        wind: "east",
         isHost: true,
         isAi: false,
         joinedAt: Date.now(),
@@ -148,6 +155,7 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
         updatedAt: Date.now(),
       };
       await createRoom(room);
+      // 房主恒为引擎 human 座位。
       useGameStore.getState().configureNet({ role: "host", seat: "human" });
       get().unsubscribe?.();
       const unsub = subscribeRoom(roomCode, (next) => {
@@ -157,7 +165,7 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
         }
         set({ room: next });
       });
-      set({ room, mySeat: "human", view: "room", unsubscribe: unsub });
+      set({ room, myWind: "east", view: "room", unsubscribe: unsub });
     } catch (err) {
       set({ error: err instanceof Error ? err.message : "创建房间失败" });
     } finally {
@@ -171,7 +179,7 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
     try {
       const roomCode = code.trim();
       if (!/^\d{4}$/.test(roomCode)) throw new Error("房间号必须是 4 位数字");
-      const seat = await joinRoom(roomCode, {
+      const wind = await joinRoom(roomCode, {
         clientId,
         name: playerName,
         isHost: false,
@@ -179,10 +187,11 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
         joinedAt: Date.now(),
         lastSeen: Date.now(),
       });
-      // 加入即配置为 guest 角色，确保游戏挂载前角色已就位（避免首帧误跑引擎）。
+      // 加入即配置为 guest 角色（先用占位座位，真正引擎座位在三人就座后由桥接层按风位推导校正），
+      // 确保游戏挂载前角色已就位，避免首帧误跑引擎。
       useGameStore.getState().configureNet({
         role: "guest",
-        seat,
+        seat: "ai_right",
         forward: (input: GuestActionInput) => {
           void sendAction(roomCode, buildNetAction(input));
         },
@@ -198,11 +207,23 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
         set({ room: next });
       });
       const room = await fetchRoom(roomCode);
-      set({ room, mySeat: seat, view: "room", unsubscribe: unsub });
+      set({ room, myWind: wind, view: "room", unsubscribe: unsub });
     } catch (err) {
       set({ error: err instanceof Error ? err.message : "加入房间失败" });
     } finally {
       set({ busy: false });
+    }
+  },
+
+  chooseWind: async (wind) => {
+    const { room, clientId } = get();
+    if (!room) return;
+    set({ error: null });
+    try {
+      await chooseWindRepo(room.code, clientId, wind);
+      set({ myWind: wind });
+    } catch (err) {
+      set({ error: err instanceof Error ? err.message : "切换风位失败" });
     }
   },
 
@@ -212,44 +233,26 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
     await updateRoomSettings(room.code, settings);
   },
 
-  fillWithAi: async () => {
-    const { room, isHost } = get();
-    if (!room || !isHost()) return;
-    const takenSeats = new Set(room.players.map((p) => p.seat));
-    const freeSeat = (["human", "ai_right", "ai_left"] as EngineSeatId[]).find((s) => !takenSeats.has(s));
-    if (!freeSeat) return;
-    const aiNames: Record<EngineSeatId, string> = { human: "电脑", ai_right: "电脑右", ai_left: "电脑左" };
-    const aiPlayer: RoomPlayer = {
-      clientId: `ai:${freeSeat}`,
-      name: aiNames[freeSeat],
-      seat: freeSeat,
-      isHost: false,
-      isAi: true,
-      joinedAt: Date.now(),
-      lastSeen: Date.now(),
-    };
-    await updateRoomPlayers(room.code, [...room.players, aiPlayer]);
-  },
-
   startGame: async () => {
     const { room, isHost } = get();
     if (!room || !isHost()) return;
     set({ busy: true, error: null });
     try {
-      // 至少两名真人即可开始；不足三人则用 AI 补满。
+      // 至少两名真人即可开始；不足三人则用 AI 补满空闲风位。
       const humans = room.players.filter((p) => !p.isAi);
       if (humans.length < 2) throw new Error("至少需要 2 名真人玩家才能开始");
+
       let players = room.players;
-      const seats = new Set(players.map((p) => p.seat));
-      const aiNames: Record<EngineSeatId, string> = { human: "电脑", ai_right: "电脑右", ai_left: "电脑左" };
-      for (const seat of ["human", "ai_right", "ai_left"] as EngineSeatId[]) {
-        if (!seats.has(seat)) {
+      if (players.length < 3) {
+        const takenWinds = new Set(players.map((p) => p.wind));
+        const freeWind = WIND_DISPLAY_ORDER.find((w) => !takenWinds.has(w));
+        if (freeWind) {
           players = [
             ...players,
             {
-              clientId: `ai:${seat}`,
-              name: aiNames[seat],
-              seat,
+              clientId: `ai:${freeWind}`,
+              name: "电脑",
+              wind: freeWind,
               isHost: false,
               isAi: true,
               joinedAt: Date.now(),
@@ -258,6 +261,10 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
           ];
         }
       }
+
+      // 校验三名玩家的风位能推导出引擎座位（房主在场、恰好三人）。
+      if (!resolveEngineSeats(players)) throw new Error("风位分配异常，无法开始");
+
       if (players !== room.players) await updateRoomPlayers(room.code, players);
       await updateRoomProgress(room.code, { status: "playing", currentRound: 1 });
     } catch (err) {
@@ -267,11 +274,17 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
     }
   },
 
+  markReady: async () => {
+    const { room, clientId } = get();
+    if (!room) return;
+    await markReadyRepo(room.code, clientId).catch(() => undefined);
+  },
+
   leave: async () => {
     const { room, clientId, unsubscribe } = get();
     unsubscribe?.();
     if (room) await leaveRoom(room.code, clientId).catch(() => undefined);
     useGameStore.getState().configureNet({ role: "single", seat: "human" });
-    set({ room: null, mySeat: null, view: "home", unsubscribe: null, error: null });
+    set({ room: null, myWind: null, view: "home", unsubscribe: null, error: null });
   },
 }));

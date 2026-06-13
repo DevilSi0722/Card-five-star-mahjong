@@ -1,4 +1,4 @@
-import type { GameState, TileKind } from "./mahjong";
+import type { GameState, PlayerId, TileKind } from "./mahjong";
 
 /** 游戏模式：单机 vs 联机。 */
 export type GameMode = "single" | "multiplayer";
@@ -12,6 +12,20 @@ export type EngineSeatId = "human" | "ai_right" | "ai_left";
 
 /** 出牌顺序：human → ai_right → ai_left，与引擎 PLAYER_ORDER 保持一致。 */
 export const SEAT_TURN_ORDER: EngineSeatId[] = ["human", "ai_right", "ai_left"];
+
+/** 风位（固定罗盘：上北下南左西右东）。 */
+export type Wind = "east" | "south" | "west" | "north";
+
+/** 风位中文标签。 */
+export const WIND_LABEL: Record<Wind, string> = {
+  east: "东",
+  south: "南",
+  west: "西",
+  north: "北",
+};
+
+/** 等候室风位展示顺序：东、南、西、北。 */
+export const WIND_DISPLAY_ORDER: Wind[] = ["east", "south", "west", "north"];
 
 /** 房间设置（房主可配置）。 */
 export interface RoomSettings {
@@ -38,8 +52,8 @@ export interface RoomPlayer {
   clientId: string;
   /** 昵称。 */
   name: string;
-  /** 分配到的引擎座位。 */
-  seat: EngineSeatId;
+  /** 选择的风位（固定罗盘方位）。 */
+  wind: Wind;
   /** 是否房主。 */
   isHost: boolean;
   /** 是否为电脑补位。 */
@@ -62,6 +76,11 @@ export interface Room {
   players: RoomPlayer[];
   /** 当前第几局，从 1 开始；waiting 时为 0。 */
   currentRound: number;
+  /**
+   * 本局结算后已点「准备」的真人 clientId 列表。
+   * 全部真人就绪后房主自动开下一局，随后清空。
+   */
+  readyClients?: string[];
   createdAt: number;
   updatedAt: number;
 }
@@ -114,6 +133,8 @@ export interface NetGameView {
   rev: number;
   /** 旋转 + 裁剪后的引擎状态。 */
   state: NetGameSnapshot;
+  /** 旋转后各显示座位（human/ai_right/ai_left）对应的风位标签。 */
+  winds: Record<EngineSeatId, Wind>;
 }
 
 /** 发布到网络的引擎状态快照（GameState 的可序列化子集）。 */
