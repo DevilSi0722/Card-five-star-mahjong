@@ -19,6 +19,24 @@ const METHOD_LABEL: Record<NonNullable<ScoreResult["method"]>, string> = {
   gangshang: "杠上开花",
 };
 
+// 用自然语句描述某位玩家如何赢牌，例如「左家 AI 给你点炮」「你自摸」
+function describeWin(detail: { winnerId: PlayerId; loserId?: PlayerId; method: NonNullable<ScoreResult["method"]> }): string {
+  const winner = PLAYER_LABEL[detail.winnerId];
+  const loser = detail.loserId ? PLAYER_LABEL[detail.loserId] : undefined;
+  switch (detail.method) {
+    case "zimo":
+      return `${winner}自摸`;
+    case "gangshang":
+      return `${winner}杠上开花`;
+    case "qianggang":
+      return loser ? `${winner}抢${loser}的杠胡` : `${winner}抢杠胡`;
+    case "discard":
+      return loser ? `${loser}给${winner}点炮` : `${winner}胡牌`;
+    default:
+      return winner;
+  }
+}
+
 export function SettlementModal({ result }: { result: ScoreResult }) {
   const { isMobileLandscape } = useResponsiveGameLayout();
   const resetRound = useGameStore((state) => state.resetRound);
@@ -40,80 +58,107 @@ export function SettlementModal({ result }: { result: ScoreResult }) {
         ]
       : []);
 
+  const isDraw = !result.winnerId;
+  const hasMultipleWinners = winDetails.length > 1;
+  const winnerNames = winDetails.map((detail) => PLAYER_LABEL[detail.winnerId]).join("、");
+  const winDescription = winDetails.map((detail) => describeWin(detail)).join("，");
+
   return (
-    <div className={`absolute inset-0 z-30 flex items-center justify-center bg-black/35 ${isMobileLandscape ? "p-2" : "p-4"}`}>
+    <div className={`absolute inset-0 z-30 flex items-center justify-center bg-black/45 backdrop-blur-sm ${isMobileLandscape ? "p-2" : "p-4"}`}>
       <div
-        className={`w-full overflow-y-auto rounded-lg border border-white/12 bg-slate-950/95 shadow-panel hud-scrollbar ${
+        className={`surface-modal w-full overflow-y-auto rounded-2xl hud-scrollbar ${
           isMobileLandscape ? "max-h-[calc(100dvh-1rem)] max-w-[min(560px,calc(100vw-1rem))] p-3" : "max-w-md p-5"
         }`}
       >
-        <div className={`flex items-center gap-2 font-semibold text-white ${isMobileLandscape ? "text-base" : "text-lg"}`}>
-          <Trophy className={`${isMobileLandscape ? "h-4 w-4" : "h-5 w-5"} text-yellow-300`} />
-          {result.title}
-        </div>
-        {result.winnerId ? (
-          <div className={`${isMobileLandscape ? "mt-1 text-xs" : "mt-2 text-sm"} text-slate-300`}>
-            胡牌玩家：{winDetails.map((detail) => PLAYER_LABEL[detail.winnerId]).join("、")}，方式：
-            {result.method ? METHOD_LABEL[result.method] : ""}
+        {/* 标题：赢家是谁，副标题描述怎么赢的 */}
+        <div className="flex items-center gap-2.5">
+          <span className={`grid shrink-0 place-items-center rounded-full bg-gold/15 ${isMobileLandscape ? "h-8 w-8" : "h-10 w-10"}`}>
+            <Trophy className={`${isMobileLandscape ? "h-4 w-4" : "h-5 w-5"} text-gold`} />
+          </span>
+          <div className="min-w-0">
+            <div className={`brand-title font-semibold leading-tight ${isMobileLandscape ? "text-base" : "text-xl"}`}>
+              {isDraw ? "流局" : `赢家：${winnerNames}`}
+            </div>
+            <div className={`mt-0.5 text-slate-400 ${isMobileLandscape ? "text-[11px]" : "text-xs"}`}>
+              {isDraw ? "牌墙摸空 · 本局不计分" : winDescription}
+            </div>
           </div>
-        ) : (
-          <div className={`${isMobileLandscape ? "mt-1 text-xs" : "mt-2 text-sm"} text-slate-300`}>牌墙摸空，本局不计分。</div>
-        )}
+        </div>
 
-        <div className={`${isMobileLandscape ? "mt-2 p-2" : "mt-4 p-3"} rounded-md bg-white/6`}>
-          <div className={`${isMobileLandscape ? "text-xs" : "text-sm"} font-medium text-slate-100`}>番型</div>
-          {winDetails.length > 0 ? (
-            <div className={`${isMobileLandscape ? "mt-1 space-y-1.5" : "mt-2 space-y-3"}`}>
+        {/* 番型明细 */}
+        {winDetails.length > 0 ? (
+          <div className={`${isMobileLandscape ? "mt-2 p-2" : "mt-4 p-3"} rounded-xl border border-white/8 bg-white/5`}>
+            <div className={`font-medium text-gold-soft ${isMobileLandscape ? "text-[11px]" : "text-xs"}`}>番型</div>
+            <div className={`divide-y divide-white/8 ${isMobileLandscape ? "mt-1" : "mt-1.5"}`}>
               {winDetails.map((detail) => (
-                <div key={detail.winnerId} className={`rounded-md border border-white/8 bg-slate-900/60 ${isMobileLandscape ? "p-1.5" : "p-2.5"}`}>
-                  <div className="text-xs font-medium text-slate-200">
-                    {PLAYER_LABEL[detail.winnerId]} · {METHOD_LABEL[detail.method]}
-                  </div>
-                  <div className={`${isMobileLandscape ? "mt-1 gap-1" : "mt-2 gap-2"} flex flex-wrap`}>
+                <div key={detail.winnerId} className={isMobileLandscape ? "py-1.5 first:pt-0 last:pb-0" : "py-2.5 first:pt-0 last:pb-0"}>
+                  {hasMultipleWinners ? (
+                    <div className="mb-1 text-xs font-medium text-slate-200">
+                      {PLAYER_LABEL[detail.winnerId]} · {METHOD_LABEL[detail.method]}
+                    </div>
+                  ) : null}
+                  <div className="flex flex-wrap gap-1.5">
                     {detail.fans.map((fan) => (
                       <span
                         key={fan.type}
-                        className={`rounded-md border border-emerald-300/25 bg-emerald-400/12 text-xs text-emerald-100 ${
-                          isMobileLandscape ? "px-1.5 py-0.5" : "px-2 py-1"
+                        className={`rounded-md border border-jade/30 bg-jade/12 font-medium text-jade-soft ${
+                          isMobileLandscape ? "px-1.5 py-0.5 text-[11px]" : "px-2 py-1 text-xs"
                         }`}
                       >
                         {fan.name} ×{fan.fan}
                       </span>
                     ))}
                   </div>
-                  <div className={`${isMobileLandscape ? "mt-1" : "mt-2"} text-xs text-slate-300`}>
-                    总倍率：×{detail.multiplier}，单份分：{detail.baseScore}
+                  <div className={`flex items-center gap-2 text-slate-400 ${isMobileLandscape ? "mt-1 text-[11px]" : "mt-1.5 text-xs"}`}>
+                    <span>
+                      倍率 <span className="font-semibold text-gold-soft">×{detail.multiplier}</span>
+                    </span>
+                    <span className="text-white/15">|</span>
+                    <span>
+                      每家 <span className="font-semibold text-slate-200">{detail.baseScore}</span> 分
+                    </span>
                   </div>
                 </div>
               ))}
             </div>
-          ) : (
-            <div className="mt-2 text-xs text-slate-400">无</div>
-          )}
-          {result.buyHorse ? (
-            <div className={`${isMobileLandscape ? "mt-1 px-1.5 py-1 text-xs" : "mt-2 px-2 py-1.5 text-sm"} rounded-md border border-sky-300/20 bg-sky-400/10 text-sky-100`}>
-              买马：{TILE_KIND_LABEL[result.buyHorse.tile.kind]}，点数 {result.buyHorse.value}，额外 +{result.buyHorse.bonus}
-            </div>
-          ) : null}
-        </div>
+            {result.buyHorse ? (
+              <div className={`flex items-center justify-between rounded-md border border-sky-300/25 bg-sky-400/10 text-sky-100 ${isMobileLandscape ? "mt-1.5 px-2 py-1 text-[11px]" : "mt-2.5 px-2.5 py-1.5 text-sm"}`}>
+                <span>买马 · {TILE_KIND_LABEL[result.buyHorse.tile.kind]}（{result.buyHorse.value} 点）</span>
+                <span className="font-semibold text-jade-soft">+{result.buyHorse.bonus}</span>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
-        <div className={`${isMobileLandscape ? "mt-2" : "mt-4"} overflow-hidden rounded-md border border-white/10`}>
-          {ids.map((id) => (
-            <div key={id} className={`grid grid-cols-3 border-b border-white/8 last:border-b-0 ${isMobileLandscape ? "px-2 py-1 text-xs" : "px-3 py-2 text-sm"}`}>
-              <span className="text-slate-200">{PLAYER_LABEL[id]}</span>
-              <span className={result.scoreChanges[id] >= 0 ? "text-emerald-200" : "text-rose-200"}>
-                {result.scoreChanges[id] >= 0 ? "+" : ""}
-                {result.scoreChanges[id]}
-              </span>
-              <span className="text-right text-slate-300">{result.totalScores[id]}</span>
-            </div>
-          ))}
+        {/* 比分结算：带表头，本局变化 + 累计总分 */}
+        <div className={`${isMobileLandscape ? "mt-2" : "mt-4"} overflow-hidden rounded-xl border border-white/10`}>
+          <div className={`grid grid-cols-3 border-b border-white/10 bg-white/[0.04] font-medium text-slate-400 ${isMobileLandscape ? "px-2 py-1 text-[10px]" : "px-3 py-1.5 text-[11px]"}`}>
+            <span>玩家</span>
+            <span className="text-center">本局</span>
+            <span className="text-right">总分</span>
+          </div>
+          {ids.map((id) => {
+            const change = result.scoreChanges[id];
+            const isHuman = id === "human";
+            return (
+              <div
+                key={id}
+                className={`grid grid-cols-3 items-center border-b border-white/8 last:border-b-0 ${isHuman ? "bg-gold/10" : ""} ${isMobileLandscape ? "px-2 py-1 text-xs" : "px-3 py-2 text-sm"}`}
+              >
+                <span className={isHuman ? "font-semibold text-bone" : "text-slate-200"}>{PLAYER_LABEL[id]}</span>
+                <span className={`text-center font-semibold tabular-nums ${change > 0 ? "text-jade-soft" : change < 0 ? "text-rose-300" : "text-slate-400"}`}>
+                  {change > 0 ? `+${change}` : change}
+                </span>
+                <span className="text-right tabular-nums text-slate-300">{result.totalScores[id]}</span>
+              </div>
+            );
+          })}
         </div>
 
         <button
           type="button"
           onClick={resetRound}
-          className={`inline-flex w-full items-center justify-center gap-2 rounded-md bg-emerald-400 font-semibold text-slate-950 hover:bg-emerald-300 ${
+          className={`inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-jade-soft to-jade-deep font-semibold text-white shadow-[0_8px_22px_rgba(15,155,117,0.4)] transition hover:brightness-110 ${
             isMobileLandscape ? "mt-2 h-8 text-xs" : "mt-5 h-10 text-sm"
           }`}
         >

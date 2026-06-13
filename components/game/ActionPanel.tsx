@@ -28,10 +28,10 @@ function ActionButton({
 }) {
   const toneClass =
     tone === "primary"
-      ? "border-emerald-300/45 bg-emerald-400/22 text-emerald-50 hover:bg-emerald-400/32"
+      ? "border-gold/70 bg-gradient-to-b from-slate-900/90 to-slate-950/90 text-gold-soft shadow-[0_10px_26px_rgba(233,196,106,0.4),0_0_16px_rgba(233,196,106,0.35)] hover:border-gold hover:text-gold"
       : tone === "danger"
-        ? "border-rose-300/45 bg-rose-400/22 text-rose-50 hover:bg-rose-400/32"
-        : "border-white/15 bg-slate-950/72 text-slate-50 hover:bg-white/16";
+        ? "border-rose-300/50 bg-gradient-to-b from-rose-400/35 to-rose-600/35 text-rose-50 hover:brightness-110"
+        : "border-white/20 bg-gradient-to-b from-slate-800/85 to-slate-950/85 text-slate-50 hover:border-white/35 hover:from-slate-700/85";
 
   return (
     <button
@@ -40,7 +40,7 @@ function ActionButton({
       onClick={onClick}
       aria-label={label}
       title={label}
-      className={`group flex shrink-0 flex-col items-center justify-center rounded-full border-2 font-bold leading-none shadow-panel backdrop-blur-md transition active:scale-95 ${
+      className={`group flex shrink-0 flex-col items-center justify-center rounded-full border-2 font-bold leading-none shadow-panel backdrop-blur-md transition active:scale-90 ${
         compact ? "h-11 w-11 text-xl" : "h-16 w-16 text-2xl sm:h-[72px] sm:w-[72px] sm:text-3xl"
       } ${toneClass}`}
     >

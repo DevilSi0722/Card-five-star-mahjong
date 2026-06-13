@@ -30,6 +30,42 @@ button {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* 统一面板质感：深色玻璃 + 顶部反光高亮 + 柔和金边，替代各处零散的 border-white/12 */
+.surface-panel {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0) 42%),
+    linear-gradient(180deg, rgba(15, 23, 36, 0.82), rgba(8, 14, 24, 0.9));
+  border: 1px solid rgba(233, 196, 106, 0.18);
+  box-shadow:
+    0 18px 50px rgba(2, 8, 14, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+/* 强调面板：弹窗/结算用，金边更明显、阴影更深 */
+.surface-modal {
+  background:
+    radial-gradient(120% 80% at 50% 0%, rgba(233, 196, 106, 0.08), transparent 60%),
+    linear-gradient(180deg, rgba(17, 26, 40, 0.97), rgba(9, 15, 26, 0.98));
+  border: 1px solid rgba(233, 196, 106, 0.28);
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
+
+/* 品牌标题：书法体 + 金色渐变文字 */
+.brand-title {
+  font-family: var(--font-brand), "STKaiti", "KaiTi", serif;
+  background: linear-gradient(180deg, #f7e6b8 0%, #e9c46a 55%, #c79a3a 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  letter-spacing: 0.04em;
+}
+
 .hud-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.28) transparent;

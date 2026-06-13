@@ -8,10 +8,10 @@ import { analyzeWin, getAnGangKinds, getTingDiscardOptions } from "@/utils/mahjo
 import { ActionPanel } from "./ActionPanel";
 
 // 每位玩家一套配色，让信息栏中不同玩家一眼可辨
-const PLAYER_TONES: Array<{ name: string; chip: string; dot: string }> = [
-  { name: "你", chip: "border-emerald-300/35 bg-emerald-400/15 text-emerald-100", dot: "bg-emerald-400" },
-  { name: "左家 AI", chip: "border-sky-300/35 bg-sky-400/15 text-sky-100", dot: "bg-sky-400" },
-  { name: "右家 AI", chip: "border-amber-300/35 bg-amber-400/15 text-amber-100", dot: "bg-amber-400" },
+const PLAYER_TONES: Array<{ name: string; chip: string; dot: string; text: string }> = [
+  { name: "你", chip: "border-emerald-300/35 bg-emerald-400/15 text-emerald-100", dot: "bg-emerald-400", text: "text-emerald-100" },
+  { name: "左家 AI", chip: "border-sky-300/35 bg-sky-400/15 text-sky-100", dot: "bg-sky-400", text: "text-sky-100" },
+  { name: "右家 AI", chip: "border-amber-300/35 bg-amber-400/15 text-amber-100", dot: "bg-amber-400", text: "text-amber-100" },
 ];
 
 function playerTone(name: string) {
@@ -65,17 +65,17 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="pointer-events-auto fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-      <div className="w-full max-w-sm rounded-lg border border-white/12 bg-slate-950/95 p-4 text-sm text-slate-100 shadow-panel">
+    <div className="pointer-events-auto fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
+      <div className="surface-modal w-full max-w-sm rounded-2xl p-5 text-sm text-slate-100">
         <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-base font-semibold text-white">
-            <Settings className="h-4 w-4 text-emerald-300" />
+          <div className="flex items-center gap-2 text-base font-semibold text-bone">
+            <Settings className="h-4 w-4 text-jade" />
             设置
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-white/12 bg-white/6 text-slate-200 transition hover:bg-white/12"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/12 bg-white/5 text-slate-200 transition hover:border-rose-300/40 hover:bg-rose-400/15 hover:text-rose-200"
             aria-label="关闭设置"
             title="关闭设置"
           >
@@ -84,14 +84,16 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="mt-4 grid gap-3">
-          <div className="grid gap-1.5 rounded-md border border-white/10 bg-white/6 p-3">
+          <div className="grid gap-1.5 rounded-xl border border-white/10 bg-white/5 p-3">
             <div className="flex items-center justify-between text-xs text-slate-400">
               <span>本局底分</span>
-              <span>{baseScore}</span>
+              <span className="font-semibold tabular-nums text-gold-soft">{baseScore}</span>
             </div>
             <div className="flex items-center justify-between text-xs text-slate-400">
               <span>本局买马</span>
-              <span>{liangDaoZimoBuyHorseEnabled ? "开启" : "关闭"}</span>
+              <span className={liangDaoZimoBuyHorseEnabled ? "font-semibold text-jade" : "text-slate-500"}>
+                {liangDaoZimoBuyHorseEnabled ? "开启" : "关闭"}
+              </span>
             </div>
           </div>
 
@@ -103,33 +105,33 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
               step={1}
               value={draftBaseScore}
               onChange={(event) => setDraftBaseScore(event.target.value)}
-              className="h-10 rounded-md border border-white/12 bg-slate-900/80 px-3 text-sm font-semibold text-white outline-none transition focus:border-emerald-300/60"
+              className="h-10 rounded-lg border border-white/12 bg-slate-900/70 px-3 text-sm font-semibold text-white outline-none transition focus:border-jade/60 focus:ring-1 focus:ring-jade/30"
             />
           </label>
 
-          <label className="flex cursor-pointer items-center justify-between gap-3 rounded-md border border-white/12 bg-slate-900/80 px-3 py-2.5 text-sm text-slate-200">
+          <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-white/12 bg-slate-900/70 px-3 py-2.5 text-sm text-slate-200 transition hover:border-white/20">
             <span>本局亮倒自摸买马</span>
             <input
               type="checkbox"
               checked={draftBuyHorseEnabled}
               onChange={(event) => setDraftBuyHorseEnabled(event.target.checked)}
-              className="h-4 w-4 accent-emerald-300"
+              className="h-4 w-4 accent-jade"
             />
           </label>
         </div>
 
-        <div className="mt-4 flex justify-end gap-2">
+        <div className="mt-5 flex justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex h-9 items-center justify-center rounded-md border border-white/12 bg-white/6 px-3 text-xs font-semibold text-slate-200 transition hover:bg-white/12"
+            className="inline-flex h-9 items-center justify-center rounded-lg border border-white/12 bg-white/5 px-4 text-xs font-semibold text-slate-200 transition hover:bg-white/12"
           >
             取消
           </button>
           <button
             type="button"
             onClick={saveSettings}
-            className="inline-flex h-9 items-center justify-center rounded-md bg-emerald-400 px-3 text-xs font-semibold text-slate-950 transition hover:bg-emerald-300"
+            className="inline-flex h-9 items-center justify-center rounded-lg bg-gradient-to-b from-jade-soft to-jade-deep px-4 text-xs font-semibold text-slate-950 shadow-[0_6px_18px_rgba(15,155,117,0.4)] transition hover:brightness-110"
           >
             保存
           </button>
@@ -174,31 +176,31 @@ export function GameHUD() {
     >
       <div className="flex items-start justify-between gap-3">
         <div
-          className={`pointer-events-auto flex items-center rounded-lg border border-white/12 bg-slate-950/70 shadow-panel backdrop-blur-md ${
-            isMobileLandscape ? "gap-1.5 px-2 py-1.5" : "gap-2 px-3 py-2"
+          className={`surface-panel pointer-events-auto flex items-center rounded-xl ${
+            isMobileLandscape ? "gap-1 px-2 py-1" : "gap-2.5 px-3.5 py-2"
           }`}
         >
-          <div className={`flex items-center gap-2 font-semibold text-white ${isMobileLandscape ? "text-xs" : "text-sm"}`}>
-            <CircleDot className={`${isMobileLandscape ? "h-3.5 w-3.5" : "h-4 w-4"} text-emerald-300`} />
-            牌墙剩余 {wall.length} 张
+          <div className={`flex items-center font-semibold text-bone ${isMobileLandscape ? "gap-1 text-[10px]" : "gap-2 text-sm"}`}>
+            <CircleDot className={`${isMobileLandscape ? "h-3 w-3" : "h-4 w-4"} text-jade`} />
+            牌墙剩余 <span className="tabular-nums text-gold-soft">{wall.length}</span> 张
           </div>
           <button
             type="button"
             onClick={() => setSettingsOpen(true)}
-            className={`inline-flex items-center justify-center rounded-md border border-white/12 bg-white/6 text-slate-200 transition hover:bg-white/12 ${
-              isMobileLandscape ? "h-6 w-6" : "h-7 w-7"
+            className={`inline-flex items-center justify-center rounded-lg border border-white/12 bg-white/5 text-slate-200 transition hover:border-gold/40 hover:bg-white/12 hover:text-gold-soft ${
+              isMobileLandscape ? "h-5 w-5" : "h-7 w-7"
             }`}
             aria-label="设置"
             title="设置"
           >
-            <Settings className={isMobileLandscape ? "h-3.5 w-3.5" : "h-4 w-4"} />
+            <Settings className={isMobileLandscape ? "h-3 w-3" : "h-4 w-4"} />
           </button>
         </div>
 
-        <div className={`pointer-events-auto grid gap-2 ${isMobileLandscape ? "min-w-[140px]" : "min-w-[168px]"}`}>
+        <div className={`pointer-events-auto grid gap-2 ${isMobileLandscape ? "min-w-[118px]" : "min-w-[168px]"}`}>
           <div
-            className={`grid rounded-lg border border-white/12 bg-slate-950/70 text-xs shadow-panel backdrop-blur-md ${
-              isMobileLandscape ? "gap-0.5 px-2 py-1.5" : "gap-1 px-3 py-2"
+            className={`surface-panel grid rounded-xl ${
+              isMobileLandscape ? "gap-0.5 px-1.5 py-1.5 text-[10px]" : "gap-1 px-3 py-2.5 text-xs"
             }`}
           >
             {Object.values(players).map((player) => {
@@ -207,13 +209,13 @@ export function GameHUD() {
               return (
                 <div
                   key={player.id}
-                  className={`flex items-center justify-between rounded px-1.5 py-0.5 ${
-                    isMobileLandscape ? "gap-2" : "gap-3"
-                  } ${isCurrent ? "bg-white/8" : ""}`}
+                  className={`flex items-center justify-between rounded-lg px-1.5 py-1 transition ${
+                    isMobileLandscape ? "gap-1.5" : "gap-3"
+                  } ${isCurrent ? "bg-gold/12 ring-1 ring-inset ring-gold/30" : ""}`}
                 >
-                  <span className="flex items-center gap-1.5 text-slate-200">
+                  <span className={`flex items-center gap-1.5 ${isCurrent ? "text-bone" : "text-slate-200"}`}>
                     <span className={`h-1.5 w-1.5 rounded-full ${tone?.dot ?? "bg-slate-400"}`} />
-                    {player.isLiangDao ? <BadgeCheck className="h-3.5 w-3.5 text-yellow-300" /> : null}
+                    {player.isLiangDao ? <BadgeCheck className={`${isMobileLandscape ? "h-3 w-3" : "h-3.5 w-3.5"} text-gold`} /> : null}
                     {player.name}
                   </span>
                   <span className={`font-semibold tabular-nums ${scoreClass(player.score)}`}>
@@ -226,11 +228,11 @@ export function GameHUD() {
           <button
             type="button"
             onClick={resetRound}
-            className={`inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/12 bg-slate-950/70 px-3 text-xs font-semibold text-slate-100 shadow-panel backdrop-blur-md transition hover:bg-white/12 ${
-              isMobileLandscape ? "h-7" : "h-9"
+            className={`surface-panel inline-flex items-center justify-center gap-1.5 rounded-xl px-3 font-semibold text-slate-100 transition hover:border-gold/40 hover:text-gold-soft ${
+              isMobileLandscape ? "h-6 text-[10px]" : "h-9 text-xs"
             }`}
           >
-            <RotateCcw className={isMobileLandscape ? "h-3.5 w-3.5" : "h-4 w-4"} />
+            <RotateCcw className={isMobileLandscape ? "h-3 w-3" : "h-4 w-4"} />
             新局
           </button>
         </div>
@@ -238,10 +240,10 @@ export function GameHUD() {
 
       <div
         ref={logPanelRef}
-        className={`pointer-events-auto fixed left-1/2 z-10 -translate-x-1/2 space-y-1 overflow-auto rounded-lg border border-white/10 bg-slate-950/65 text-xs shadow-panel backdrop-blur-md hud-scrollbar ${
+        className={`surface-panel pointer-events-auto fixed left-1/2 z-10 -translate-x-1/2 overflow-auto rounded-xl hud-scrollbar ${
           isMobileLandscape
-            ? "mobile-landscape-log max-h-[4.8rem] w-[min(340px,42vw)] p-1.5"
-            : "top-16 max-h-32 w-[calc(100vw-1.5rem)] p-2 sm:top-3 sm:w-[min(460px,46vw)]"
+            ? "mobile-landscape-log max-h-[3.9rem] w-[min(232px,30vw)] space-y-0 p-1 text-[10px]"
+            : "top-16 max-h-32 w-[calc(100vw-1.5rem)] space-y-1 p-2 text-xs sm:top-3 sm:w-[min(460px,46vw)]"
         }`}
       >
         {logs.map((log, index) => {
@@ -250,17 +252,29 @@ export function GameHUD() {
           return (
             <div
               key={`${log}-${index}`}
-              className={`flex items-center gap-2 rounded px-1.5 py-1 leading-5 ${isLatest ? "bg-white/8" : ""}`}
+              className={`flex items-center rounded ${
+                isMobileLandscape ? "gap-1 px-1 leading-4 py-0" : "gap-2 px-1.5 leading-5 py-1"
+              } ${isLatest ? "bg-white/8" : ""}`}
             >
               {player ? (
                 <span
-                  className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-0.5 text-[11px] font-semibold ${player.chip}`}
+                  className={`inline-flex shrink-0 items-center gap-1 font-semibold ${
+                    isMobileLandscape
+                      ? `text-[9px] ${player.text}`
+                      : `rounded-full border px-1.5 py-0.5 text-[11px] ${player.chip}`
+                  }`}
                 >
                   <span className={`h-1.5 w-1.5 rounded-full ${player.dot}`} />
                   {player.name}
                 </span>
               ) : (
-                <span className="inline-flex shrink-0 items-center rounded-full border border-white/15 bg-white/8 px-1.5 py-0.5 text-[11px] font-medium text-slate-300">
+                <span
+                  className={`inline-flex shrink-0 items-center font-medium text-slate-300 ${
+                    isMobileLandscape
+                      ? "text-[9px]"
+                      : "rounded-full border border-white/15 bg-white/8 px-1.5 py-0.5 text-[11px]"
+                  }`}
+                >
                   系统
                 </span>
               )}

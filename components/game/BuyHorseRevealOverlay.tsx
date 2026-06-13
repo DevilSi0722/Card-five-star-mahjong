@@ -80,13 +80,13 @@ export function BuyHorseRevealOverlay({ result }: { result: NonNullable<ScoreRes
   );
 
   return (
-    <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/50 p-2 sm:p-4">
+    <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/55 p-2 backdrop-blur-sm sm:p-4">
       <div className={`flex flex-col items-center ${isMobileLandscape ? "gap-1.5" : "gap-4"}`}>
         <div className="text-center">
-          <div className={`${isMobileLandscape ? "text-[10px]" : "text-sm"} font-semibold tracking-[0.24em] text-sky-200`}>
+          <div className={`${isMobileLandscape ? "text-[10px]" : "text-sm"} font-semibold tracking-[0.32em] text-gold-soft`}>
             买马
           </div>
-          <div className={`${isMobileLandscape ? "mt-0 text-lg" : "mt-1 text-2xl"} font-bold text-white`}>开马牌</div>
+          <div className={`brand-title ${isMobileLandscape ? "mt-0 text-2xl" : "mt-1 text-4xl"} font-bold`}>开马牌</div>
         </div>
 
         <div className={`relative ${isMobileLandscape ? "h-[150px] w-[150px]" : "h-[240px] w-[240px] sm:h-[300px] sm:w-[300px]"}`}>
@@ -98,7 +98,7 @@ export function BuyHorseRevealOverlay({ result }: { result: NonNullable<ScoreRes
           >
             <HorseCardScene tile={result.tile} revealed={revealed} />
           </Canvas>
-          <div className="pointer-events-none absolute inset-x-6 bottom-3 h-8 rounded-full bg-sky-400/20 blur-xl" />
+          <div className="pointer-events-none absolute inset-x-6 bottom-3 h-8 rounded-full bg-gold/25 blur-xl" />
         </div>
 
         <div
@@ -106,9 +106,9 @@ export function BuyHorseRevealOverlay({ result }: { result: NonNullable<ScoreRes
             detailsVisible ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"
           }`}
         >
-          <div className={`${isMobileLandscape ? "text-base" : "text-xl"} font-bold text-sky-100`}>{summary.label}</div>
-          <div className={`${isMobileLandscape ? "mt-0 text-xs" : "mt-1 text-sm"} text-sky-200`}>点数 {summary.value}</div>
-          <div className={`${isMobileLandscape ? "mt-0.5 text-lg" : "mt-2 text-2xl"} font-bold text-emerald-200`}>
+          <div className={`${isMobileLandscape ? "text-base" : "text-xl"} font-bold text-gold-soft`}>{summary.label}</div>
+          <div className={`${isMobileLandscape ? "mt-0 text-xs" : "mt-1 text-sm"} text-slate-300`}>点数 {summary.value}</div>
+          <div className={`${isMobileLandscape ? "mt-0.5 text-lg" : "mt-2 text-2xl"} font-bold text-jade-soft`}>
             额外 +{summary.bonus}
           </div>
         </div>

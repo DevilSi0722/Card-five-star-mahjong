@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useMemo } from "react";
+import frontTileFace from "@/png/optimized/front.webp";
 import { useGameStore } from "@/store/gameStore";
 import { useUiStore } from "@/store/uiStore";
 import { useResponsiveGameLayout } from "@/hooks/useResponsiveGameLayout";
@@ -9,31 +10,56 @@ import { getWaitDetails, type WaitDetail } from "@/utils/mahjong/tingInfo";
 import { TILE_KIND_LABEL } from "@/utils/mahjong/tiles";
 import { getTileTextureSrc } from "@/utils/mahjong/tileTextures";
 
-function WaitTile({ wait }: { wait: WaitDetail }) {
+function WaitTile({ wait, compact = false }: { wait: WaitDetail; compact?: boolean }) {
   const textureSrc = getTileTextureSrc(wait.kind);
   const label = TILE_KIND_LABEL[wait.kind];
 
   return (
-    <div className="flex w-[86px] shrink-0 flex-col gap-1.5 rounded-lg border border-white/12 bg-white/8 px-2 py-2 text-center text-[11px] shadow-sm">
+    <div
+      className={`flex shrink-0 flex-col text-center leading-none ${
+        compact
+          ? "w-[26px] gap-0.5 text-[9px]"
+          : "w-[86px] gap-1.5 rounded-xl border border-gold/20 bg-white/5 px-2 py-2 text-[11px] shadow-sm"
+      }`}
+    >
       <div
-        className="mx-auto flex h-[56px] w-[40px] shrink-0 items-center justify-center rounded-md border border-slate-300/75 bg-[#fbf6ea] shadow-inner"
+        className={`mx-auto flex shrink-0 items-center justify-center ${
+          compact
+            ? "relative h-[30px] w-[22px] overflow-visible"
+            : "h-[56px] w-[40px] rounded-md border border-slate-300/75 bg-[#fbf6ea] shadow-inner"
+        }`}
         title={label}
         aria-label={label}
       >
+        {compact ? (
+          <Image
+            src={frontTileFace}
+            alt=""
+            fill
+            sizes="22px"
+            className="object-fill"
+            unoptimized
+            aria-hidden
+          />
+        ) : null}
         {textureSrc ? (
           <Image
             src={textureSrc}
             alt={label}
             width={32}
             height={44}
-            className="h-11 w-8 object-contain"
+            className={
+              compact
+                ? "absolute left-1/2 top-[53%] h-[20px] w-[14px] -translate-x-1/2 -translate-y-1/2 object-contain"
+                : "h-11 w-8 object-contain"
+            }
             unoptimized
           />
         ) : null}
       </div>
       <div className="grid gap-0.5 leading-none">
         <span className={wait.remaining > 0 ? "font-semibold text-emerald-200" : "font-semibold text-rose-300"}>
-          余 {wait.remaining}
+          {compact ? wait.remaining : `余 ${wait.remaining}`}
         </span>
         <span className="font-semibold text-amber-200">×{wait.multiplier}</span>
       </div>
@@ -107,24 +133,28 @@ export function TingInfoBar() {
     <div
       className={`pointer-events-none fixed z-20 ${
         isMobileLandscape
-          ? "mobile-landscape-ting top-[max(4.25rem,env(safe-area-inset-top))] max-w-[min(360px,44vw)]"
+          ? "mobile-landscape-ting top-[max(3.25rem,env(safe-area-inset-top))] max-w-[min(260px,38vw)]"
           : "right-5 top-1/2 max-w-[calc(100vw-1.5rem)] -translate-y-1/2"
       }`}
     >
       <div
-        className={`pointer-events-auto flex w-max max-w-full flex-col overflow-auto rounded-lg border border-yellow-300/35 bg-slate-950/86 shadow-panel backdrop-blur-md hud-scrollbar ${
-          isMobileLandscape ? "max-h-[calc(100dvh-1rem)] gap-2 px-2 py-2" : "max-h-[calc(100dvh-2rem)] gap-3 px-4 py-4"
+        className={`pointer-events-auto flex w-max max-w-full flex-col overflow-auto hud-scrollbar ${
+          isMobileLandscape
+            ? "max-h-[calc(100dvh-1rem)] bg-transparent"
+            : "surface-panel max-h-[calc(100dvh-2rem)] gap-3 rounded-xl px-4 py-4"
         }`}
       >
-        <div className={`flex flex-col font-semibold text-yellow-200 ${isMobileLandscape ? "gap-1 text-xs" : "gap-1.5 text-sm"}`}>
-          <span className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-yellow-400" />
-            {info.title}
-          </span>
-          <span className="font-normal text-slate-400">共 {totalRemaining} 张可胡</span>
-        </div>
-        <div className={`flex max-w-full flex-nowrap overflow-x-auto pb-1 hud-scrollbar ${isMobileLandscape ? "gap-1.5" : "gap-2.5"}`}>
-          {info.waits.map((wait) => <WaitTile key={wait.kind} wait={wait} />)}
+        {isMobileLandscape ? null : (
+          <div className="flex flex-col gap-1.5 text-sm font-semibold text-gold-soft">
+            <span className="flex items-center gap-2">
+              <span className="h-2.5 w-2.5 rounded-full bg-gold shadow-[0_0_8px_rgba(233,196,106,0.7)]" />
+              {info.title}
+            </span>
+            <span className="font-normal text-slate-400">共 <span className="tabular-nums text-bone">{totalRemaining}</span> 张可胡</span>
+          </div>
+        )}
+        <div className={`flex max-w-full flex-nowrap overflow-x-auto hud-scrollbar ${isMobileLandscape ? "gap-[2px] pb-0" : "gap-2.5 pb-1"}`}>
+          {info.waits.map((wait) => <WaitTile key={wait.kind} wait={wait} compact={isMobileLandscape} />)}
         </div>
       </div>
     </div>
