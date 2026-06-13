@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Users, User, ArrowLeft } from "lucide-react";
 import { useRoomStore } from "@/store/roomStore";
+import { useResponsiveGameLayout } from "@/hooks/useResponsiveGameLayout";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
 import { CreateRoomForm } from "./CreateRoomForm";
 import { JoinRoomForm } from "./JoinRoomForm";
@@ -27,6 +28,7 @@ function NameField() {
 }
 
 export function Lobby({ onStartSingle }: { onStartSingle: () => void }) {
+  const { isMobileLandscape } = useResponsiveGameLayout();
   const view = useRoomStore((s) => s.view);
   const setView = useRoomStore((s) => s.setView);
   const error = useRoomStore((s) => s.error);
@@ -35,23 +37,33 @@ export function Lobby({ onStartSingle }: { onStartSingle: () => void }) {
 
   if (view === "room") return <RoomWaiting />;
 
+  // 横屏按视图给不同宽度：home 两按钮并排用中等宽度；create/join 需要左右双栏，给足宽度避免表单被压窄
+  const landscapeMaxW =
+    view === "home"
+      ? "max-w-[min(480px,calc(100vw-1rem))]"
+      : "max-w-[min(680px,calc(100vw-1rem))]";
+
   return (
-    <main className="relative flex min-h-[100dvh] w-full items-center justify-center overflow-hidden bg-[#071014] p-4">
+    <main className={`relative flex min-h-[100dvh] w-full items-center justify-center overflow-y-auto bg-[#071014] ${isMobileLandscape ? "p-2" : "p-4"}`}>
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(80%_60%_at_50%_0%,rgba(233,196,106,0.08),transparent_60%)]" />
-      <div className="surface-modal relative w-full max-w-sm rounded-2xl p-6">
+      <div className={`surface-modal relative w-full overflow-y-auto rounded-2xl hud-scrollbar ${
+        isMobileLandscape ? `max-h-[calc(100dvh-1rem)] ${landscapeMaxW} p-4` : "max-w-sm p-6"
+      }`}>
         <div className="text-center">
-          <div className="brand-title text-3xl font-bold">卡五星麻将</div>
-          <div className="mt-1 text-xs tracking-[0.3em] text-slate-400">3D 在线对战</div>
+          <div className={`brand-title font-bold ${isMobileLandscape ? "text-2xl" : "text-3xl"}`}>卡五星麻将</div>
+          {isMobileLandscape && view !== "home" ? null : (
+            <div className="mt-1 text-xs tracking-[0.3em] text-slate-400">3D 在线对战</div>
+          )}
         </div>
 
         {error ? (
-          <div className="mt-4 rounded-lg border border-rose-300/30 bg-rose-400/12 px-3 py-2 text-xs text-rose-200">
+          <div className={`rounded-lg border border-rose-300/30 bg-rose-400/12 px-3 py-2 text-xs text-rose-200 ${isMobileLandscape ? "mt-3" : "mt-4"}`}>
             {error}
           </div>
         ) : null}
 
         {view === "home" ? (
-          <div className="mt-6 grid gap-3">
+          <div className={`grid gap-3 ${isMobileLandscape ? "mt-4 grid-cols-2" : "mt-6"}`}>
             <button
               type="button"
               onClick={onStartSingle}
@@ -90,41 +102,63 @@ export function Lobby({ onStartSingle }: { onStartSingle: () => void }) {
         ) : null}
 
         {view === "create" || view === "join" ? (
-          <div className="mt-6 grid gap-4">
-            <NameField />
-            <div className="grid grid-cols-2 gap-2 rounded-lg bg-white/5 p-1">
+          (() => {
+            const tabs = (
+              <div className="grid grid-cols-2 gap-2 rounded-lg bg-white/5 p-1">
+                <button
+                  type="button"
+                  onClick={() => setView("create")}
+                  className={`h-9 rounded-md text-xs font-semibold transition ${
+                    view === "create" ? "bg-gold/20 text-gold-soft" : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  创建房间
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setView("join")}
+                  className={`h-9 rounded-md text-xs font-semibold transition ${
+                    view === "join" ? "bg-gold/20 text-gold-soft" : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  加入房间
+                </button>
+              </div>
+            );
+            const form = view === "create" ? <CreateRoomForm compact={isMobileLandscape} /> : <JoinRoomForm compact={isMobileLandscape} />;
+            const back = (
               <button
                 type="button"
-                onClick={() => setView("create")}
-                className={`h-9 rounded-md text-xs font-semibold transition ${
-                  view === "create" ? "bg-gold/20 text-gold-soft" : "text-slate-400 hover:text-slate-200"
-                }`}
+                onClick={() => {
+                  clearError();
+                  setView("home");
+                }}
+                className="inline-flex items-center justify-center gap-1.5 text-xs text-slate-400 transition hover:text-slate-200"
               >
-                创建房间
+                <ArrowLeft className="h-3.5 w-3.5" />
+                返回
               </button>
-              <button
-                type="button"
-                onClick={() => setView("join")}
-                className={`h-9 rounded-md text-xs font-semibold transition ${
-                  view === "join" ? "bg-gold/20 text-gold-soft" : "text-slate-400 hover:text-slate-200"
-                }`}
-              >
-                加入房间
-              </button>
-            </div>
-            {view === "create" ? <CreateRoomForm /> : <JoinRoomForm />}
-            <button
-              type="button"
-              onClick={() => {
-                clearError();
-                setView("home");
-              }}
-              className="inline-flex items-center justify-center gap-1.5 text-xs text-slate-400 transition hover:text-slate-200"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              返回
-            </button>
-          </div>
+            );
+
+            // 横屏：顶部横条「昵称 + 标签页」并排，表单占满整宽，返回在底；竖屏：单列堆叠
+            return isMobileLandscape ? (
+              <div className="mt-3 grid gap-3">
+                <div className="grid grid-cols-[1fr_1fr] items-end gap-3">
+                  <NameField />
+                  {tabs}
+                </div>
+                {form}
+                <div className="flex justify-center">{back}</div>
+              </div>
+            ) : (
+              <div className="mt-6 grid gap-4">
+                <NameField />
+                {tabs}
+                {form}
+                {back}
+              </div>
+            );
+          })()
         ) : null}
       </div>
     </main>

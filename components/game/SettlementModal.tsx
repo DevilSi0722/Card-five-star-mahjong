@@ -84,7 +84,7 @@ export function SettlementModal({ result }: { result: ScoreResult }) {
     <div className={`absolute inset-0 z-30 flex items-center justify-center bg-black/45 backdrop-blur-sm ${isMobileLandscape ? "p-2" : "p-4"}`}>
       <div
         className={`surface-modal w-full overflow-y-auto rounded-2xl hud-scrollbar ${
-          isMobileLandscape ? "max-h-[calc(100dvh-1rem)] max-w-[min(560px,calc(100vw-1rem))] p-3" : "max-w-md p-5"
+          isMobileLandscape ? "max-h-[calc(100dvh-1rem)] max-w-[min(660px,calc(100vw-1rem))] p-3" : "max-w-md p-5"
         }`}
       >
         {/* 标题：赢家是谁，副标题描述怎么赢的 */}
@@ -102,74 +102,77 @@ export function SettlementModal({ result }: { result: ScoreResult }) {
           </div>
         </div>
 
-        {/* 番型明细 */}
-        {winDetails.length > 0 ? (
-          <div className={`${isMobileLandscape ? "mt-2 p-2" : "mt-4 p-3"} rounded-xl border border-white/8 bg-white/5`}>
-            <div className={`font-medium text-gold-soft ${isMobileLandscape ? "text-[11px]" : "text-xs"}`}>番型</div>
-            <div className={`divide-y divide-white/8 ${isMobileLandscape ? "mt-1" : "mt-1.5"}`}>
-              {winDetails.map((detail) => (
-                <div key={detail.winnerId} className={isMobileLandscape ? "py-1.5 first:pt-0 last:pb-0" : "py-2.5 first:pt-0 last:pb-0"}>
-                  {hasMultipleWinners ? (
-                    <div className="mb-1 text-xs font-medium text-slate-200">
-                      {nameOf(detail.winnerId)} · {METHOD_LABEL[detail.method]}
+        {/* 横屏且有番型：番型明细 + 比分表并排成双栏，用宽度换高度；流局无番型或竖屏：上下堆叠 */}
+        <div className={isMobileLandscape && winDetails.length > 0 ? "mt-2 grid grid-cols-2 items-start gap-2" : "contents"}>
+          {/* 番型明细 */}
+          {winDetails.length > 0 ? (
+            <div className={`${isMobileLandscape ? "p-2" : "mt-4 p-3"} rounded-xl border border-white/8 bg-white/5`}>
+              <div className={`font-medium text-gold-soft ${isMobileLandscape ? "text-[11px]" : "text-xs"}`}>番型</div>
+              <div className={`divide-y divide-white/8 ${isMobileLandscape ? "mt-1" : "mt-1.5"}`}>
+                {winDetails.map((detail) => (
+                  <div key={detail.winnerId} className={isMobileLandscape ? "py-1.5 first:pt-0 last:pb-0" : "py-2.5 first:pt-0 last:pb-0"}>
+                    {hasMultipleWinners ? (
+                      <div className="mb-1 text-xs font-medium text-slate-200">
+                        {nameOf(detail.winnerId)} · {METHOD_LABEL[detail.method]}
+                      </div>
+                    ) : null}
+                    <div className="flex flex-wrap gap-1.5">
+                      {detail.fans.map((fan) => (
+                        <span
+                          key={fan.type}
+                          className={`rounded-md border border-jade/30 bg-jade/12 font-medium text-jade-soft ${
+                            isMobileLandscape ? "px-1.5 py-0.5 text-[11px]" : "px-2 py-1 text-xs"
+                          }`}
+                        >
+                          {fan.name} ×{fan.fan}
+                        </span>
+                      ))}
                     </div>
-                  ) : null}
-                  <div className="flex flex-wrap gap-1.5">
-                    {detail.fans.map((fan) => (
-                      <span
-                        key={fan.type}
-                        className={`rounded-md border border-jade/30 bg-jade/12 font-medium text-jade-soft ${
-                          isMobileLandscape ? "px-1.5 py-0.5 text-[11px]" : "px-2 py-1 text-xs"
-                        }`}
-                      >
-                        {fan.name} ×{fan.fan}
+                    <div className={`flex items-center gap-2 text-slate-400 ${isMobileLandscape ? "mt-1 text-[11px]" : "mt-1.5 text-xs"}`}>
+                      <span>
+                        倍率 <span className="font-semibold text-gold-soft">×{detail.multiplier}</span>
                       </span>
-                    ))}
+                      <span className="text-white/15">|</span>
+                      <span>
+                        每家 <span className="font-semibold text-slate-200">{detail.baseScore}</span> 分
+                      </span>
+                    </div>
                   </div>
-                  <div className={`flex items-center gap-2 text-slate-400 ${isMobileLandscape ? "mt-1 text-[11px]" : "mt-1.5 text-xs"}`}>
-                    <span>
-                      倍率 <span className="font-semibold text-gold-soft">×{detail.multiplier}</span>
-                    </span>
-                    <span className="text-white/15">|</span>
-                    <span>
-                      每家 <span className="font-semibold text-slate-200">{detail.baseScore}</span> 分
-                    </span>
-                  </div>
+                ))}
+              </div>
+              {result.buyHorse ? (
+                <div className={`flex items-center justify-between rounded-md border border-sky-300/25 bg-sky-400/10 text-sky-100 ${isMobileLandscape ? "mt-1.5 px-2 py-1 text-[11px]" : "mt-2.5 px-2.5 py-1.5 text-sm"}`}>
+                  <span>买马 · {TILE_KIND_LABEL[result.buyHorse.tile.kind]}（{result.buyHorse.value} 点）</span>
+                  <span className="font-semibold text-jade-soft">+{result.buyHorse.bonus}</span>
                 </div>
-              ))}
+              ) : null}
             </div>
-            {result.buyHorse ? (
-              <div className={`flex items-center justify-between rounded-md border border-sky-300/25 bg-sky-400/10 text-sky-100 ${isMobileLandscape ? "mt-1.5 px-2 py-1 text-[11px]" : "mt-2.5 px-2.5 py-1.5 text-sm"}`}>
-                <span>买马 · {TILE_KIND_LABEL[result.buyHorse.tile.kind]}（{result.buyHorse.value} 点）</span>
-                <span className="font-semibold text-jade-soft">+{result.buyHorse.bonus}</span>
-              </div>
-            ) : null}
-          </div>
-        ) : null}
+          ) : null}
 
-        {/* 比分结算：带表头，本局变化 + 累计总分 */}
-        <div className={`${isMobileLandscape ? "mt-2" : "mt-4"} overflow-hidden rounded-xl border border-white/10`}>
-          <div className={`grid grid-cols-3 border-b border-white/10 bg-white/[0.04] font-medium text-slate-400 ${isMobileLandscape ? "px-2 py-1 text-[10px]" : "px-3 py-1.5 text-[11px]"}`}>
-            <span>玩家</span>
-            <span className="text-center">本局</span>
-            <span className="text-right">总分</span>
+          {/* 比分结算：带表头，本局变化 + 累计总分 */}
+          <div className={`overflow-hidden rounded-xl border border-white/10 ${isMobileLandscape ? (winDetails.length > 0 ? "" : "mt-2") : "mt-4"}`}>
+            <div className={`grid grid-cols-3 border-b border-white/10 bg-white/[0.04] font-medium text-slate-400 ${isMobileLandscape ? "px-2 py-1 text-[10px]" : "px-3 py-1.5 text-[11px]"}`}>
+              <span>玩家</span>
+              <span className="text-center">本局</span>
+              <span className="text-right">总分</span>
+            </div>
+            {ids.map((id) => {
+              const change = result.scoreChanges[id];
+              const isHuman = id === "human";
+              return (
+                <div
+                  key={id}
+                  className={`grid grid-cols-3 items-center border-b border-white/8 last:border-b-0 ${isHuman ? "bg-gold/10" : ""} ${isMobileLandscape ? "px-2 py-1 text-xs" : "px-3 py-2 text-sm"}`}
+                >
+                  <span className={isHuman ? "font-semibold text-bone" : "text-slate-200"}>{nameOf(id)}</span>
+                  <span className={`text-center font-semibold tabular-nums ${change > 0 ? "text-jade-soft" : change < 0 ? "text-rose-300" : "text-slate-400"}`}>
+                    {change > 0 ? `+${change}` : change}
+                  </span>
+                  <span className="text-right tabular-nums text-slate-300">{result.totalScores[id]}</span>
+                </div>
+              );
+            })}
           </div>
-          {ids.map((id) => {
-            const change = result.scoreChanges[id];
-            const isHuman = id === "human";
-            return (
-              <div
-                key={id}
-                className={`grid grid-cols-3 items-center border-b border-white/8 last:border-b-0 ${isHuman ? "bg-gold/10" : ""} ${isMobileLandscape ? "px-2 py-1 text-xs" : "px-3 py-2 text-sm"}`}
-              >
-                <span className={isHuman ? "font-semibold text-bone" : "text-slate-200"}>{nameOf(id)}</span>
-                <span className={`text-center font-semibold tabular-nums ${change > 0 ? "text-jade-soft" : change < 0 ? "text-rose-300" : "text-slate-400"}`}>
-                  {change > 0 ? `+${change}` : change}
-                </span>
-                <span className="text-right tabular-nums text-slate-300">{result.totalScores[id]}</span>
-              </div>
-            );
-          })}
         </div>
 
         {isMultiplayer ? (

@@ -87,6 +87,7 @@ function scoreClass(score: number): string {
 }
 
 function SettingsModal({ onClose }: { onClose: () => void }) {
+  const { isMobileLandscape } = useResponsiveGameLayout();
   const baseScore = useGameStore((state) => state.baseScore);
   const nextBaseScore = useGameStore((state) => state.nextBaseScore);
   const liangDaoZimoBuyHorseEnabled = useGameStore((state) => state.liangDaoZimoBuyHorseEnabled);
@@ -109,8 +110,12 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="pointer-events-auto fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
-      <div className="surface-modal w-full max-w-sm rounded-2xl p-5 text-sm text-slate-100">
+    <div className={`pointer-events-auto fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm ${isMobileLandscape ? "p-2" : "p-4"}`}>
+      <div
+        className={`surface-modal w-full overflow-y-auto rounded-2xl text-sm text-slate-100 hud-scrollbar ${
+          isMobileLandscape ? "max-h-[calc(100dvh-1rem)] max-w-[min(620px,calc(100vw-1rem))] p-3" : "max-w-sm p-5"
+        }`}
+      >
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-base font-semibold text-bone">
             <Settings className="h-4 w-4 text-jade" />
@@ -127,44 +132,50 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        <div className="mt-4 grid gap-3">
-          <div className="grid gap-1.5 rounded-xl border border-white/10 bg-white/5 p-3">
+        {/* 横屏：左右双栏（左=当前状态，右=下局设置），用宽度换高度；竖屏：单列堆叠 */}
+        <div className={`grid gap-3 ${isMobileLandscape ? "mt-3 grid-cols-2 items-start" : "mt-4 grid-cols-1"}`}>
+          <div className="grid content-start gap-1.5 rounded-xl border border-white/10 bg-white/5 p-3">
+            <div className="text-[11px] font-medium text-gold-soft">本局</div>
             <div className="flex items-center justify-between text-xs text-slate-400">
-              <span>本局底分</span>
+              <span>底分</span>
               <span className="font-semibold tabular-nums text-gold-soft">{baseScore}</span>
             </div>
             <div className="flex items-center justify-between text-xs text-slate-400">
-              <span>本局买马</span>
+              <span>买马</span>
               <span className={liangDaoZimoBuyHorseEnabled ? "font-semibold text-jade" : "text-slate-500"}>
                 {liangDaoZimoBuyHorseEnabled ? "开启" : "关闭"}
               </span>
             </div>
           </div>
 
-          <label className="grid gap-1.5">
-            <span className="text-xs font-medium text-slate-300">下局底分</span>
-            <input
-              type="number"
-              min={1}
-              step={1}
-              value={draftBaseScore}
-              onChange={(event) => setDraftBaseScore(event.target.value)}
-              className="h-10 rounded-lg border border-white/12 bg-slate-900/70 px-3 text-sm font-semibold text-white outline-none transition focus:border-jade/60 focus:ring-1 focus:ring-jade/30"
-            />
-          </label>
+          <div className="grid content-start gap-3">
+            <label className="grid gap-1.5">
+              <span className="text-xs font-medium text-slate-300">下局底分</span>
+              <input
+                type="number"
+                min={1}
+                step={1}
+                value={draftBaseScore}
+                onChange={(event) => setDraftBaseScore(event.target.value)}
+                className={`rounded-lg border border-white/12 bg-slate-900/70 px-3 text-sm font-semibold text-white outline-none transition focus:border-jade/60 focus:ring-1 focus:ring-jade/30 ${
+                  isMobileLandscape ? "h-9" : "h-10"
+                }`}
+              />
+            </label>
 
-          <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-white/12 bg-slate-900/70 px-3 py-2.5 text-sm text-slate-200 transition hover:border-white/20">
-            <span>本局亮倒自摸买马</span>
-            <input
-              type="checkbox"
-              checked={draftBuyHorseEnabled}
-              onChange={(event) => setDraftBuyHorseEnabled(event.target.checked)}
-              className="h-4 w-4 accent-jade"
-            />
-          </label>
+            <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-white/12 bg-slate-900/70 px-3 py-2.5 text-sm text-slate-200 transition hover:border-white/20">
+              <span>本局亮倒自摸买马</span>
+              <input
+                type="checkbox"
+                checked={draftBuyHorseEnabled}
+                onChange={(event) => setDraftBuyHorseEnabled(event.target.checked)}
+                className="h-4 w-4 accent-jade"
+              />
+            </label>
+          </div>
         </div>
 
-        <div className="mt-5 flex justify-end gap-2">
+        <div className={`flex justify-end gap-2 ${isMobileLandscape ? "mt-3" : "mt-5"}`}>
           <button
             type="button"
             onClick={onClose}
@@ -360,15 +371,17 @@ export function GameHUD() {
       <ActionPanel canSelfHu={canSelfHu} anGangKinds={anGangKinds} buGangMelds={buGangMelds} tingOptions={tingOptions} />
       {settingsOpen ? <SettingsModal onClose={() => setSettingsOpen(false)} /> : null}
       {confirmExit ? (
-        <div className="pointer-events-auto fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
-          <div className="surface-modal w-full max-w-xs rounded-2xl p-5 text-sm text-slate-100">
+        <div className={`pointer-events-auto fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm ${isMobileLandscape ? "p-2" : "p-4"}`}>
+          <div className={`surface-modal w-full overflow-y-auto rounded-2xl text-sm text-slate-100 hud-scrollbar ${
+            isMobileLandscape ? "max-h-[calc(100dvh-1rem)] max-w-[min(360px,calc(100vw-1rem))] p-3" : "max-w-xs p-5"
+          }`}>
             <div className="text-base font-semibold text-bone">退出到主页</div>
             <div className="mt-2 text-xs text-slate-400">
               {netRole === "single"
                 ? "确定要结束当前对局返回主页吗？"
                 : "确定要离开房间返回主页吗？" + (netRole === "host" ? "你是房主，离开将解散整个房间。" : "")}
             </div>
-            <div className="mt-5 flex justify-end gap-2">
+            <div className={`flex justify-end gap-2 ${isMobileLandscape ? "mt-3" : "mt-5"}`}>
               <button
                 type="button"
                 onClick={() => setConfirmExit(false)}

@@ -3,6 +3,7 @@
 import { Crown, Bot, User, LogOut, Copy, Check, Plus } from "lucide-react";
 import { useState } from "react";
 import { useRoomStore } from "@/store/roomStore";
+import { useResponsiveGameLayout } from "@/hooks/useResponsiveGameLayout";
 import { WIND_DISPLAY_ORDER, WIND_LABEL, type RoomPlayer, type Wind } from "@/types/multiplayer";
 
 function WindSeat({
@@ -11,12 +12,14 @@ function WindSeat({
   isMe,
   canTake,
   onTake,
+  compact = false,
 }: {
   wind: Wind;
   player?: RoomPlayer;
   isMe: boolean;
   canTake: boolean;
   onTake: () => void;
+  compact?: boolean;
 }) {
   const interactive = !player && canTake;
   return (
@@ -24,7 +27,9 @@ function WindSeat({
       type="button"
       disabled={!interactive}
       onClick={onTake}
-      className={`flex flex-1 flex-col items-center gap-1.5 rounded-xl border px-1 py-3 transition ${
+      className={`flex flex-1 flex-col items-center rounded-xl border px-1 transition ${
+        compact ? "gap-1 py-2" : "gap-1.5 py-3"
+      } ${
         player
           ? isMe
             ? "border-gold/50 bg-gold/12"
@@ -67,6 +72,7 @@ function WindSeat({
 }
 
 export function RoomWaiting() {
+  const { isMobileLandscape } = useResponsiveGameLayout();
   const room = useRoomStore((s) => s.room);
   const isHost = useRoomStore((s) => s.isHost());
   const myWind = useRoomStore((s) => s.myWind);
@@ -91,16 +97,20 @@ export function RoomWaiting() {
   }
 
   return (
-    <main className="relative flex min-h-[100dvh] w-full items-center justify-center overflow-hidden bg-[#071014] p-4">
+    <main className={`relative flex min-h-[100dvh] w-full items-center justify-center overflow-y-auto bg-[#071014] ${isMobileLandscape ? "p-2" : "p-4"}`}>
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(80%_60%_at_50%_0%,rgba(233,196,106,0.08),transparent_60%)]" />
-      <div className="surface-modal relative w-full max-w-md rounded-2xl p-6">
+      <div className={`surface-modal relative w-full overflow-y-auto rounded-2xl hud-scrollbar ${
+        isMobileLandscape ? "max-h-[calc(100dvh-1rem)] max-w-[min(440px,calc(100vw-1rem))] p-4" : "max-w-md p-6"
+      }`}>
         <div className="flex items-center justify-between">
           <div>
             <div className="text-xs text-slate-400">房间号</div>
             <button
               type="button"
               onClick={copyCode}
-              className="flex items-center gap-2 text-3xl font-bold tracking-[0.3em] text-gold-soft transition hover:text-gold"
+              className={`flex items-center gap-2 font-bold tracking-[0.3em] text-gold-soft transition hover:text-gold ${
+                isMobileLandscape ? "text-2xl" : "text-3xl"
+              }`}
             >
               {room.code}
               {copied ? <Check className="h-4 w-4 text-jade" /> : <Copy className="h-4 w-4 text-slate-500" />}
@@ -116,64 +126,72 @@ export function RoomWaiting() {
           </button>
         </div>
 
-        <div className="mt-5">
-          <div className="flex items-center justify-between text-xs font-medium text-slate-400">
-            <span>选择风位（{room.players.length}/3）</span>
-            <span className="text-slate-500">点击空位可切换</span>
-          </div>
-          <div className="mt-2 flex gap-2">
-            {WIND_DISPLAY_ORDER.map((wind) => (
-              <WindSeat
-                key={wind}
-                wind={wind}
-                player={playerAt(wind)}
-                isMe={myWind === wind}
-                canTake={room.players.length < 4}
-                onTake={() => void chooseWind(wind)}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* 设置摘要 */}
-        <div className="mt-4 grid grid-cols-3 gap-2 rounded-xl border border-white/8 bg-white/5 p-3 text-center">
-          <div>
-            <div className="text-[11px] text-slate-400">局数</div>
-            <div className="text-sm font-semibold text-bone">{room.settings.rounds}</div>
-          </div>
-          <div>
-            <div className="text-[11px] text-slate-400">底分</div>
-            <div className="text-sm font-semibold text-bone">{room.settings.baseScore}</div>
-          </div>
-          <div>
-            <div className="text-[11px] text-slate-400">买马</div>
-            <div className={`text-sm font-semibold ${room.settings.liangDaoZimoBuyHorse ? "text-jade" : "text-slate-500"}`}>
-              {room.settings.liangDaoZimoBuyHorse ? "开" : "关"}
+        {/* 横屏：左右双栏（左=风位选择，右=设置摘要+开始），用宽度换高度；竖屏：单列堆叠 */}
+        <div className={isMobileLandscape ? "mt-3 grid grid-cols-[1.4fr_1fr] items-start gap-3" : "contents"}>
+          <div className={isMobileLandscape ? "" : "mt-5"}>
+            <div className="flex items-center justify-between text-xs font-medium text-slate-400">
+              <span>选择风位（{room.players.length}/3）</span>
+              <span className="text-slate-500">点击空位可切换</span>
+            </div>
+            <div className="mt-2 flex gap-2">
+              {WIND_DISPLAY_ORDER.map((wind) => (
+                <WindSeat
+                  key={wind}
+                  wind={wind}
+                  player={playerAt(wind)}
+                  isMe={myWind === wind}
+                  canTake={room.players.length < 4}
+                  onTake={() => void chooseWind(wind)}
+                  compact={isMobileLandscape}
+                />
+              ))}
             </div>
           </div>
-        </div>
 
-        {isHost ? (
-          <div className="mt-4 grid gap-2">
-            <button
-              type="button"
-              disabled={!canStart || busy}
-              onClick={startGame}
-              className="surface-panel inline-flex h-11 items-center justify-center rounded-xl border-gold/40 font-semibold transition hover:border-gold/70 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <span className="bg-gradient-to-b from-[#f7e6b8] via-gold to-gold-deep bg-clip-text text-transparent">
-                {busy ? "开始中…" : "开始游戏"}
-              </span>
-            </button>
-            <div className="text-center text-[11px] text-slate-500">
-              {canStart ? "不足三人时空缺风位将自动补电脑" : "至少需要 2 名真人玩家才能开始"}
+          <div className={isMobileLandscape ? "grid content-start gap-3" : "contents"}>
+            {/* 设置摘要 */}
+            <div className={`grid grid-cols-3 gap-2 rounded-xl border border-white/8 bg-white/5 text-center ${isMobileLandscape ? "p-2" : "mt-4 p-3"}`}>
+              <div>
+                <div className="text-[11px] text-slate-400">局数</div>
+                <div className="text-sm font-semibold text-bone">{room.settings.rounds}</div>
+              </div>
+              <div>
+                <div className="text-[11px] text-slate-400">底分</div>
+                <div className="text-sm font-semibold text-bone">{room.settings.baseScore}</div>
+              </div>
+              <div>
+                <div className="text-[11px] text-slate-400">买马</div>
+                <div className={`text-sm font-semibold ${room.settings.liangDaoZimoBuyHorse ? "text-jade" : "text-slate-500"}`}>
+                  {room.settings.liangDaoZimoBuyHorse ? "开" : "关"}
+                </div>
+              </div>
             </div>
+
+            {isHost ? (
+              <div className={`grid gap-2 ${isMobileLandscape ? "" : "mt-4"}`}>
+                <button
+                  type="button"
+                  disabled={!canStart || busy}
+                  onClick={startGame}
+                  className={`surface-panel inline-flex items-center justify-center rounded-xl border-gold/40 font-semibold transition hover:border-gold/70 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 ${
+                    isMobileLandscape ? "h-10" : "h-11"
+                  }`}
+                >
+                  <span className="bg-gradient-to-b from-[#f7e6b8] via-gold to-gold-deep bg-clip-text text-transparent">
+                    {busy ? "开始中…" : "开始游戏"}
+                  </span>
+                </button>
+                <div className="text-center text-[11px] text-slate-500">
+                  {canStart ? "不足三人时空缺风位将自动补电脑" : "至少需要 2 名真人玩家才能开始"}
+                </div>
+              </div>
+            ) : (
+              <div className={`rounded-xl border border-white/8 bg-white/5 px-4 py-3 text-center text-xs text-slate-400 ${isMobileLandscape ? "" : "mt-4"}`}>
+                等待房主开始游戏…
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="mt-4 rounded-xl border border-white/8 bg-white/5 px-4 py-3 text-center text-xs text-slate-400">
-            等待房主开始游戏…
-          </div>
-        )}
+        </div>
       </div>
     </main>
   );
