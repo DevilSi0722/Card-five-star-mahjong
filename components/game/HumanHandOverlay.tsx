@@ -13,6 +13,8 @@ import { ALL_TILE_TEXTURE_SRCS, getTileTextureSrc } from "@/utils/mahjong/tileTe
 const DRAWN_TILE_GAP_CLASS = "ml-3 sm:ml-5";
 const DOUBLE_TAP_MS = 320;
 const HAND_REORDER_ANIMATION_MS = 220;
+const SWIPE_DISCARD_MIN_DY = 28;
+const SWIPE_DISCARD_MAX_DX = 32;
 
 export function HumanHandOverlay() {
   const { isMobileLandscape } = useResponsiveGameLayout();
@@ -31,6 +33,8 @@ export function HumanHandOverlay() {
   const liangDaoArmed = useUiStore((state) => state.liangDaoArmed);
   const setLiangDaoArmed = useUiStore((state) => state.setLiangDaoArmed);
   const lastClickRef = useRef<{ tileId: string; time: number } | null>(null);
+  const pointerStartRef = useRef<{ tileId: string; x: number; y: number } | null>(null);
+  const swipeDiscardedRef = useRef(false);
   const tileElementRefs = useRef(new Map<string, HTMLButtonElement>());
   const tileContentRefs = useRef(new Map<string, HTMLDivElement>());
   const previousTileRects = useRef(new Map<string, DOMRect>());
@@ -141,6 +145,10 @@ export function HumanHandOverlay() {
   }
 
   function handleTileClick(tileId: string, canLiangDaoWithTile: boolean) {
+    if (swipeDiscardedRef.current) {
+      swipeDiscardedRef.current = false;
+      return;
+    }
     const now = window.performance.now();
     const previous = lastClickRef.current;
     const isDoubleTap = previous?.tileId === tileId && now - previous.time <= DOUBLE_TAP_MS;
@@ -150,6 +158,45 @@ export function HumanHandOverlay() {
       lastClickRef.current = null;
       playTile(tileId, canLiangDaoWithTile);
     }
+  }
+
+  function handleTilePointerDown(event: React.PointerEvent<HTMLButtonElement>, tileId: string) {
+    event.stopPropagation();
+    if (!interactive || !isMobileLandscape) {
+      pointerStartRef.current = null;
+      return;
+    }
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    pointerStartRef.current = { tileId, x: event.clientX, y: event.clientY };
+    swipeDiscardedRef.current = false;
+  }
+
+  function handleTilePointerUp(
+    event: React.PointerEvent<HTMLButtonElement>,
+    tileId: string,
+    canLiangDaoWithTile: boolean,
+  ) {
+    event.stopPropagation();
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+    const start = pointerStartRef.current;
+    pointerStartRef.current = null;
+    if (!start || start.tileId !== tileId || !interactive || !isMobileLandscape) return;
+    const dx = event.clientX - start.x;
+    const dy = event.clientY - start.y;
+    if (dy <= -SWIPE_DISCARD_MIN_DY && Math.abs(dx) <= SWIPE_DISCARD_MAX_DX) {
+      swipeDiscardedRef.current = true;
+      lastClickRef.current = null;
+      selectTile(tileId);
+      playTile(tileId, canLiangDaoWithTile);
+      window.setTimeout(() => {
+        swipeDiscardedRef.current = false;
+      }, 0);
+    }
+  }
+
+  function handleTilePointerCancel(event: React.PointerEvent<HTMLButtonElement>) {
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+    pointerStartRef.current = null;
   }
 
   return (
@@ -183,7 +230,9 @@ export function HumanHandOverlay() {
               type="button"
               title={label}
               aria-label={label}
-              onPointerDown={(event) => event.stopPropagation()}
+              onPointerDown={(event) => handleTilePointerDown(event, tile.id)}
+              onPointerUp={(event) => handleTilePointerUp(event, tile.id, canLiangDaoWithTile)}
+              onPointerCancel={handleTilePointerCancel}
               onClick={() => handleTileClick(tile.id, canLiangDaoWithTile)}
               onMouseEnter={() => {
                 if (interactive) setHoveredTileId(tile.id);
