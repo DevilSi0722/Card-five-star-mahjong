@@ -309,16 +309,18 @@ export function GameHUD() {
               );
             })}
           </div>
-          <button
-            type="button"
-            onClick={resetRound}
-            className={`surface-panel inline-flex items-center justify-center gap-1.5 rounded-xl px-3 font-semibold text-slate-100 transition hover:border-gold/40 hover:text-gold-soft ${
-              isMobileLandscape ? "h-6 text-[10px]" : "h-9 text-xs"
-            }`}
-          >
-            <RotateCcw className={isMobileLandscape ? "h-3 w-3" : "h-4 w-4"} />
-            新局
-          </button>
+          {netRole === "single" ? (
+            <button
+              type="button"
+              onClick={resetRound}
+              className={`surface-panel inline-flex items-center justify-center gap-1.5 rounded-xl px-3 font-semibold text-slate-100 transition hover:border-gold/40 hover:text-gold-soft ${
+                isMobileLandscape ? "h-6 text-[10px]" : "h-9 text-xs"
+              }`}
+            >
+              <RotateCcw className={isMobileLandscape ? "h-3 w-3" : "h-4 w-4"} />
+              新局
+            </button>
+          ) : null}
         </div>
       </div>
 
