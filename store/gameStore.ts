@@ -258,11 +258,23 @@ function applyRoster(
  * guest 客户端不跑引擎：把本地发起的动作转发给房主，返回 true 表示已转发、调用方应直接 return。
  * host/single 返回 false，照常执行引擎逻辑。
  */
+let optimisticGuestActionDepth = 0;
+
+function applyOptimisticGuestAction(action: () => void) {
+  optimisticGuestActionDepth += 1;
+  try {
+    action();
+  } finally {
+    optimisticGuestActionDepth -= 1;
+  }
+}
+
 function forwardIfGuest(
   state: { netRole: NetRole; netSeat: EngineSeatId; netForward?: (action: GuestActionInput) => void },
   action: Omit<GuestActionInput, "seat">,
 ): boolean {
   if (state.netRole !== "guest") return false;
+  if (optimisticGuestActionDepth > 0) return false;
   state.netForward?.({ ...action, seat: state.netSeat });
   return true;
 }
@@ -456,7 +468,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const player = state.players[playerId];
     const tile = player.hand.find((item) => item.id === tileId);
     if (!tile) return;
-    if (state.netRole === "guest") {
+    if (state.netRole === "guest" && optimisticGuestActionDepth === 0) {
       if (!state.netForward) return;
       state.netForward({ type: "discard", tileId, seat: state.netSeat });
       const players = { ...state.players };
@@ -531,7 +543,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   passReaction: (playerId) => {
     const state = get();
-    if (forwardIfGuest(state, { type: "pass" })) return;
+    if (forwardIfGuest(state, { type: "pass" })) {
+      applyOptimisticGuestAction(() => get().passReaction(playerId));
+      return;
+    }
     if (!state.pendingReactions) return;
     set({
       reactionPasses: Array.from(new Set([...state.reactionPasses, playerId])),
@@ -543,7 +558,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   claimPeng: (playerId) => {
     const state = get();
-    if (forwardIfGuest(state, { type: "peng" })) return;
+    if (forwardIfGuest(state, { type: "peng" })) {
+      applyOptimisticGuestAction(() => get().claimPeng(playerId));
+      return;
+    }
     const pending = state.pendingReactions;
     if (!pending) return;
     const top = topPriorityReaction(pending, state.reactionPasses);
@@ -589,7 +607,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   claimMingGang: (playerId) => {
     const state = get();
-    if (forwardIfGuest(state, { type: "ming_gang" })) return;
+    if (forwardIfGuest(state, { type: "ming_gang" })) {
+      applyOptimisticGuestAction(() => get().claimMingGang(playerId));
+      return;
+    }
     const pending = state.pendingReactions;
     if (!pending) return;
     const top = topPriorityReaction(pending, state.reactionPasses);
@@ -664,7 +685,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   claimAnGang: (playerId, tileType) => {
     const state = get();
-    if (forwardIfGuest(state, { type: "an_gang", tileKind: tileType })) return;
+    if (forwardIfGuest(state, { type: "an_gang", tileKind: tileType })) {
+      applyOptimisticGuestAction(() => get().claimAnGang(playerId, tileType));
+      return;
+    }
     const player = state.players[playerId];
     if (state.phase !== "playing" || state.currentPlayerId !== playerId) return;
     if (!getAnGangKinds(player.hand).includes(tileType)) return;
@@ -726,7 +750,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   claimBuGang: (playerId, meldId) => {
     const state = get();
-    if (forwardIfGuest(state, { type: "bu_gang", meldId })) return;
+    if (forwardIfGuest(state, { type: "bu_gang", meldId })) {
+      applyOptimisticGuestAction(() => get().claimBuGang(playerId, meldId));
+      return;
+    }
     const player = state.players[playerId];
     if (state.phase !== "playing" || state.currentPlayerId !== playerId) return;
     const meld = player.melds.find((item) => item.id === meldId && item.type === "peng");
@@ -800,7 +827,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   declareLiangDao: (playerId, discardTileId) => {
     const state = get();
-    if (forwardIfGuest(state, { type: "liang_dao", tileId: discardTileId })) return;
+    if (forwardIfGuest(state, { type: "liang_dao", tileId: discardTileId })) {
+      applyOptimisticGuestAction(() => get().declareLiangDao(playerId, discardTileId));
+      return;
+    }
     const player = state.players[playerId];
     if (player.isLiangDao || state.currentPlayerId !== playerId || state.phase !== "playing") return;
     const tile = player.hand.find((item) => item.id === discardTileId);
@@ -835,7 +865,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
   claimHu: (playerId) => {
     const state = get();
     if (state.phase !== "playing" && state.phase !== "responding") return;
-    if (forwardIfGuest(state, { type: "hu" })) return;
+    if (forwardIfGuest(state, { type: "hu" })) {
+      applyOptimisticGuestAction(() => get().claimHu(playerId));
+      return;
+    }
     if (state.pendingBuGang) {
       if (state.pendingReactions) {
         const top = topPriorityReaction(state.pendingReactions, state.reactionPasses);
@@ -926,6 +959,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   nextTurn: (delayMs = 0) => {
+    if (optimisticGuestActionDepth > 0) return;
     const expectedActionNonce = get().actionNonce;
     const advance = () => {
       const state = get();

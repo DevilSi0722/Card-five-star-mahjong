@@ -17,6 +17,8 @@ const PLAYER_TONES: Array<{ name: string; chip: string; dot: string; text: strin
   { name: "右家 AI", chip: "border-amber-300/35 bg-amber-400/15 text-amber-100", dot: "bg-amber-400", text: "text-amber-100" },
 ];
 
+const SCORE_PANEL_PLAYER_ORDER: EngineSeatId[] = ["human", "ai_right", "ai_left"];
+
 function playerTone(name: string) {
   return PLAYER_TONES.find((tone) => tone.name === name);
 }
@@ -105,7 +107,11 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
   function saveSettings() {
     const parsedBaseScore = Number.parseInt(draftBaseScore, 10);
     saveNextRoundSettings({
-      baseScore: Number.isFinite(parsedBaseScore) ? parsedBaseScore : nextBaseScore,
+      baseScore: isMultiplayer
+        ? baseScore
+        : Number.isFinite(parsedBaseScore)
+          ? parsedBaseScore
+          : nextBaseScore,
       liangDaoZimoBuyHorseEnabled: isMultiplayer ? liangDaoZimoBuyHorseEnabled : draftBuyHorseEnabled,
     });
     onClose();
@@ -150,26 +156,28 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
             </div>
           </div>
 
-          <div className="grid content-start gap-3">
-            <label className="grid gap-1.5">
-              <span className="text-xs font-medium text-slate-300">下局底分</span>
-              <input
-                type="number"
-                min={1}
-                step={1}
-                value={draftBaseScore}
-                onChange={(event) => setDraftBaseScore(event.target.value)}
-                className={`rounded-lg border border-white/12 bg-slate-900/70 px-3 text-sm font-semibold text-white outline-none transition focus:border-jade/60 focus:ring-1 focus:ring-jade/30 ${
-                  isMobileLandscape ? "h-9" : "h-10"
-                }`}
-              />
-            </label>
-
-            {isMultiplayer ? (
+          {isMultiplayer ? (
+            <div className="grid content-start gap-3">
               <div className="rounded-lg border border-white/12 bg-slate-900/70 px-3 py-2.5 text-xs text-slate-400">
-                亮倒自摸买马由房主创建房间时设置，局内不可修改。
+                底分和亮倒自摸买马由房主创建房间时设置，局内不可修改。
               </div>
-            ) : (
+            </div>
+          ) : (
+            <div className="grid content-start gap-3">
+              <label className="grid gap-1.5">
+                <span className="text-xs font-medium text-slate-300">下局底分</span>
+                <input
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={draftBaseScore}
+                  onChange={(event) => setDraftBaseScore(event.target.value)}
+                  className={`rounded-lg border border-white/12 bg-slate-900/70 px-3 text-sm font-semibold text-white outline-none transition focus:border-jade/60 focus:ring-1 focus:ring-jade/30 ${
+                    isMobileLandscape ? "h-9" : "h-10"
+                  }`}
+                />
+              </label>
+
               <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-white/12 bg-slate-900/70 px-3 py-2.5 text-sm text-slate-200 transition hover:border-white/20">
                 <span>本局亮倒自摸买马</span>
                 <input
@@ -179,8 +187,8 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
                   className="h-4 w-4 accent-jade"
                 />
               </label>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         <div className={`flex justify-end gap-2 ${isMobileLandscape ? "mt-3" : "mt-5"}`}>
@@ -293,7 +301,8 @@ export function GameHUD() {
               isMobileLandscape ? "gap-0.5 px-1.5 py-1.5 text-[10px]" : "gap-1 px-3 py-2.5 text-xs"
             }`}
           >
-            {Object.values(players).map((player) => {
+            {SCORE_PANEL_PLAYER_ORDER.map((playerId) => {
+              const player = players[playerId];
               const tone = playerTone(player.name);
               const isCurrent = player.id === currentPlayerId;
               const wind = netRole !== "single" ? netWinds?.[player.id as EngineSeatId] : undefined;

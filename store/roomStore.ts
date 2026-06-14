@@ -28,9 +28,20 @@ import { resolveEngineSeats } from "@/lib/multiplayer/windSeating";
 import type { GuestActionInput, NetAction } from "@/types/multiplayer";
 
 /** 构造一条发送给房主的网络动作。 */
+const ACTION_SEQ_KEY = "kwx:lastNetActionSeq";
+let netActionSeqSalt = 0;
+
 function buildNetAction(input: GuestActionInput): NetAction {
+  netActionSeqSalt = (netActionSeqSalt + 1) % 1000;
+  const lastSeq =
+    typeof window === "undefined"
+      ? 0
+      : Number.parseInt(window.localStorage.getItem(ACTION_SEQ_KEY) ?? "0", 10) || 0;
+  const seq = Math.max(Date.now() * 1000 + netActionSeqSalt, lastSeq + 1);
+  if (typeof window !== "undefined") window.localStorage.setItem(ACTION_SEQ_KEY, String(seq));
   return {
-    id: `a_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    id: `a_${seq}_${Math.random().toString(36).slice(2, 7)}`,
+    seq,
     seat: input.seat,
     type: input.type,
     tileId: input.tileId,

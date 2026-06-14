@@ -37,6 +37,10 @@ function actionsCol(code: string) {
   return collection(getDb(), ROOMS, code, "actions");
 }
 
+function actionRef(code: string, seat: EngineSeatId) {
+  return doc(getDb(), ROOMS, code, "actions", seat);
+}
+
 function presenceCol(code: string) {
   return collection(getDb(), ROOMS, code, "presence");
 }
@@ -221,23 +225,26 @@ export function subscribeView(
   });
 }
 
-/** guest 发送一条动作给房主。 */
+/** guest 发送一条动作给房主；每个座位固定一个动作文档，覆盖写入以减少清理写入。 */
 export async function sendAction(code: string, action: NetAction): Promise<void> {
-  await setDoc(doc(actionsCol(code), action.id), action);
+  await setDoc(actionRef(code, action.seat), action);
 }
 
-/** 房主订阅动作队列；新动作到达时回调。 */
+/** 房主订阅动作队列；固定文档首次出现或被覆盖时回调。 */
 export function subscribeActions(code: string, onAction: (action: NetAction) => void): Unsubscribe {
   return onSnapshot(actionsCol(code), (snap) => {
     for (const change of snap.docChanges()) {
-      if (change.type === "added") onAction(change.doc.data() as NetAction);
+      const action = change.doc.data() as NetAction;
+      if (change.doc.id !== action.seat) continue;
+      if (change.type === "added" || change.type === "modified") onAction(action);
     }
   });
 }
 
-/** 房主处理完动作后删除，避免重复消费。 */
+/** 旧动作队列的清理入口保留兼容；固定动作文档用 seq 去重，不再逐条删除。 */
 export async function consumeAction(code: string, actionId: string): Promise<void> {
-  await deleteDoc(doc(actionsCol(code), actionId));
+  void code;
+  void actionId;
 }
 
 export { serverTimestamp };

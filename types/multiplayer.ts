@@ -112,6 +112,8 @@ export interface GuestActionInput {
 /** 一条联机动作（Firestore：rooms/{code}/actions/{id}）。 */
 export interface NetAction {
   id: string;
+  /** 单调递增动作序号；固定动作文档覆盖写入时，房主用它去重。 */
+  seq: number;
   /** 发起者的真实引擎座位。 */
   seat: EngineSeatId;
   type: NetActionType;

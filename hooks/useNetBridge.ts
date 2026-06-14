@@ -7,7 +7,6 @@ import { cropSnapshotForSeat, rotateWindsForSeat } from "@/lib/multiplayer/seatR
 import { engineSeatForClient, engineSeatWinds, resolveEngineSeats } from "@/lib/multiplayer/windSeating";
 import {
   beginNextRound,
-  consumeAction,
   heartbeat,
   publishView,
   subscribeActions,
@@ -21,6 +20,24 @@ import type {
 } from "@/types/multiplayer";
 
 const ENGINE_SEATS: EngineSeatId[] = ["human", "ai_right", "ai_left"];
+const WAITING_HEARTBEAT_MS = 30_000;
+const PLAYING_HEARTBEAT_MS = 60_000;
+
+function consumedActionSeqKey(code: string, seat: EngineSeatId): string {
+  return `kwx:consumedActionSeq:${code}:${seat}`;
+}
+
+function readConsumedActionSeq(code: string, seat: EngineSeatId): number {
+  if (typeof window === "undefined") return 0;
+  const value = window.localStorage.getItem(consumedActionSeqKey(code, seat));
+  const seq = value ? Number.parseInt(value, 10) : 0;
+  return Number.isFinite(seq) ? seq : 0;
+}
+
+function writeConsumedActionSeq(code: string, seat: EngineSeatId, seq: number) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(consumedActionSeqKey(code, seat), String(seq));
+}
 
 /** 从完整 store 状态抽出可发布的快照子集。 */
 function extractSnapshot(state: ReturnType<typeof useGameStore.getState>): NetGameSnapshot {
@@ -85,6 +102,7 @@ export function useNetBridge() {
   const revRef = useRef(0);
   const lastViewRevRef = useRef(-1);
   const lastPublishSigRef = useRef("");
+  const consumedActionSeqRef = useRef<Partial<Record<EngineSeatId, number>>>({});
   // host 已发牌到的局号，避免同一局重复发牌。
   const dealtRoundRef = useRef(0);
 
@@ -167,8 +185,12 @@ export function useNetBridge() {
   useEffect(() => {
     if (!isHost || !code) return;
     const unsub = subscribeActions(code, (action) => {
+      const consumedSeq =
+        consumedActionSeqRef.current[action.seat] ?? readConsumedActionSeq(code, action.seat);
+      if (action.seq <= consumedSeq) return;
       applyActionToEngine(action.type, action.seat, action);
-      void consumeAction(code, action.id);
+      consumedActionSeqRef.current[action.seat] = action.seq;
+      writeConsumedActionSeq(code, action.seat, action.seq);
     });
     return () => unsub();
   }, [isHost, code]);
@@ -216,7 +238,9 @@ export function useNetBridge() {
   // 心跳：定期刷新 lastSeen。
   useEffect(() => {
     if (!isMultiplayer || !code) return;
-    const timer = window.setInterval(() => void heartbeat(code, clientId), 10000);
+    const intervalMs = roomStatus === "playing" ? PLAYING_HEARTBEAT_MS : WAITING_HEARTBEAT_MS;
+    void heartbeat(code, clientId);
+    const timer = window.setInterval(() => void heartbeat(code, clientId), intervalMs);
     return () => window.clearInterval(timer);
-  }, [isMultiplayer, code, clientId]);
+  }, [isMultiplayer, code, clientId, roomStatus]);
 }
