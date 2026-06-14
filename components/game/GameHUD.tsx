@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { BadgeCheck, CircleDot, LogOut, RotateCcw, Settings, X } from "lucide-react";
-import type { Player } from "@/types/mahjong";
+import type { Player, PlayerId } from "@/types/mahjong";
 import { WIND_LABEL, type EngineSeatId, type Wind } from "@/types/multiplayer";
 import { useGameStore } from "@/store/gameStore";
 import { useRoomStore } from "@/store/roomStore";
@@ -10,17 +10,19 @@ import { useResponsiveGameLayout } from "@/hooks/useResponsiveGameLayout";
 import { analyzeWin, getAnGangKinds, getTingDiscardOptions } from "@/utils/mahjong/handAnalyzer";
 import { ActionPanel } from "./ActionPanel";
 
-// 每位玩家一套配色，让信息栏中不同玩家一眼可辨
-const PLAYER_TONES: Array<{ name: string; chip: string; dot: string; text: string }> = [
-  { name: "你", chip: "border-emerald-300/35 bg-emerald-400/15 text-emerald-100", dot: "bg-emerald-400", text: "text-emerald-100" },
-  { name: "左家 AI", chip: "border-sky-300/35 bg-sky-400/15 text-sky-100", dot: "bg-sky-400", text: "text-sky-100" },
-  { name: "右家 AI", chip: "border-amber-300/35 bg-amber-400/15 text-amber-100", dot: "bg-amber-400", text: "text-amber-100" },
-];
+// 每个显示座位一套固定配色。多人模式昵称会变化，颜色必须跟座位走，不能跟名字匹配。
+type PlayerTone = { chip: string; dot: string; text: string };
+
+const PLAYER_TONES: Record<PlayerId, PlayerTone> = {
+  human: { chip: "border-emerald-300/35 bg-emerald-400/15 text-emerald-100", dot: "bg-emerald-400", text: "text-emerald-100" },
+  ai_left: { chip: "border-sky-300/35 bg-sky-400/15 text-sky-100", dot: "bg-sky-400", text: "text-sky-100" },
+  ai_right: { chip: "border-amber-300/35 bg-amber-400/15 text-amber-100", dot: "bg-amber-400", text: "text-amber-100" },
+};
 
 const SCORE_PANEL_PLAYER_ORDER: EngineSeatId[] = ["human", "ai_right", "ai_left"];
 
-function playerTone(name: string) {
-  return PLAYER_TONES.find((tone) => tone.name === name);
+function playerTone(id: PlayerId): PlayerTone {
+  return PLAYER_TONES[id];
 }
 
 // 牌桌左右两侧玩家名称标签（多人模式用，让左右两位玩家身份一眼可辨）。
@@ -37,6 +39,7 @@ function SideNameTag({
   compact: boolean;
   wind?: Wind;
 }) {
+  const tone = playerTone(player.id);
   return (
     <div
       className={`pointer-events-none fixed top-1/2 z-10 -translate-y-1/2 ${
@@ -49,9 +52,9 @@ function SideNameTag({
         } ${isCurrent ? "ring-1 ring-inset ring-gold/40" : ""}`}
       >
         <div className="flex items-center gap-1.5">
-          <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${isCurrent ? "bg-gold" : "bg-slate-500"}`} />
+          <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${isCurrent ? "bg-gold" : tone.dot}`} />
           {player.isLiangDao ? <BadgeCheck className={`${compact ? "h-3 w-3" : "h-3.5 w-3.5"} text-gold`} /> : null}
-          <span className={`max-w-[72px] truncate font-semibold ${isCurrent ? "text-gold-soft" : "text-bone"}`}>
+          <span className={`max-w-[72px] truncate font-semibold ${isCurrent ? "text-gold-soft" : tone.text}`}>
             {player.name}
           </span>
           <span className={`font-semibold tabular-nums ${scoreClass(player.score)}`}>
@@ -65,8 +68,11 @@ function SideNameTag({
 }
 
 // 把一条日志拆成「玩家 + 事件正文」，无玩家前缀的视为系统事件
-function parseLog(log: string): { player: (typeof PLAYER_TONES)[number] | null; body: string } {
-  const player = PLAYER_TONES.find((tone) => log.startsWith(tone.name));
+function parseLog(log: string, players: Record<PlayerId, Player>): { player: (PlayerTone & { name: string }) | null; body: string } {
+  const player = SCORE_PANEL_PLAYER_ORDER
+    .map((id) => ({ ...playerTone(id), name: players[id].name }))
+    .sort((a, b) => b.name.length - a.name.length)
+    .find((candidate) => log.startsWith(candidate.name));
   if (!player) return { player: null, body: log };
   return { player, body: log.slice(player.name.length).trim() };
 }
@@ -303,7 +309,7 @@ export function GameHUD() {
           >
             {SCORE_PANEL_PLAYER_ORDER.map((playerId) => {
               const player = players[playerId];
-              const tone = playerTone(player.name);
+              const tone = playerTone(player.id);
               const isCurrent = player.id === currentPlayerId;
               const wind = netRole !== "single" ? netWinds?.[player.id as EngineSeatId] : undefined;
               return (
@@ -313,11 +319,11 @@ export function GameHUD() {
                     isMobileLandscape ? "gap-1.5" : "gap-3"
                   } ${isCurrent ? "bg-gold/12 ring-1 ring-inset ring-gold/30" : ""}`}
                 >
-                  <span className={`flex items-center gap-1.5 ${isCurrent ? "text-bone" : "text-slate-200"}`}>
-                    <span className={`h-1.5 w-1.5 rounded-full ${tone?.dot ?? "bg-slate-400"}`} />
+                  <span className={`flex min-w-0 items-center gap-1.5 ${isCurrent ? "text-bone" : tone.text}`}>
+                    <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${tone.dot}`} />
                     {player.isLiangDao ? <BadgeCheck className={`${isMobileLandscape ? "h-3 w-3" : "h-3.5 w-3.5"} text-gold`} /> : null}
-                    {player.name}
-                    {wind ? <span className="text-gold-soft/70">·{WIND_LABEL[wind]}</span> : null}
+                    <span className="min-w-0 truncate">{player.name}</span>
+                    {wind ? <span className="shrink-0 text-gold-soft/70">·{WIND_LABEL[wind]}</span> : null}
                   </span>
                   <span className={`font-semibold tabular-nums ${scoreClass(player.score)}`}>
                     {player.score > 0 ? `+${player.score}` : player.score}
@@ -350,7 +356,7 @@ export function GameHUD() {
         }`}
       >
         {logs.map((log, index) => {
-          const { player, body } = parseLog(log);
+          const { player, body } = parseLog(log, players);
           const isLatest = index === logs.length - 1;
           return (
             <div
