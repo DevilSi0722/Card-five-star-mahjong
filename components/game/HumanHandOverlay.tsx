@@ -154,6 +154,9 @@ export function HumanHandOverlay() {
     const isDoubleTap = previous?.tileId === tileId && now - previous.time <= DOUBLE_TAP_MS;
     lastClickRef.current = { tileId, time: now };
     selectTile(tileId);
+    if (interactive && isMobileLandscape) {
+      setHoveredTileId(tileId);
+    }
     if (isDoubleTap) {
       lastClickRef.current = null;
       playTile(tileId, canLiangDaoWithTile);
@@ -187,6 +190,7 @@ export function HumanHandOverlay() {
       swipeDiscardedRef.current = true;
       lastClickRef.current = null;
       selectTile(tileId);
+      setHoveredTileId(undefined);
       playTile(tileId, canLiangDaoWithTile);
       window.setTimeout(() => {
         swipeDiscardedRef.current = false;

@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Users, User, ArrowLeft } from "lucide-react";
+import { ArrowLeft, Settings, User, Users, X } from "lucide-react";
 import { useRoomStore } from "@/store/roomStore";
+import { useUiStore } from "@/store/uiStore";
 import { useResponsiveGameLayout } from "@/hooks/useResponsiveGameLayout";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
 import { CreateRoomForm } from "./CreateRoomForm";
@@ -27,6 +28,63 @@ function NameField() {
   );
 }
 
+function LobbySettingsModal({ onClose }: { onClose: () => void }) {
+  const { isMobileLandscape } = useResponsiveGameLayout();
+  const discardPhysicsEnabled = useUiStore((s) => s.discardPhysicsEnabled);
+  const setDiscardPhysicsEnabled = useUiStore((s) => s.setDiscardPhysicsEnabled);
+
+  return (
+    <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm ${isMobileLandscape ? "p-2" : "p-4"}`}>
+      <div
+        className={`surface-modal w-full overflow-y-auto rounded-2xl text-sm text-slate-100 hud-scrollbar ${
+          isMobileLandscape ? "max-h-[calc(100dvh-1rem)] max-w-[min(420px,calc(100vw-1rem))] p-3" : "max-w-sm p-5"
+        }`}
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-base font-semibold text-bone">
+            <Settings className="h-4 w-4 text-jade" />
+            设置
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/12 bg-white/5 text-slate-200 transition hover:border-rose-300/40 hover:bg-rose-400/15 hover:text-rose-200"
+            aria-label="关闭设置"
+            title="关闭设置"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className={`${isMobileLandscape ? "mt-3" : "mt-4"} grid gap-3`}>
+          <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-white/12 bg-slate-900/70 px-3 py-3 text-sm text-slate-200 transition hover:border-white/20">
+            <span className="grid gap-0.5">
+              <span className="font-semibold text-bone">物理碰撞弃牌</span>
+              <span className="text-xs text-slate-400">进入单人或多人对局后生效</span>
+            </span>
+            <input
+              type="checkbox"
+              checked={discardPhysicsEnabled}
+              onChange={(event) => setDiscardPhysicsEnabled(event.target.checked)}
+              className="h-4 w-4 shrink-0 accent-jade"
+            />
+          </label>
+        </div>
+
+        <div className={`flex justify-end ${isMobileLandscape ? "mt-3" : "mt-5"}`}>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-9 items-center justify-center rounded-lg bg-gradient-to-b from-jade-soft to-jade-deep px-4 text-xs font-semibold text-white shadow-[0_6px_18px_rgba(15,155,117,0.4)] transition hover:brightness-110"
+          >
+            完成
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function Lobby({ onStartSingle }: { onStartSingle: () => void }) {
   const { isMobileLandscape } = useResponsiveGameLayout();
   const view = useRoomStore((s) => s.view);
@@ -34,6 +92,7 @@ export function Lobby({ onStartSingle }: { onStartSingle: () => void }) {
   const error = useRoomStore((s) => s.error);
   const clearError = useRoomStore((s) => s.clearError);
   const [configured] = useState(isFirebaseConfigured());
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   if (view === "room") return <RoomWaiting />;
 
@@ -46,6 +105,19 @@ export function Lobby({ onStartSingle }: { onStartSingle: () => void }) {
   return (
     <main className={`relative flex min-h-[100dvh] w-full items-center justify-center overflow-y-auto bg-[#071014] ${isMobileLandscape ? "p-2" : "p-4"}`}>
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(80%_60%_at_50%_0%,rgba(233,196,106,0.08),transparent_60%)]" />
+      {view === "home" ? (
+        <button
+          type="button"
+          onClick={() => setSettingsOpen(true)}
+          className={`surface-panel absolute right-[max(0.75rem,env(safe-area-inset-right))] top-[max(0.75rem,env(safe-area-inset-top))] z-10 inline-flex items-center justify-center rounded-xl text-slate-200 transition hover:border-gold/40 hover:bg-white/12 hover:text-gold-soft ${
+            isMobileLandscape ? "h-9 w-9" : "h-10 w-10"
+          }`}
+          aria-label="设置"
+          title="设置"
+        >
+          <Settings className={isMobileLandscape ? "h-4 w-4" : "h-5 w-5"} />
+        </button>
+      ) : null}
       <div className={`surface-modal relative w-full overflow-y-auto rounded-2xl hud-scrollbar ${
         isMobileLandscape ? `max-h-[calc(100dvh-1rem)] ${landscapeMaxW} p-4` : "max-w-sm p-6"
       }`}>
@@ -161,6 +233,7 @@ export function Lobby({ onStartSingle }: { onStartSingle: () => void }) {
           })()
         ) : null}
       </div>
+      {settingsOpen ? <LobbySettingsModal onClose={() => setSettingsOpen(false)} /> : null}
     </main>
   );
 }

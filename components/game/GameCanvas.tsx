@@ -7,8 +7,10 @@ import { useTexture } from "@react-three/drei";
 import { SRGBColorSpace } from "three";
 import type { PerspectiveCamera } from "three";
 import { useGameStore } from "@/store/gameStore";
+import { useUiStore } from "@/store/uiStore";
 import { MahjongTable } from "@/components/three/MahjongTable";
 import { PlayerHand3D } from "@/components/three/PlayerHand3D";
+import { DiscardArea3D } from "@/components/three/DiscardArea3D";
 import { PhysicsDiscardArea3D } from "@/components/three/PhysicsDiscardArea3D";
 import { MeldArea3D } from "@/components/three/MeldArea3D";
 import { TurnIndicator3D } from "@/components/three/TurnIndicator3D";
@@ -100,6 +102,7 @@ export function GameCanvas() {
   const players = useGameStore((state) => state.players);
   const currentPlayerId = useGameStore((state) => state.currentPlayerId);
   const phase = useGameStore((state) => state.phase);
+  const discardPhysicsEnabled = useUiStore((state) => state.discardPhysicsEnabled);
   const { isMobileLandscape } = useResponsiveGameLayout();
   const canvasDpr = useCappedCanvasDpr(isMobileLandscape);
 
@@ -164,7 +167,15 @@ export function GameCanvas() {
             showWaitingPreview
           />
 
-          <PhysicsDiscardArea3D players={[players.human, players.ai_left, players.ai_right]} />
+          {discardPhysicsEnabled ? (
+            <PhysicsDiscardArea3D players={[players.human, players.ai_left, players.ai_right]} />
+          ) : (
+            <>
+              <DiscardArea3D player={players.human} />
+              <DiscardArea3D player={players.ai_left} />
+              <DiscardArea3D player={players.ai_right} />
+            </>
+          )}
 
           <MeldArea3D player={players.human} />
           <MeldArea3D player={players.ai_left} />

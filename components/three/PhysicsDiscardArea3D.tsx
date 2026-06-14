@@ -21,8 +21,18 @@ const TABLE_HALF_WIDTH = 2.82;
 const TABLE_HALF_LENGTH = 2.06;
 // 四周隐形挡墙厚度。主要防止牌滑出桌面，通常不需要频繁调整。
 const WALL_THICKNESS = 0.12;
+// 出牌出生点离桌边的安全距离。必须大于牌的半长/半宽，避免刚体一生成就卡进挡墙。
+const SPAWN_EDGE_PADDING = Math.max(TILE_HALF_WIDTH, TILE_HALF_LENGTH) + 0.16;
 // 桌面摩擦力：现实麻将桌的主要摩擦来源。越大，牌贴桌面滑动时越快减速。
 const TABLE_FRICTION = 50.95;
+// 连续碰撞检测子步。手机低帧率、牌速高、牌堆密时，调大可减少穿模，但会增加性能开销。
+const MAX_CCD_SUBSTEPS = 4;
+// 碰撞皮肤厚度。相当于给碰撞盒外侧加一层很薄的缓冲，能减少牌堆中互相穿透。
+const TILE_CONTACT_SKIN = 0.012;
+// 软 CCD 预测距离。用于提前发现薄物体即将发生的碰撞，降低高速滑动穿模概率。
+const TILE_SOFT_CCD_PREDICTION = 0.06;
+// 额外求解迭代。牌堆越密越需要更高迭代来把重叠解开；过高会影响手机性能。
+const TILE_ADDITIONAL_SOLVER_ITERATIONS = 3;
 
 type DiscardTile = {
   tile: Player["discards"][number];
@@ -31,11 +41,14 @@ type DiscardTile = {
   sequence: number;
 };
 
-function handSourcePosition(seat: Player["seat"]): [number, number, number] {
+function handSourcePosition(seat: Player["seat"], sequence: number): [number, number, number] {
   // 出牌初始位置。只调 X/Z 会改变牌从哪个桌边推出；Y 保持 BODY_Y，避免牌从空中掉落。
-  if (seat === "bottom") return [0, BODY_Y, 2.16];
-  if (seat === "left") return [-2.62, BODY_Y, 0];
-  return [2.62, BODY_Y, 0];
+  // 这里的坐标必须在四周挡墙内侧，否则手机低帧率或多人游戏重渲染时容易把牌解算到桌边卡住。
+  // 出生点也做轻微分散，避免某张牌异常停在出牌口时，后续牌全部叠在同一位置被堵住。
+  const sourceDrift = ((sequence % 5) - 2) * 0.18;
+  if (seat === "bottom") return [sourceDrift, BODY_Y, TABLE_HALF_LENGTH - SPAWN_EDGE_PADDING];
+  if (seat === "left") return [-TABLE_HALF_WIDTH + SPAWN_EDGE_PADDING, BODY_Y, sourceDrift];
+  return [TABLE_HALF_WIDTH - SPAWN_EDGE_PADDING, BODY_Y, -sourceDrift];
 }
 
 function launchVelocity(seat: Player["seat"], sequence: number): [number, number, number] {
@@ -57,7 +70,7 @@ function startRotation(seat: Player["seat"], sequence: number): [number, number,
 
 function PhysicsDiscardTile({ item, fresh }: { item: DiscardTile; fresh: boolean }) {
   const bodyRef = useRef<RapierRigidBody>(null);
-  const initialPositionRef = useRef(handSourcePosition(item.seat));
+  const initialPositionRef = useRef(handSourcePosition(item.seat, item.sequence));
   const start = initialPositionRef.current;
   const rotation = startRotation(item.seat, item.sequence);
 
@@ -98,10 +111,17 @@ function PhysicsDiscardTile({ item, fresh }: { item: DiscardTile; fresh: boolean
       // 弹性：越大碰撞越弹；麻将牌建议保持低值，避免弹飞。
       restitution={0.001}
       canSleep
+      // CCD/额外迭代主要解决手机端牌多、高速薄碰撞体容易一帧穿过牌堆的问题。
+      ccd
+      softCcdPrediction={TILE_SOFT_CCD_PREDICTION}
+      additionalSolverIterations={TILE_ADDITIONAL_SOLVER_ITERATIONS}
       // 质量：越大越不容易被其他牌撞动；越小更容易被推开。
       mass={8.2}
     >
-      <CuboidCollider args={[TILE_HALF_WIDTH, TILE_HALF_HEIGHT, TILE_HALF_LENGTH]} />
+      <CuboidCollider
+        args={[TILE_HALF_WIDTH, TILE_HALF_HEIGHT, TILE_HALF_LENGTH]}
+        contactSkin={TILE_CONTACT_SKIN}
+      />
       <TileMesh tile={item.tile} faceUp scale={TILE_SCALE} position={[0, 0, 0]} rotation={[0, 0, 0]} />
     </RigidBody>
   );
@@ -150,7 +170,12 @@ export function PhysicsDiscardArea3D({ players }: { players: Player[] }) {
 
   return (
     // gravity 现在对牌本身影响很小，因为牌锁住了 Y 平移；它主要服务于桌面/碰撞世界的一致性。
-    <Physics gravity={[0, -9.81, 0]} timeStep="vary" paused={discards.length === 0}>
+    <Physics
+      gravity={[0, -9.81, 0]}
+      timeStep={1 / 60}
+      maxCcdSubsteps={MAX_CCD_SUBSTEPS}
+      paused={discards.length === 0}
+    >
       <TableColliders />
       {discards.map((item) => (
         <PhysicsDiscardTile
