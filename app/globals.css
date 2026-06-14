@@ -166,6 +166,59 @@ body.mobile-game-locked {
   animation-duration: 5s;
   animation-fill-mode: both;
   animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  box-shadow:
+    0 16px 34px rgba(0, 0, 0, 0.48),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+.quick-chat-bubble-surface--other {
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(247, 230, 184, 0.2), transparent 58%),
+    linear-gradient(180deg, rgba(55, 43, 21, 0.96), rgba(16, 22, 28, 0.98));
+}
+
+.quick-chat-bubble-surface--mine {
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(127, 227, 196, 0.18), transparent 58%),
+    linear-gradient(180deg, rgba(15, 73, 61, 0.96), rgba(12, 23, 29, 0.98));
+}
+
+.quick-chat-bubble-tail--left::after,
+.quick-chat-bubble-tail--right::after,
+.quick-chat-bubble-tail--mine::after {
+  content: "";
+  position: absolute;
+  height: 12px;
+  width: 12px;
+  border: inherit;
+  background: inherit;
+  transform: rotate(45deg);
+  z-index: -1;
+}
+
+.quick-chat-bubble-tail--left::after {
+  left: -5px;
+  top: 50%;
+  margin-top: -6px;
+  border-right: 0;
+  border-top: 0;
+}
+
+.quick-chat-bubble-tail--right::after {
+  right: -5px;
+  top: 50%;
+  margin-top: -6px;
+  border-left: 0;
+  border-bottom: 0;
+}
+
+.quick-chat-bubble-tail--mine::after {
+  left: 18px;
+  bottom: -5px;
+  border-left: 0;
+  border-top: 0;
 }
 
 .quick-chat-bubble--left {

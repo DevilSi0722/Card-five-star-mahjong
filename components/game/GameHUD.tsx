@@ -147,19 +147,23 @@ function QuickChatBubble({
     : isRight
       ? "quick-chat-bubble--right"
       : "quick-chat-bubble--mine";
+  const toneClass = isMine
+    ? "quick-chat-bubble-surface--mine border-jade/45 text-bone"
+    : "quick-chat-bubble-surface--other border-gold/45 text-bone";
+  const tailClass = isLeft
+    ? "quick-chat-bubble-tail--left"
+    : isRight
+      ? "quick-chat-bubble-tail--right"
+      : "quick-chat-bubble-tail--mine";
 
   return (
     <div
       className={`pointer-events-none fixed z-30 ${positionClass}`}
     >
       <div
-        className={`quick-chat-bubble rounded-2xl border px-3 py-2 shadow-panel-lg ${animationClass} ${
-          isMine
-            ? "border-jade/35 bg-gradient-to-b from-jade/25 to-slate-950/92"
-            : "border-gold/35 bg-gradient-to-b from-gold/18 to-slate-950/92"
-        } ${compact ? "text-[11px]" : "text-sm"} ${isRight ? "text-right" : "text-left"}`}
+        className={`quick-chat-bubble ${animationClass} ${toneClass} ${tailClass} relative rounded-2xl border px-3 py-2 ${compact ? "text-[11px]" : "text-sm"} ${isRight ? "text-right" : "text-left"}`}
       >
-        <div className={`font-semibold leading-snug text-bone ${compact ? "text-[12px]" : "text-sm"}`}>
+        <div className={`relative z-10 font-semibold leading-snug text-bone drop-shadow-[0_1px_2px_rgba(0,0,0,0.75)] ${compact ? "text-[12px]" : "text-sm"}`}>
           {message.text}
         </div>
       </div>
