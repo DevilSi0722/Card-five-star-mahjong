@@ -25,6 +25,29 @@ export function MahjongGame() {
   useNetBridge();
 
   useEffect(() => {
+    if (!isMobileLandscape) return undefined;
+
+    const root = document.documentElement;
+    const body = document.body;
+    root.classList.add("mobile-game-locked");
+    body.classList.add("mobile-game-locked");
+    window.scrollTo(0, 0);
+
+    const preventPageDrag = (event: TouchEvent) => {
+      const target = event.target instanceof Element ? event.target : null;
+      if (target?.closest(".hud-scrollbar")) return;
+      event.preventDefault();
+    };
+
+    document.addEventListener("touchmove", preventPageDrag, { passive: false });
+    return () => {
+      document.removeEventListener("touchmove", preventPageDrag);
+      root.classList.remove("mobile-game-locked");
+      body.classList.remove("mobile-game-locked");
+    };
+  }, [isMobileLandscape]);
+
+  useEffect(() => {
     // 单机模式直接开局；联机模式由房主根据房间状态触发发牌，guest 仅渲染。
     if (netRole === "single") startNewRound();
   }, [startNewRound, netRole]);

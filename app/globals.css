@@ -30,6 +30,17 @@ button {
   -webkit-tap-highlight-color: transparent;
 }
 
+html.mobile-game-locked,
+body.mobile-game-locked {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
+}
+
 /* 统一面板质感：深色玻璃 + 顶部反光高亮 + 柔和金边，替代各处零散的 border-white/12 */
 .surface-panel {
   background:
@@ -93,7 +104,25 @@ button {
 }
 
 .game-shell--mobile-landscape {
+  position: fixed;
+  inset: 0;
+  height: 100svh;
+  width: 100vw;
   overscroll-behavior: none;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+@supports (height: 100dvh) {
+  .game-shell--mobile-landscape {
+    height: 100dvh;
+  }
+}
+
+.game-shell--mobile-landscape .hud-scrollbar {
+  touch-action: pan-x pan-y;
+  overscroll-behavior: contain;
 }
 
 .mobile-landscape-hud {
