@@ -9,7 +9,7 @@ import type { PerspectiveCamera } from "three";
 import { useGameStore } from "@/store/gameStore";
 import { MahjongTable } from "@/components/three/MahjongTable";
 import { PlayerHand3D } from "@/components/three/PlayerHand3D";
-import { DiscardArea3D } from "@/components/three/DiscardArea3D";
+import { PhysicsDiscardArea3D } from "@/components/three/PhysicsDiscardArea3D";
 import { MeldArea3D } from "@/components/three/MeldArea3D";
 import { TurnIndicator3D } from "@/components/three/TurnIndicator3D";
 import { ALL_TILE_TEXTURE_SRCS } from "@/utils/mahjong/tileTextures";
@@ -164,9 +164,7 @@ export function GameCanvas() {
             showWaitingPreview
           />
 
-          <DiscardArea3D player={players.human} />
-          <DiscardArea3D player={players.ai_left} />
-          <DiscardArea3D player={players.ai_right} />
+          <PhysicsDiscardArea3D players={[players.human, players.ai_left, players.ai_right]} />
 
           <MeldArea3D player={players.human} />
           <MeldArea3D player={players.ai_left} />
