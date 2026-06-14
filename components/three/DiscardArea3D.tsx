@@ -21,7 +21,7 @@ function discardLayout(seat: Player["seat"]): DiscardLayout {
   }
   if (seat === "left") {
     // 左家坐在 -x，面朝 +x：从靠近桌心处开始，逐行向左家方向展开
-    return { origin: [-0.98, 0.25, -0.82], col: [0, 0.25], row: [-0.32, 0], rotationY: -Math.PI / 2 };
+    return { origin: [-0.98, 0.25, -1.08], col: [0, 0.25], row: [-0.32, 0], rotationY: -Math.PI / 2 };
   }
   // 右家坐在 +x，面朝 -x：从靠近桌心处开始，逐行向右家方向展开
   return { origin: [0.98, 0.25, 0.82], col: [0, -0.25], row: [0.32, 0], rotationY: Math.PI / 2 };
