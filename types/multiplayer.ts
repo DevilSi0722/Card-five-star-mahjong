@@ -142,6 +142,8 @@ export interface NetAction {
 export interface NetGameView {
   /** 视图所属的真实座位（裁剪/旋转前的座位）。 */
   forSeat: EngineSeatId;
+  /** 该视图对应的房间局号，用于重连时过滤旧快照。 */
+  round?: number;
   /** 房主发布时的序号，guest 用于丢弃过期视图。 */
   rev: number;
   /** 旋转 + 裁剪后的引擎状态。 */
@@ -154,6 +156,7 @@ export interface NetGameView {
 export type NetGameSnapshot = Pick<
   GameState,
   | "players"
+  | "deadWall"
   | "currentPlayerId"
   | "dealerId"
   | "phase"
@@ -166,6 +169,9 @@ export type NetGameSnapshot = Pick<
   | "roundScoreNotes"
   | "logs"
   | "actionNonce"
+  | "supplementContext"
+  | "gangCount"
   | "baseScore"
+  | "liangDaoZimoBuyHorseEnabled"
   | "wall"
 >;

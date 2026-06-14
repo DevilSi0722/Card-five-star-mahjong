@@ -123,6 +123,7 @@ export function cropSnapshotForSeat(
 
   return {
     players,
+    deadWall: state.deadWall.map(() => hiddenTile()),
     currentPlayerId: realToDisplaySeat(state.currentPlayerId, viewerSeat),
     dealerId: realToDisplaySeat(state.dealerId, viewerSeat),
     phase: state.phase,
@@ -135,7 +136,10 @@ export function cropSnapshotForSeat(
     roundScoreNotes,
     logs: state.logs,
     actionNonce: state.actionNonce,
+    supplementContext: state.supplementContext,
+    gangCount: state.gangCount,
     baseScore: state.baseScore,
+    liangDaoZimoBuyHorseEnabled: state.liangDaoZimoBuyHorseEnabled,
     // 隐藏牌墙具体牌面，仅保留数量（牌墙剩余张数用于 UI）。
     wall: state.wall.map(() => hiddenTile()),
   };

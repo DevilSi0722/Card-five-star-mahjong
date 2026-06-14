@@ -1,6 +1,7 @@
 "use client";
 
-import { Check, LogOut, RotateCcw, Trophy } from "lucide-react";
+import { useState } from "react";
+import { Check, LogOut, RotateCcw, Trophy, X } from "lucide-react";
 import type { PlayerId, ScoreResult } from "@/types/mahjong";
 import { useGameStore } from "@/store/gameStore";
 import { useRoomStore } from "@/store/roomStore";
@@ -28,6 +29,7 @@ function displayNotes(notes: string[] | undefined): string[] {
 }
 
 export function SettlementModal({ result }: { result: ScoreResult }) {
+  const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
   const { isMobileLandscape } = useResponsiveGameLayout();
   const resetRound = useGameStore((state) => state.resetRound);
   const players = useGameStore((state) => state.players);
@@ -71,6 +73,16 @@ export function SettlementModal({ result }: { result: ScoreResult }) {
   const readyCount = humans.filter((p) => readySet.has(p.clientId)).length;
   // 是否已是设定局数的最后一局：最后一局结束后不再提供「准备」，只能退出。
   const isLastRound = Boolean(room && room.currentRound >= room.settings.rounds);
+  const isHost = Boolean(room && room.hostClientId === myClientId);
+
+  function requestExit() {
+    setExitConfirmOpen(true);
+  }
+
+  function confirmExit() {
+    setExitConfirmOpen(false);
+    void leaveRoom();
+  }
 
   return (
     <div className={`absolute inset-0 z-30 flex items-center justify-center bg-black/45 backdrop-blur-sm ${isMobileLandscape ? "p-2" : "p-4"}`}>
@@ -155,9 +167,9 @@ export function SettlementModal({ result }: { result: ScoreResult }) {
               </div>
               <button
                 type="button"
-                onClick={() => void leaveRoom()}
-                className={`inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/12 bg-white/5 font-semibold text-slate-200 transition hover:border-rose-300/40 hover:bg-rose-400/15 hover:text-rose-200 ${
-                  isMobileLandscape ? "h-8 text-xs" : "h-10 text-sm"
+                onClick={requestExit}
+                className={`mx-auto inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/12 bg-white/5 font-semibold text-slate-300 transition hover:border-rose-300/40 hover:bg-rose-400/15 hover:text-rose-200 ${
+                  isMobileLandscape ? "h-8 px-4 text-xs" : "h-9 px-5 text-xs"
                 }`}
               >
                 <LogOut className={isMobileLandscape ? "h-3.5 w-3.5" : "h-4 w-4"} />
@@ -165,7 +177,7 @@ export function SettlementModal({ result }: { result: ScoreResult }) {
               </button>
             </div>
           ) : (
-            <div className={`grid grid-cols-2 gap-2 ${isMobileLandscape ? "mt-2" : "mt-5"}`}>
+            <div className={`grid grid-cols-[1fr_auto] gap-2 ${isMobileLandscape ? "mt-2" : "mt-5"}`}>
               <button
                 type="button"
                 disabled={iAmReady}
@@ -190,9 +202,9 @@ export function SettlementModal({ result }: { result: ScoreResult }) {
               </button>
               <button
                 type="button"
-                onClick={() => void leaveRoom()}
-                className={`inline-flex items-center justify-center gap-2 rounded-xl border border-white/12 bg-white/5 font-semibold text-slate-200 transition hover:border-rose-300/40 hover:bg-rose-400/15 hover:text-rose-200 ${
-                  isMobileLandscape ? "h-8 text-xs" : "h-10 text-sm"
+                onClick={requestExit}
+                className={`inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/12 bg-white/5 font-semibold text-slate-300 transition hover:border-rose-300/40 hover:bg-rose-400/15 hover:text-rose-200 ${
+                  isMobileLandscape ? "h-8 px-3 text-xs" : "h-10 px-4 text-xs"
                 }`}
               >
                 <LogOut className={isMobileLandscape ? "h-3.5 w-3.5" : "h-4 w-4"} />
@@ -218,6 +230,62 @@ export function SettlementModal({ result }: { result: ScoreResult }) {
           </div>
         ) : null}
       </div>
+      {exitConfirmOpen ? (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40 p-3">
+          <div
+            className={`surface-modal w-full rounded-2xl border border-white/12 text-slate-100 shadow-[0_20px_60px_rgba(0,0,0,0.45)] ${
+              isMobileLandscape ? "max-w-[min(360px,calc(100vw-1rem))] p-3" : "max-w-sm p-5"
+            }`}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <span className={`grid shrink-0 place-items-center rounded-full bg-rose-400/12 ${isMobileLandscape ? "h-8 w-8" : "h-9 w-9"}`}>
+                  <LogOut className={`${isMobileLandscape ? "h-4 w-4" : "h-5 w-5"} text-rose-200`} />
+                </span>
+                <div className="min-w-0">
+                  <div className={`font-semibold text-bone ${isMobileLandscape ? "text-sm" : "text-base"}`}>
+                    确认退出房间？
+                  </div>
+                  <div className={`mt-1 leading-relaxed text-slate-400 ${isMobileLandscape ? "text-[11px]" : "text-xs"}`}>
+                    {isHost
+                      ? "你是房主，退出会解散房间，其他玩家无法再重连。"
+                      : "退出后会回到主界面，只要房主未解散房间，可以用原设备和房间号重连。"}
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setExitConfirmOpen(false)}
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/12 bg-white/5 text-slate-300 transition hover:bg-white/12 hover:text-bone"
+                aria-label="取消退出"
+                title="取消退出"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className={`grid grid-cols-2 gap-2 ${isMobileLandscape ? "mt-3" : "mt-5"}`}>
+              <button
+                type="button"
+                onClick={() => setExitConfirmOpen(false)}
+                className={`inline-flex items-center justify-center rounded-lg border border-white/12 bg-white/5 text-xs font-semibold text-slate-200 transition hover:bg-white/12 ${
+                  isMobileLandscape ? "h-8" : "h-9"
+                }`}
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={confirmExit}
+                className={`inline-flex items-center justify-center rounded-lg border border-rose-300/35 bg-rose-400/15 text-xs font-semibold text-rose-100 transition hover:bg-rose-400/25 ${
+                  isMobileLandscape ? "h-8" : "h-9"
+                }`}
+              >
+                确认退出
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

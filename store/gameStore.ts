@@ -459,12 +459,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // 可选字段（取不到即 undefined），强制覆盖掉上一局的残留值，否则进了新局会立刻又弹旧结算。
     set({
       ...snapshot,
+      deadWall: snapshot.deadWall ?? [],
       lastDiscard: snapshot.lastDiscard,
       pendingReactions: snapshot.pendingReactions,
       pendingBuGang: snapshot.pendingBuGang,
       roundResult: snapshot.roundResult,
       roundStartScores: snapshot.roundStartScores ?? playerScores(snapshot.players),
       roundScoreNotes: snapshot.roundScoreNotes ?? emptyRoundScoreNotes(),
+      supplementContext: snapshot.supplementContext,
+      gangCount: snapshot.gangCount ?? 0,
+      liangDaoZimoBuyHorseEnabled: snapshot.liangDaoZimoBuyHorseEnabled ?? false,
       canHumanLiangDao: updateHumanLiangDaoHint(snapshot.players.human),
     });
   },

@@ -25,7 +25,7 @@ import {
   updateRoomSettings,
 } from "@/lib/multiplayer/roomRepository";
 import { useGameStore } from "@/store/gameStore";
-import { resolveEngineSeats } from "@/lib/multiplayer/windSeating";
+import { engineSeatForClient, resolveEngineSeats } from "@/lib/multiplayer/windSeating";
 import type { GuestActionInput, NetAction } from "@/types/multiplayer";
 
 /** 构造一条发送给房主的网络动作。 */
@@ -218,15 +218,6 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
         joinedAt: Date.now(),
         lastSeen: Date.now(),
       });
-      // 加入即配置为 guest 角色（先用占位座位，真正引擎座位在三人就座后由桥接层按风位推导校正），
-      // 确保游戏挂载前角色已就位，避免首帧误跑引擎。
-      useGameStore.getState().configureNet({
-        role: "guest",
-        seat: "ai_right",
-        forward: (input: GuestActionInput) => {
-          void sendAction(roomCode, buildNetAction(input));
-        },
-      });
       get().unsubscribe?.();
       const unsub = subscribeRoom(roomCode, (next) => {
         if (!next) {
@@ -238,6 +229,23 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
         set({ room: next });
       });
       const room = await fetchRoom(roomCode);
+      const reconnectingAsHost = room?.hostClientId === clientId;
+      // 加入/重连时先配置网络身份。guest 的真实座位会在桥接层按风位再次校正。
+      useGameStore.getState().configureNet(
+        reconnectingAsHost
+          ? { role: "host", seat: "human" }
+          : {
+              role: "guest",
+              seat: "ai_right",
+              forward: (input: GuestActionInput) => {
+                const current = get();
+                const seat = current.room
+                  ? (engineSeatForClient(current.room.players, current.clientId) ?? input.seat)
+                  : input.seat;
+                void sendAction(roomCode, buildNetAction({ ...input, seat }));
+              },
+            },
+      );
       set({ room, myWind: wind, view: "room", unsubscribe: unsub });
     } catch (err) {
       set({ error: err instanceof Error ? err.message : "加入房间失败" });

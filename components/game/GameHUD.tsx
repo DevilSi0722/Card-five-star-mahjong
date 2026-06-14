@@ -221,6 +221,7 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
   const liangDaoZimoBuyHorseEnabled = useGameStore((state) => state.liangDaoZimoBuyHorseEnabled);
   const saveNextRoundSettings = useGameStore((state) => state.saveNextRoundSettings);
   const netRole = useGameStore((state) => state.netRole);
+  const room = useRoomStore((state) => state.room);
   const isMultiplayer = netRole !== "single";
   const [draftBaseScore, setDraftBaseScore] = useState(String(nextBaseScore));
   const [draftBuyHorseEnabled, setDraftBuyHorseEnabled] = useState(liangDaoZimoBuyHorseEnabled);
@@ -270,6 +271,12 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
         <div className={`grid gap-3 ${isMobileLandscape ? "mt-3 grid-cols-2 items-start" : "mt-4 grid-cols-1"}`}>
           <div className="grid content-start gap-1.5 rounded-xl border border-white/10 bg-white/5 p-3">
             <div className="text-[11px] font-medium text-gold-soft">本局</div>
+            {isMultiplayer && room ? (
+              <div className="mb-1 flex items-center justify-between rounded-lg border border-gold/20 bg-gold/10 px-2.5 py-2 text-xs">
+                <span className="text-slate-300">房间号</span>
+                <span className="font-bold tracking-[0.22em] text-gold-soft">{room.code}</span>
+              </div>
+            ) : null}
             <div className="flex items-center justify-between text-xs text-slate-400">
               <span>底分</span>
               <span className="font-semibold tabular-nums text-gold-soft">{baseScore}</span>

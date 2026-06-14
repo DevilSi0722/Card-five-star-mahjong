@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useGameStore } from "@/store/gameStore";
 import { useRoomStore } from "@/store/roomStore";
 import { cropSnapshotForSeat, rotateWindsForSeat } from "@/lib/multiplayer/seatRotation";
 import { engineSeatForClient, engineSeatWinds, resolveEngineSeats } from "@/lib/multiplayer/windSeating";
 import {
   beginNextRound,
+  fetchView,
   heartbeat,
   publishView,
   subscribeActions,
@@ -23,26 +24,11 @@ const ENGINE_SEATS: EngineSeatId[] = ["human", "ai_right", "ai_left"];
 const WAITING_HEARTBEAT_MS = 30_000;
 const PLAYING_HEARTBEAT_MS = 60_000;
 
-function consumedActionSeqKey(code: string, seat: EngineSeatId): string {
-  return `kwx:consumedActionSeq:${code}:${seat}`;
-}
-
-function readConsumedActionSeq(code: string, seat: EngineSeatId): number {
-  if (typeof window === "undefined") return 0;
-  const value = window.localStorage.getItem(consumedActionSeqKey(code, seat));
-  const seq = value ? Number.parseInt(value, 10) : 0;
-  return Number.isFinite(seq) ? seq : 0;
-}
-
-function writeConsumedActionSeq(code: string, seat: EngineSeatId, seq: number) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(consumedActionSeqKey(code, seat), String(seq));
-}
-
 /** 从完整 store 状态抽出可发布的快照子集。 */
 function extractSnapshot(state: ReturnType<typeof useGameStore.getState>): NetGameSnapshot {
   return {
     players: state.players,
+    deadWall: state.deadWall,
     currentPlayerId: state.currentPlayerId,
     dealerId: state.dealerId,
     phase: state.phase,
@@ -55,7 +41,10 @@ function extractSnapshot(state: ReturnType<typeof useGameStore.getState>): NetGa
     roundScoreNotes: state.roundScoreNotes,
     logs: state.logs,
     actionNonce: state.actionNonce,
+    supplementContext: state.supplementContext,
+    gangCount: state.gangCount,
     baseScore: state.baseScore,
+    liangDaoZimoBuyHorseEnabled: state.liangDaoZimoBuyHorseEnabled,
     wall: state.wall,
   };
 }
@@ -107,6 +96,8 @@ export function useNetBridge() {
   const consumedActionSeqRef = useRef<Partial<Record<EngineSeatId, number>>>({});
   // host 已发牌到的局号，避免同一局重复发牌。
   const dealtRoundRef = useRef(0);
+  const restoredViewKeyRef = useRef<string | null>(null);
+  const [restoredViewKey, setRestoredViewKey] = useState<string | null>(null);
 
   const code = room?.code ?? null;
   const isMultiplayer = Boolean(room);
@@ -153,9 +144,29 @@ export function useNetBridge() {
     useGameStore.getState().setNetWinds(rotateWindsForSeat(realWinds, mySeat));
   }, [realWinds, mySeat]);
 
+  // 重连：优先读取当前座位已发布的视图，恢复本地画面与结算状态。
+  useEffect(() => {
+    if (!code || roomStatus !== "playing" || !mySeat) return;
+    const key = `${code}:${mySeat}:${currentRound}`;
+    if (restoredViewKeyRef.current === key) return;
+    restoredViewKeyRef.current = key;
+    void fetchView(code, mySeat).then((view) => {
+      if (!view) return;
+      if (typeof view.round === "number" && view.round !== currentRound) return;
+      lastViewRevRef.current = Math.max(lastViewRevRef.current, view.rev);
+      const store = useGameStore.getState();
+      store.applyNetSnapshot(view.state);
+      if (view.winds) store.setNetWinds(view.winds);
+      if (isHost) dealtRoundRef.current = Math.max(dealtRoundRef.current, currentRound);
+    }).finally(() => {
+      setRestoredViewKey(key);
+    });
+  }, [code, roomStatus, mySeat, currentRound, isHost]);
+
   // host：每当 currentRound 推进到新局号时发牌一次（首局及后续准备开局共用此路径）。
   useEffect(() => {
     if (!isHost || roomStatus !== "playing" || !room || currentRound < 1) return;
+    if (code && mySeat && restoredViewKey !== `${code}:${mySeat}:${currentRound}`) return;
     if (dealtRoundRef.current >= currentRound) return;
     dealtRoundRef.current = currentRound;
     const store = useGameStore.getState();
@@ -165,7 +176,7 @@ export function useNetBridge() {
       liangDaoZimoBuyHorseEnabled: room.settings.liangDaoZimoBuyHorse,
     });
     store.startNewRound();
-  }, [isHost, roomStatus, room, currentRound]);
+  }, [isHost, roomStatus, room, currentRound, code, mySeat, restoredViewKey]);
 
   // host：本局结算后，所有真人玩家点「准备」则自动开下一局（递增局号 + 清空准备名单）。
   // 已打满设定局数（currentRound >= settings.rounds）时不再开新局。
@@ -187,21 +198,22 @@ export function useNetBridge() {
   useEffect(() => {
     if (!isHost || !code) return;
     const unsub = subscribeActions(code, (action) => {
-      const consumedSeq =
-        consumedActionSeqRef.current[action.seat] ?? readConsumedActionSeq(code, action.seat);
+      const consumedSeq = consumedActionSeqRef.current[action.seat] ?? 0;
       if (action.seq <= consumedSeq) return;
       applyActionToEngine(action.type, action.seat, action);
       consumedActionSeqRef.current[action.seat] = action.seq;
-      writeConsumedActionSeq(code, action.seat, action.seq);
     });
     return () => unsub();
   }, [isHost, code]);
 
   // host：引擎状态变化时为真人 guest 发布裁剪 + 旋转后的视图（含旋转后的风位）。
   useEffect(() => {
-    if (!isHost || !code || !realWinds) return;
+    if (!isHost || !code || !realWinds || roomStatus !== "playing" || currentRound < 1) return;
+    if (mySeat && restoredViewKey !== `${code}:${mySeat}:${currentRound}`) return;
     const publish = () => {
       const state = useGameStore.getState();
+      // 重连恢复完成前不能把 configureNet 后的空初始状态覆盖到 Firestore。
+      if (state.phase === "ready" && state.wall.length === 0) return;
       // 仅在「有意义的对局变化」时发布，跳过选牌/悬浮等纯 UI 变化，降低 Firestore 写入量。
       const signature = `${state.actionNonce}|${state.phase}|${state.roundResult ? "r" : "-"}`;
       if (signature === lastPublishSigRef.current) return;
@@ -210,11 +222,13 @@ export function useNetBridge() {
       const snapshot = extractSnapshot(state);
       revRef.current += 1;
       const rev = revRef.current;
-      for (const seat of guestViewSeats) {
+      const publishSeats = Array.from(new Set<EngineSeatId>(["human", ...guestViewSeats]));
+      for (const seat of publishSeats) {
         void publishView(code, {
           forSeat: seat,
+          round: currentRound,
           rev,
-          state: cropSnapshotForSeat(snapshot, seat),
+          state: seat === "human" ? snapshot : cropSnapshotForSeat(snapshot, seat),
           winds: rotateWindsForSeat(realWinds, seat),
         });
       }
@@ -222,20 +236,21 @@ export function useNetBridge() {
     publish();
     const unsub = useGameStore.subscribe(publish);
     return () => unsub();
-  }, [isHost, code, realWinds, guestViewSeats]);
+  }, [isHost, code, realWinds, guestViewSeats, roomStatus, currentRound, mySeat, restoredViewKey]);
 
   // guest：订阅本座位视图，渲染到本地 store（含风位）。
   useEffect(() => {
     if (isHost || !code || !mySeat) return;
     const unsub = subscribeView(code, mySeat, (view) => {
       if (!view || view.rev <= lastViewRevRef.current) return;
+      if (typeof view.round === "number" && view.round !== currentRound) return;
       lastViewRevRef.current = view.rev;
       const store = useGameStore.getState();
       store.applyNetSnapshot(view.state);
       if (view.winds) store.setNetWinds(view.winds);
     });
     return () => unsub();
-  }, [isHost, code, mySeat]);
+  }, [isHost, code, mySeat, currentRound]);
 
   // 心跳：定期刷新 lastSeen。
   useEffect(() => {

@@ -79,7 +79,6 @@ export async function joinRoom(code: string, player: Omit<RoomPlayer, "wind">): 
     const snap = await tx.get(ref);
     if (!snap.exists()) throw new Error("房间不存在");
     const room = snap.data() as Room;
-    if (room.status !== "waiting") throw new Error("该房间已开始游戏");
 
     // 同一 clientId 重连：沿用原风位。
     const already = room.players.find((p) => p.clientId === player.clientId);
@@ -90,6 +89,8 @@ export async function joinRoom(code: string, player: Omit<RoomPlayer, "wind">): 
       tx.update(ref, { players, updatedAt: Date.now() });
       return already.wind;
     }
+
+    if (room.status !== "waiting") throw new Error("该房间已开始游戏，只能原玩家重连");
 
     // 暂时仍最多三人（留一个风位空着）。
     if (room.players.length >= 3) throw new Error("房间已满");
@@ -190,7 +191,7 @@ async function deleteRoomSubcollections(code: string): Promise<void> {
   await batch.commit();
 }
 
-/** 离开房间：房主离开则删除整个房间（含子集合），否则移除自己。 */
+/** 离开房间：房主离开则删除整个房间；非房主在对局中只断开本机，保留座位以便重连。 */
 export async function leaveRoom(code: string, clientId: string): Promise<void> {
   const room = await fetchRoom(code);
   if (!room) return;
@@ -200,6 +201,14 @@ export async function leaveRoom(code: string, clientId: string): Promise<void> {
     await deleteRoomSubcollections(code);
     await deleteDoc(roomRef(code));
     await deleteRoomSubcollections(code);
+    return;
+  }
+  if (room.status !== "waiting") {
+    const players = room.players.map((p) => (p.clientId === clientId ? { ...p, lastSeen: Date.now() } : p));
+    await Promise.all([
+      updateDoc(roomRef(code), { players, updatedAt: Date.now() }),
+      deleteDoc(presenceRef(code, clientId)).catch(() => undefined),
+    ]);
     return;
   }
   const players = room.players.filter((p) => p.clientId !== clientId);
@@ -221,6 +230,12 @@ export async function publishView(code: string, view: NetGameView): Promise<void
   await setDoc(viewRef(code, view.forSeat), view);
 }
 
+/** 读取某座位当前牌局视图一次，用于重连时立即恢复画面。 */
+export async function fetchView(code: string, seat: EngineSeatId): Promise<NetGameView | null> {
+  const snap = await getDoc(viewRef(code, seat));
+  return snap.exists() ? (snap.data() as NetGameView) : null;
+}
+
 /** guest 订阅属于自己座位的牌局视图。 */
 export function subscribeView(
   code: string,
@@ -239,12 +254,15 @@ export async function sendAction(code: string, action: NetAction): Promise<void>
 
 /** 房主订阅动作队列；固定文档首次出现或被覆盖时回调。 */
 export function subscribeActions(code: string, onAction: (action: NetAction) => void): Unsubscribe {
+  let initialized = false;
   return onSnapshot(actionsCol(code), (snap) => {
     for (const change of snap.docChanges()) {
       const action = change.doc.data() as NetAction;
       if (change.doc.id !== action.seat) continue;
+      if (!initialized && change.type === "added") continue;
       if (change.type === "added" || change.type === "modified") onAction(action);
     }
+    initialized = true;
   });
 }
 
