@@ -92,6 +92,8 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
   const nextBaseScore = useGameStore((state) => state.nextBaseScore);
   const liangDaoZimoBuyHorseEnabled = useGameStore((state) => state.liangDaoZimoBuyHorseEnabled);
   const saveNextRoundSettings = useGameStore((state) => state.saveNextRoundSettings);
+  const netRole = useGameStore((state) => state.netRole);
+  const isMultiplayer = netRole !== "single";
   const [draftBaseScore, setDraftBaseScore] = useState(String(nextBaseScore));
   const [draftBuyHorseEnabled, setDraftBuyHorseEnabled] = useState(liangDaoZimoBuyHorseEnabled);
 
@@ -104,7 +106,7 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
     const parsedBaseScore = Number.parseInt(draftBaseScore, 10);
     saveNextRoundSettings({
       baseScore: Number.isFinite(parsedBaseScore) ? parsedBaseScore : nextBaseScore,
-      liangDaoZimoBuyHorseEnabled: draftBuyHorseEnabled,
+      liangDaoZimoBuyHorseEnabled: isMultiplayer ? liangDaoZimoBuyHorseEnabled : draftBuyHorseEnabled,
     });
     onClose();
   }
@@ -163,15 +165,21 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
               />
             </label>
 
-            <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-white/12 bg-slate-900/70 px-3 py-2.5 text-sm text-slate-200 transition hover:border-white/20">
-              <span>本局亮倒自摸买马</span>
-              <input
-                type="checkbox"
-                checked={draftBuyHorseEnabled}
-                onChange={(event) => setDraftBuyHorseEnabled(event.target.checked)}
-                className="h-4 w-4 accent-jade"
-              />
-            </label>
+            {isMultiplayer ? (
+              <div className="rounded-lg border border-white/12 bg-slate-900/70 px-3 py-2.5 text-xs text-slate-400">
+                亮倒自摸买马由房主创建房间时设置，局内不可修改。
+              </div>
+            ) : (
+              <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-white/12 bg-slate-900/70 px-3 py-2.5 text-sm text-slate-200 transition hover:border-white/20">
+                <span>本局亮倒自摸买马</span>
+                <input
+                  type="checkbox"
+                  checked={draftBuyHorseEnabled}
+                  onChange={(event) => setDraftBuyHorseEnabled(event.target.checked)}
+                  className="h-4 w-4 accent-jade"
+                />
+              </label>
+            )}
           </div>
         </div>
 
