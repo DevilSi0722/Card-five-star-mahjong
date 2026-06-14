@@ -202,6 +202,110 @@ function applyRoundResult(
   };
 }
 
+function playerScores(players: Record<PlayerId, Player>): Record<PlayerId, number> {
+  return {
+    human: players.human.score,
+    ai_left: players.ai_left.score,
+    ai_right: players.ai_right.score,
+  };
+}
+
+function emptyRoundScoreNotes(): Record<PlayerId, string[]> {
+  return {
+    human: [],
+    ai_left: [],
+    ai_right: [],
+  };
+}
+
+function appendScoreNotes(
+  notes: Record<PlayerId, string[]>,
+  scoreChanges: Record<PlayerId, number>,
+  positiveLabel: string,
+  negativeLabel: string,
+): Record<PlayerId, string[]> {
+  return {
+    human: appendScoreNote(notes.human, scoreChanges.human, positiveLabel, negativeLabel),
+    ai_left: appendScoreNote(notes.ai_left, scoreChanges.ai_left, positiveLabel, negativeLabel),
+    ai_right: appendScoreNote(notes.ai_right, scoreChanges.ai_right, positiveLabel, negativeLabel),
+  };
+}
+
+function appendScoreNote(notes: string[], change: number, positiveLabel: string, negativeLabel: string): string[] {
+  if (change > 0) return [...notes, `${positiveLabel}+${change}`];
+  if (change < 0) return [...notes, `${negativeLabel}${change}`];
+  return notes;
+}
+
+function fanNoteName(name: string): string {
+  return name === "亮倒/明牌" ? "亮倒" : name;
+}
+
+function winPayerLabel(method: WinMethod): string {
+  if (method === "discard") return "点炮";
+  if (method === "qianggang") return "被抢杠";
+  if (method === "gangshang") return "杠开";
+  return "自摸";
+}
+
+function appendWinScoreNotes(
+  notes: Record<PlayerId, string[]>,
+  result: ScoreResult,
+): Record<PlayerId, string[]> {
+  if (!result.winnerId || !result.method) return notes;
+  const next = {
+    human: [...notes.human],
+    ai_left: [...notes.ai_left],
+    ai_right: [...notes.ai_right],
+  };
+  const fanNotes = result.fans.map((item) => `${fanNoteName(item.name)}*${item.fan}`);
+  next[result.winnerId].push(...fanNotes);
+
+  const payerLabel = winPayerLabel(result.method);
+  for (const id of Object.keys(result.scoreChanges) as PlayerId[]) {
+    const change = result.scoreChanges[id];
+    if (change < 0) {
+      next[id].push(`${payerLabel}${change}`);
+    }
+  }
+  return next;
+}
+
+function appendBuyHorseScoreNotes(
+  notes: Record<PlayerId, string[]>,
+  winnerId: PlayerId,
+  ids: PlayerId[],
+  bonus: number,
+): Record<PlayerId, string[]> {
+  const next = {
+    human: [...notes.human],
+    ai_left: [...notes.ai_left],
+    ai_right: [...notes.ai_right],
+  };
+  let total = 0;
+  for (const id of ids) {
+    if (id === winnerId) continue;
+    next[id].push(`买马-${bonus}`);
+    total += bonus;
+  }
+  if (total > 0) next[winnerId].push(`买马+${total}`);
+  return next;
+}
+
+function normalizeRoundResult(
+  result: ScoreResult,
+  roundStartScores: Record<PlayerId, number>,
+): ScoreResult {
+  return {
+    ...result,
+    scoreChanges: {
+      human: result.totalScores.human - roundStartScores.human,
+      ai_left: result.totalScores.ai_left - roundStartScores.ai_left,
+      ai_right: result.totalScores.ai_right - roundStartScores.ai_right,
+    },
+  };
+}
+
 function updateHumanLiangDaoHint(player: Player): boolean {
   return player.hand.length % 3 === 2 && !player.isLiangDao && getTingDiscardOptions(player.hand, player.melds).length > 0;
 }
@@ -216,14 +320,16 @@ function applyBuGangScore(
   isGangContext: boolean,
   baseScore: number,
   logs: string[],
-): { players: Record<PlayerId, Player>; logs: string[] } {
+  notes: Record<PlayerId, string[]>,
+): { players: Record<PlayerId, Player>; logs: string[]; notes: Record<PlayerId, string[]> } {
   const gang = scoreGang({ players, gangType: "bu_gang", gangerId, isGangContext, baseScore });
   if (!gang) {
-    return { players, logs: pushLog(logs, `${players[gangerId].name} 补杠成功，补摸一张`) };
+    return { players, logs: pushLog(logs, `${players[gangerId].name} 补杠成功，补摸一张`), notes };
   }
   return {
     players: applyGangScore(players, gang.scoreChanges),
     logs: pushLog(logs, `${players[gangerId].name} ${gang.label}，补摸一张`),
+    notes: appendScoreNotes(notes, gang.scoreChanges, "杠", "被杠"),
   };
 }
 
@@ -283,6 +389,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   wall: [],
   deadWall: [],
   players: initialPlayers,
+  roundStartScores: playerScores(initialPlayers),
+  roundScoreNotes: emptyRoundScoreNotes(),
   currentPlayerId: "human",
   dealerId: "human",
   phase: "ready",
@@ -312,6 +420,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       wall: [],
       deadWall: [],
       players: createPlayers(),
+      roundStartScores: playerScores(createPlayers()),
+      roundScoreNotes: emptyRoundScoreNotes(),
       currentPlayerId: "human",
       dealerId: "human",
       phase: "ready",
@@ -349,6 +459,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       pendingReactions: snapshot.pendingReactions,
       pendingBuGang: snapshot.pendingBuGang,
       roundResult: snapshot.roundResult,
+      roundStartScores: snapshot.roundStartScores ?? playerScores(snapshot.players),
+      roundScoreNotes: snapshot.roundScoreNotes ?? emptyRoundScoreNotes(),
       canHumanLiangDao: updateHumanLiangDaoHint(snapshot.players.human),
     });
   },
@@ -356,7 +468,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
   applyNetRoster: (roster) => {
     const state = get();
     const players = applyRoster(state.players, roster);
-    set({ players, netRoster: roster });
+    set({
+      players,
+      roundStartScores: state.phase === "ready" ? playerScores(players) : state.roundStartScores,
+      roundScoreNotes: state.phase === "ready" ? emptyRoundScoreNotes() : state.roundScoreNotes,
+      netRoster: roster,
+    });
   },
 
   setNextLiangDaoZimoBuyHorseEnabled: (enabled) => {
@@ -396,11 +513,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     // 联机房主：每局发牌后重新套用座位名册，避免真人座位被重置为 AI。
     const dealtWithRoster = state.netRoster ? applyRoster(dealt, state.netRoster) : dealt;
+    const roundStartScores = playerScores(dealtWithRoster);
 
     set({
       wall: nextWall,
       deadWall: [],
       players: dealtWithRoster,
+      roundStartScores,
+      roundScoreNotes: emptyRoundScoreNotes(),
       currentPlayerId: dealerId,
       dealerId,
       phase: "playing",
@@ -429,7 +549,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (state.phase === "settled" || state.phase === "draw") return;
     const wall = [...state.wall];
     if (wall.length === 0) {
-      const result = scoreDraw(state.players);
+      const result = normalizeRoundResult(scoreDraw(state.players), state.roundStartScores);
       set({
         phase: "draw",
         roundResult: result,
@@ -648,8 +768,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     };
 
     if (!supplement) {
-      const result = scoreDraw(players);
-      set({ players, wall, phase: "draw", roundResult: result, logs: pushLog(state.logs, "杠后无牌，流局") });
+      const result = normalizeRoundResult(scoreDraw(players), state.roundStartScores);
+      set({ players: applyRoundResult(players, result), wall, phase: "draw", roundResult: result, logs: pushLog(state.logs, "杠后无牌，流局") });
       return;
     }
 
@@ -663,10 +783,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
       baseScore: state.baseScore,
     });
     const scoredPlayers = gang ? applyGangScore(players, gang.scoreChanges) : players;
+    const roundScoreNotes = gang
+      ? appendScoreNotes(state.roundScoreNotes, gang.scoreChanges, "杠", "被杠")
+      : state.roundScoreNotes;
 
     set({
       wall,
       players: scoredPlayers,
+      roundScoreNotes,
       currentPlayerId: playerId,
       phase: "playing",
       pendingReactions: undefined,
@@ -714,7 +838,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       lastDrawnTileId: supplement?.id,
     };
     if (!supplement) {
-      const result = scoreDraw(players);
+      const result = normalizeRoundResult(scoreDraw(players), state.roundStartScores);
       set({
         wall,
         players: applyRoundResult(players, result),
@@ -734,9 +858,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
       baseScore: state.baseScore,
     });
     const scoredPlayers = gang ? applyGangScore(players, gang.scoreChanges) : players;
+    const roundScoreNotes = gang
+      ? appendScoreNotes(state.roundScoreNotes, gang.scoreChanges, "杠", "被杠")
+      : state.roundScoreNotes;
     set({
       wall,
       players: scoredPlayers,
+      roundScoreNotes,
       supplementContext: "gangshang",
       logs: pushLog(
         state.logs,
@@ -801,7 +929,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       lastDrawnTileId: supplement?.id,
     };
     if (!supplement) {
-      const result = scoreDraw(players);
+      const result = normalizeRoundResult(scoreDraw(players), state.roundStartScores);
       set({
         wall,
         players: applyRoundResult(players, result),
@@ -815,10 +943,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
       });
       return;
     }
-    const scored = applyBuGangScore(players, playerId, state.supplementContext === "gangshang", state.baseScore, state.logs);
+    const scored = applyBuGangScore(
+      players,
+      playerId,
+      state.supplementContext === "gangshang",
+      state.baseScore,
+      state.logs,
+      state.roundScoreNotes,
+    );
     set({
       wall,
       players: scored.players,
+      roundScoreNotes: scored.notes,
       supplementContext: "gangshang",
       logs: scored.logs,
       actionNonce: state.actionNonce + 1,
@@ -917,7 +1053,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         lastDrawnTileId: supplement?.id,
       };
       if (!supplement) {
-        const result = scoreDraw(players);
+        const result = normalizeRoundResult(scoreDraw(players), state.roundStartScores);
         set({
           wall,
           players: applyRoundResult(players, result),
@@ -931,10 +1067,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
         });
         return;
       }
-      const scored = applyBuGangScore(players, playerId, state.supplementContext === "gangshang", state.baseScore, state.logs);
+      const scored = applyBuGangScore(
+        players,
+        playerId,
+        state.supplementContext === "gangshang",
+        state.baseScore,
+        state.logs,
+        state.roundScoreNotes,
+      );
       set({
         wall,
         players: scored.players,
+        roundScoreNotes: scored.notes,
         currentPlayerId: playerId,
         pendingReactions: undefined,
         pendingBuGang: undefined,
@@ -1001,6 +1145,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       isGangShangPao,
       isHaiDiLao,
     });
+    let roundScoreNotes = appendWinScoreNotes(state.roundScoreNotes, result);
     const shouldBuyHorse =
       state.liangDaoZimoBuyHorseEnabled &&
       player.isLiangDao &&
@@ -1030,10 +1175,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
           bonus,
         },
       };
+      roundScoreNotes = appendBuyHorseScoreNotes(roundScoreNotes, winnerId, ids, bonus);
     }
+    result = normalizeRoundResult(result, state.roundStartScores);
     set({
       wall,
       players: applyRoundResult(state.players, result),
+      roundScoreNotes,
       phase: "settled",
       roundResult: result,
       pendingReactions: undefined,
@@ -1076,9 +1224,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     if (scoreResults.length === 0) return;
     if (scoreResults.length === 1) {
-      const result = scoreResults[0];
+      const roundScoreNotes = appendWinScoreNotes(state.roundScoreNotes, scoreResults[0]);
+      const result = normalizeRoundResult(scoreResults[0], state.roundStartScores);
       set({
         players: applyRoundResult(state.players, result),
+        roundScoreNotes,
         phase: "settled",
         roundResult: result,
         pendingReactions: undefined,
@@ -1091,7 +1241,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
 
     const scoreChanges = Object.fromEntries(ids.map((id) => [id, 0])) as Record<PlayerId, number>;
+    let roundScoreNotes = state.roundScoreNotes;
     for (const scoreResult of scoreResults) {
+      roundScoreNotes = appendWinScoreNotes(roundScoreNotes, scoreResult);
       for (const id of ids) {
         scoreChanges[id] += scoreResult.scoreChanges[id];
       }
@@ -1105,7 +1257,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       .map((scoreResult) => state.players[scoreResult.winnerId!].name)
       .join("、");
     const titlePrefix = method === "qianggang" ? "多人抢杠胡" : "一炮双响";
-    const result: ScoreResult = {
+    const result: ScoreResult = normalizeRoundResult({
       ...first,
       scoreChanges,
       totalScores,
@@ -1120,10 +1272,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
         multiplier: scoreResult.multiplier,
         title: scoreResult.title,
       })),
-    };
+    }, state.roundStartScores);
 
     set({
       players: applyRoundResult(state.players, result),
+      roundScoreNotes,
       phase: "settled",
       roundResult: result,
       pendingReactions: undefined,
@@ -1136,7 +1289,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   settleNoSafeDiscard: (playerId) => {
     const state = get();
-    const result = scoreDraw(state.players);
+    const result = normalizeRoundResult(scoreDraw(state.players), state.roundStartScores);
     set({
       phase: "draw",
       roundResult: result,

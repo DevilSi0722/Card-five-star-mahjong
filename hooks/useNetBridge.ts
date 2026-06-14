@@ -51,6 +51,8 @@ function extractSnapshot(state: ReturnType<typeof useGameStore.getState>): NetGa
     reactionPasses: state.reactionPasses,
     pendingBuGang: state.pendingBuGang,
     roundResult: state.roundResult,
+    roundStartScores: state.roundStartScores,
+    roundScoreNotes: state.roundScoreNotes,
     logs: state.logs,
     actionNonce: state.actionNonce,
     baseScore: state.baseScore,

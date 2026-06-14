@@ -75,6 +75,10 @@ function randomCode(): string {
   return String(1000 + Math.floor(Math.random() * 9000));
 }
 
+function isRoomOccupiedError(err: unknown): boolean {
+  return err instanceof Error && err.message.includes("房间号已被占用");
+}
+
 type LobbyView = "home" | "create" | "join" | "room";
 
 interface RoomStore {
@@ -144,8 +148,6 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
     const { clientId, playerName } = get();
     set({ busy: true, error: null });
     try {
-      const roomCode = code?.trim() || randomCode();
-      if (!/^\d{4}$/.test(roomCode)) throw new Error("房间号必须是 4 位数字");
       const host: RoomPlayer = {
         clientId,
         name: playerName,
@@ -155,21 +157,36 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
         joinedAt: Date.now(),
         lastSeen: Date.now(),
       };
-      const room: Room = {
-        code: roomCode,
-        hostClientId: clientId,
-        status: "waiting",
-        settings,
-        players: [host],
-        currentRound: 0,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      };
-      await createRoom(room);
+      const manualCode = code?.trim();
+      if (manualCode && !/^\d{4}$/.test(manualCode)) throw new Error("房间号必须是 4 位数字");
+      let room: Room | null = null;
+      const attempts = manualCode ? [manualCode] : Array.from({ length: 12 }, () => randomCode());
+      let lastError: unknown;
+      for (const roomCode of attempts) {
+        const candidate: Room = {
+          code: roomCode,
+          hostClientId: clientId,
+          status: "waiting",
+          settings,
+          players: [host],
+          currentRound: 0,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+        try {
+          await createRoom(candidate);
+          room = candidate;
+          break;
+        } catch (err) {
+          lastError = err;
+          if (manualCode || !isRoomOccupiedError(err)) throw err;
+        }
+      }
+      if (!room) throw lastError instanceof Error ? lastError : new Error("创建房间失败，请重试");
       // 房主恒为引擎 human 座位。
       useGameStore.getState().configureNet({ role: "host", seat: "human" });
       get().unsubscribe?.();
-      const unsub = subscribeRoom(roomCode, (next) => {
+      const unsub = subscribeRoom(room.code, (next) => {
         if (!next) {
           set({ room: null, view: "home", error: "房间已关闭" });
           return;
@@ -293,9 +310,16 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
 
   leave: async () => {
     const { room, clientId, unsubscribe } = get();
-    unsubscribe?.();
-    if (room) await leaveRoom(room.code, clientId).catch(() => undefined);
-    useGameStore.getState().configureNet({ role: "single", seat: "human" });
-    set({ room: null, myWind: null, view: "home", unsubscribe: null, error: null });
+    set({ busy: true, error: null });
+    try {
+      if (room) await leaveRoom(room.code, clientId);
+      unsubscribe?.();
+      useGameStore.getState().configureNet({ role: "single", seat: "human" });
+      set({ room: null, myWind: null, view: "home", unsubscribe: null, error: null });
+    } catch (err) {
+      set({ error: err instanceof Error ? err.message : "离开房间失败" });
+    } finally {
+      set({ busy: false });
+    }
   },
 }));

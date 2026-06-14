@@ -5,40 +5,34 @@ import type { PlayerId, ScoreResult } from "@/types/mahjong";
 import { useGameStore } from "@/store/gameStore";
 import { useRoomStore } from "@/store/roomStore";
 import { useResponsiveGameLayout } from "@/hooks/useResponsiveGameLayout";
-import { TILE_KIND_LABEL } from "@/utils/mahjong/tiles";
 
-const METHOD_LABEL: Record<NonNullable<ScoreResult["method"]>, string> = {
-  zimo: "自摸",
-  discard: "点炮",
-  qianggang: "抢杠胡",
-  gangshang: "杠上开花",
-};
+const SETTLEMENT_PLAYER_ORDER: PlayerId[] = ["human", "ai_right", "ai_left"];
 
-// 用自然语句描述某位玩家如何赢牌，例如「左家给你点炮」「你自摸」。name 解析适应各自视角。
-function describeWin(
-  detail: { winnerId: PlayerId; loserId?: PlayerId; method: NonNullable<ScoreResult["method"]> },
-  nameOf: (id: PlayerId) => string,
-): string {
-  const winner = nameOf(detail.winnerId);
-  const loser = detail.loserId ? nameOf(detail.loserId) : undefined;
-  switch (detail.method) {
-    case "zimo":
-      return `${winner}自摸`;
-    case "gangshang":
-      return `${winner}杠上开花`;
-    case "qianggang":
-      return loser ? `${winner}抢${loser}的杠胡` : `${winner}抢杠胡`;
-    case "discard":
-      return loser ? `${loser}给${winner}点炮` : `${winner}胡牌`;
-    default:
-      return winner;
-  }
+function scoreTone(value: number): string {
+  if (value > 0) return "text-jade-soft";
+  if (value < 0) return "text-rose-300";
+  return "text-slate-400";
+}
+
+function notePriority(note: string): number {
+  if (note.includes("胡") || note.includes("亮倒") || note.includes("清一色") || note.includes("七对") || note.includes("大三元") || note.includes("小三元")) return 0;
+  if (note.includes("点炮") || note.includes("自摸") || note.includes("抢杠") || note.includes("杠开")) return 1;
+  if (note.includes("杠")) return 2;
+  if (note.includes("买马")) return 3;
+  return 4;
+}
+
+function displayNotes(notes: string[] | undefined): string[] {
+  if (!notes || notes.length === 0) return ["无计分"];
+  return [...notes].sort((a, b) => notePriority(a) - notePriority(b));
 }
 
 export function SettlementModal({ result }: { result: ScoreResult }) {
   const { isMobileLandscape } = useResponsiveGameLayout();
   const resetRound = useGameStore((state) => state.resetRound);
   const players = useGameStore((state) => state.players);
+  const roundStartScores = useGameStore((state) => state.roundStartScores);
+  const roundScoreNotes = useGameStore((state) => state.roundScoreNotes);
   const netRole = useGameStore((state) => state.netRole);
   const room = useRoomStore((state) => state.room);
   const myClientId = useRoomStore((state) => state.clientId);
@@ -48,7 +42,7 @@ export function SettlementModal({ result }: { result: ScoreResult }) {
   // 玩家名解析：自己（底部 human）显示「你」，其余用引擎中的真实昵称（已按视角旋转）。
   const nameOf = (id: PlayerId): string => (id === "human" ? "你" : players[id]?.name ?? id);
 
-  const ids = Object.keys(result.scoreChanges) as PlayerId[];
+  const ids = SETTLEMENT_PLAYER_ORDER.filter((id) => id in result.scoreChanges);
   const winDetails =
     result.winDetails ??
     (result.winnerId && result.method
@@ -67,9 +61,7 @@ export function SettlementModal({ result }: { result: ScoreResult }) {
       : []);
 
   const isDraw = !result.winnerId;
-  const hasMultipleWinners = winDetails.length > 1;
   const winnerNames = winDetails.map((detail) => nameOf(detail.winnerId)).join("、");
-  const winDescription = winDetails.map((detail) => describeWin(detail, nameOf)).join("，");
 
   // 多人模式准备状态。
   const isMultiplayer = netRole !== "single";
@@ -84,10 +76,10 @@ export function SettlementModal({ result }: { result: ScoreResult }) {
     <div className={`absolute inset-0 z-30 flex items-center justify-center bg-black/45 backdrop-blur-sm ${isMobileLandscape ? "p-2" : "p-4"}`}>
       <div
         className={`surface-modal w-full overflow-y-auto rounded-2xl hud-scrollbar ${
-          isMobileLandscape ? "max-h-[calc(100dvh-1rem)] max-w-[min(660px,calc(100vw-1rem))] p-3" : "max-w-md p-5"
+          isMobileLandscape ? "max-h-[calc(100dvh-1rem)] max-w-[min(700px,calc(100vw-1rem))] p-3" : "max-w-3xl p-5"
         }`}
       >
-        {/* 标题：赢家是谁，副标题描述怎么赢的 */}
+        {/* 标题 */}
         <div className="flex items-center gap-2.5">
           <span className={`grid shrink-0 place-items-center rounded-full bg-gold/15 ${isMobileLandscape ? "h-8 w-8" : "h-10 w-10"}`}>
             <Trophy className={`${isMobileLandscape ? "h-4 w-4" : "h-5 w-5"} text-gold`} />
@@ -97,78 +89,58 @@ export function SettlementModal({ result }: { result: ScoreResult }) {
               {isDraw ? "流局" : `赢家：${winnerNames}`}
             </div>
             <div className={`mt-0.5 text-slate-400 ${isMobileLandscape ? "text-[11px]" : "text-xs"}`}>
-              {isDraw ? "牌墙摸空 · 本局不计分" : winDescription}
+              {isDraw ? "牌墙摸空" : "本局计分明细"}
             </div>
           </div>
         </div>
 
-        {/* 横屏且有番型：番型明细 + 比分表并排成双栏，用宽度换高度；流局无番型或竖屏：上下堆叠 */}
-        <div className={isMobileLandscape && winDetails.length > 0 ? "mt-2 grid grid-cols-2 items-start gap-2" : "contents"}>
-          {/* 番型明细 */}
-          {winDetails.length > 0 ? (
-            <div className={`${isMobileLandscape ? "p-2" : "mt-4 p-3"} rounded-xl border border-white/8 bg-white/5`}>
-              <div className={`font-medium text-gold-soft ${isMobileLandscape ? "text-[11px]" : "text-xs"}`}>番型</div>
-              <div className={`divide-y divide-white/8 ${isMobileLandscape ? "mt-1" : "mt-1.5"}`}>
-                {winDetails.map((detail) => (
-                  <div key={detail.winnerId} className={isMobileLandscape ? "py-1.5 first:pt-0 last:pb-0" : "py-2.5 first:pt-0 last:pb-0"}>
-                    {hasMultipleWinners ? (
-                      <div className="mb-1 text-xs font-medium text-slate-200">
-                        {nameOf(detail.winnerId)} · {METHOD_LABEL[detail.method]}
-                      </div>
-                    ) : null}
-                    <div className="flex flex-wrap gap-1.5">
-                      {detail.fans.map((fan) => (
-                        <span
-                          key={fan.type}
-                          className={`rounded-md border border-jade/30 bg-jade/12 font-medium text-jade-soft ${
-                            isMobileLandscape ? "px-1.5 py-0.5 text-[11px]" : "px-2 py-1 text-xs"
-                          }`}
-                        >
-                          {fan.name} ×{fan.fan}
-                        </span>
-                      ))}
-                    </div>
-                    <div className={`flex items-center gap-2 text-slate-400 ${isMobileLandscape ? "mt-1 text-[11px]" : "mt-1.5 text-xs"}`}>
-                      <span>
-                        倍率 <span className="font-semibold text-gold-soft">×{detail.multiplier}</span>
-                      </span>
-                      <span className="text-white/15">|</span>
-                      <span>
-                        每家 <span className="font-semibold text-slate-200">{detail.baseScore}</span> 分
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              {result.buyHorse ? (
-                <div className={`flex items-center justify-between rounded-md border border-sky-300/25 bg-sky-400/10 text-sky-100 ${isMobileLandscape ? "mt-1.5 px-2 py-1 text-[11px]" : "mt-2.5 px-2.5 py-1.5 text-sm"}`}>
-                  <span>买马 · {TILE_KIND_LABEL[result.buyHorse.tile.kind]}（{result.buyHorse.value} 点）</span>
-                  <span className="font-semibold text-jade-soft">+{result.buyHorse.bonus}</span>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-
-          {/* 比分结算：带表头，本局变化 + 累计总分 */}
-          <div className={`overflow-hidden rounded-xl border border-white/10 ${isMobileLandscape ? (winDetails.length > 0 ? "" : "mt-2") : "mt-4"}`}>
-            <div className={`grid grid-cols-3 border-b border-white/10 bg-white/[0.04] font-medium text-slate-400 ${isMobileLandscape ? "px-2 py-1 text-[10px]" : "px-3 py-1.5 text-[11px]"}`}>
+        {/* 五列结算表：玩家 / 明细 / 上局 / 本局 / 总分 */}
+        <div className={`overflow-x-auto rounded-xl border border-white/10 hud-scrollbar ${isMobileLandscape ? "mt-2" : "mt-4"}`}>
+          <div className={`min-w-[620px] ${isMobileLandscape ? "text-[11px]" : "text-xs"}`}>
+            <div className={`grid grid-cols-[0.8fr_2.4fr_0.8fr_0.8fr_0.8fr] border-b border-white/10 bg-white/[0.04] font-medium text-slate-400 ${
+              isMobileLandscape ? "px-2 py-1" : "px-3 py-1.5"
+            }`}>
               <span>玩家</span>
-              <span className="text-center">本局</span>
+              <span>本局番型与杠</span>
+              <span className="text-right">上局</span>
+              <span className="text-right">本局</span>
               <span className="text-right">总分</span>
             </div>
             {ids.map((id) => {
+              const notes = displayNotes(roundScoreNotes[id]);
+              const previousScore = roundStartScores[id] ?? (result.totalScores[id] - result.scoreChanges[id]);
               const change = result.scoreChanges[id];
+              const total = result.totalScores[id];
               const isHuman = id === "human";
               return (
                 <div
                   key={id}
-                  className={`grid grid-cols-3 items-center border-b border-white/8 last:border-b-0 ${isHuman ? "bg-gold/10" : ""} ${isMobileLandscape ? "px-2 py-1 text-xs" : "px-3 py-2 text-sm"}`}
+                  className={`grid grid-cols-[0.8fr_2.4fr_0.8fr_0.8fr_0.8fr] items-center border-b border-white/8 last:border-b-0 ${
+                    isHuman ? "bg-gold/10" : ""
+                  } ${isMobileLandscape ? "px-2 py-1.5" : "px-3 py-2"}`}
                 >
-                  <span className={isHuman ? "font-semibold text-bone" : "text-slate-200"}>{nameOf(id)}</span>
-                  <span className={`text-center font-semibold tabular-nums ${change > 0 ? "text-jade-soft" : change < 0 ? "text-rose-300" : "text-slate-400"}`}>
+                  <span className={`min-w-0 truncate ${isHuman ? "font-semibold text-bone" : "text-slate-200"}`}>{nameOf(id)}</span>
+                  <span className="flex min-w-0 flex-wrap gap-1">
+                    {notes.map((note, index) => (
+                      <span
+                        key={`${id}-${note}-${index}`}
+                        className={`rounded-md border px-1.5 py-0.5 font-medium ${
+                          note.includes("+")
+                            ? "border-jade/30 bg-jade/12 text-jade-soft"
+                            : note.includes("-")
+                              ? "border-rose-300/25 bg-rose-400/10 text-rose-200"
+                              : "border-white/10 bg-white/5 text-slate-400"
+                        }`}
+                      >
+                        {note}
+                      </span>
+                    ))}
+                  </span>
+                  <span className="text-right tabular-nums text-slate-300">{previousScore}</span>
+                  <span className={`text-right font-semibold tabular-nums ${scoreTone(change)}`}>
                     {change > 0 ? `+${change}` : change}
                   </span>
-                  <span className="text-right tabular-nums text-slate-300">{result.totalScores[id]}</span>
+                  <span className="text-right tabular-nums text-slate-200">{total}</span>
                 </div>
               );
             })}

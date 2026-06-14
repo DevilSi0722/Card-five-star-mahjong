@@ -9,6 +9,7 @@ import {
   serverTimestamp,
   setDoc,
   updateDoc,
+  writeBatch,
   type Unsubscribe,
 } from "firebase/firestore";
 import { getDb } from "@/lib/firebase/client";
@@ -172,17 +173,15 @@ export async function heartbeat(code: string, clientId: string): Promise<void> {
 
 /** 删除房间的所有子集合文档（views/*、actions/* 与 presence/*）。Firestore 删文档不级联删子集合，需手动清理。 */
 async function deleteRoomSubcollections(code: string): Promise<void> {
+  const batch = writeBatch(getDb());
   // views：座位固定为三个，直接逐个删。
-  await Promise.all(SEAT_TURN_ORDER.map((seat) => deleteDoc(viewRef(code, seat)).catch(() => undefined)));
+  for (const seat of SEAT_TURN_ORDER) batch.delete(viewRef(code, seat));
   // actions：数量不定，查询后逐条删。
-  const actionsSnap = await getDocs(actionsCol(code)).catch(() => null);
-  if (actionsSnap) {
-    await Promise.all(actionsSnap.docs.map((d) => deleteDoc(d.ref).catch(() => undefined)));
-  }
-  const presenceSnap = await getDocs(presenceCol(code)).catch(() => null);
-  if (presenceSnap) {
-    await Promise.all(presenceSnap.docs.map((d) => deleteDoc(d.ref).catch(() => undefined)));
-  }
+  const actionsSnap = await getDocs(actionsCol(code));
+  for (const actionDoc of actionsSnap.docs) batch.delete(actionDoc.ref);
+  const presenceSnap = await getDocs(presenceCol(code));
+  for (const presenceDoc of presenceSnap.docs) batch.delete(presenceDoc.ref);
+  await batch.commit();
 }
 
 /** 离开房间：房主离开则删除整个房间（含子集合），否则移除自己。 */
@@ -190,9 +189,11 @@ export async function leaveRoom(code: string, clientId: string): Promise<void> {
   const room = await fetchRoom(code);
   if (!room) return;
   if (room.hostClientId === clientId) {
-    // 先清子集合（视图/动作），再删房间文档，避免遗留孤儿数据。
+    // 先清子集合（视图/动作/心跳），再删房间文档，避免遗留孤儿数据。
+    // 删除房间后再补清一次，覆盖本客户端心跳/发布视图刚好并发写入的情况。
     await deleteRoomSubcollections(code);
     await deleteDoc(roomRef(code));
+    await deleteRoomSubcollections(code);
     return;
   }
   const players = room.players.filter((p) => p.clientId !== clientId);

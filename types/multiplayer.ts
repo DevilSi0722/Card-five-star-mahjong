@@ -151,6 +151,8 @@ export type NetGameSnapshot = Pick<
   | "reactionPasses"
   | "pendingBuGang"
   | "roundResult"
+  | "roundStartScores"
+  | "roundScoreNotes"
   | "logs"
   | "actionNonce"
   | "baseScore"

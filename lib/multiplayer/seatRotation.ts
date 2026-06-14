@@ -118,6 +118,8 @@ export function cropSnapshotForSeat(
   const roundResult = state.roundResult
     ? rotateRoundResult(state.roundResult, viewerSeat)
     : undefined;
+  const roundStartScores = remapScoreRecord(state.roundStartScores, viewerSeat);
+  const roundScoreNotes = remapNotesRecord(state.roundScoreNotes, viewerSeat);
 
   return {
     players,
@@ -129,6 +131,8 @@ export function cropSnapshotForSeat(
     reactionPasses: state.reactionPasses.map((id) => realToDisplaySeat(id, viewerSeat)),
     pendingBuGang,
     roundResult,
+    roundStartScores,
+    roundScoreNotes,
     logs: state.logs,
     actionNonce: state.actionNonce,
     baseScore: state.baseScore,
@@ -137,25 +141,33 @@ export function cropSnapshotForSeat(
   };
 }
 
+function remapScoreRecord(record: Record<PlayerId, number>, viewerSeat: EngineSeatId): Record<PlayerId, number> {
+  const next = {} as Record<PlayerId, number>;
+  for (const [id, value] of Object.entries(record) as [PlayerId, number][]) {
+    next[realToDisplaySeat(id, viewerSeat)] = value;
+  }
+  return next;
+}
+
+function remapNotesRecord(record: Record<PlayerId, string[]>, viewerSeat: EngineSeatId): Record<PlayerId, string[]> {
+  const next = {} as Record<PlayerId, string[]>;
+  for (const [id, value] of Object.entries(record) as [PlayerId, string[]][]) {
+    next[realToDisplaySeat(id, viewerSeat)] = value;
+  }
+  return next;
+}
+
 /** 旋转结算结果里的所有 PlayerId 键值，使每位观察者都从自身视角阅读比分。 */
 function rotateRoundResult(
   result: NonNullable<NetGameSnapshot["roundResult"]>,
   viewerSeat: EngineSeatId,
 ): NonNullable<NetGameSnapshot["roundResult"]> {
-  const remapRecord = (record: Record<PlayerId, number>): Record<PlayerId, number> => {
-    const next = {} as Record<PlayerId, number>;
-    for (const [id, value] of Object.entries(record) as [PlayerId, number][]) {
-      next[realToDisplaySeat(id, viewerSeat)] = value;
-    }
-    return next;
-  };
-
   return {
     ...result,
     winnerId: mapPlayerId(result.winnerId, viewerSeat),
     loserId: mapPlayerId(result.loserId, viewerSeat),
-    scoreChanges: remapRecord(result.scoreChanges),
-    totalScores: remapRecord(result.totalScores),
+    scoreChanges: remapScoreRecord(result.scoreChanges, viewerSeat),
+    totalScores: remapScoreRecord(result.totalScores, viewerSeat),
     winDetails: result.winDetails?.map((detail) => ({
       ...detail,
       winnerId: realToDisplaySeat(detail.winnerId, viewerSeat),

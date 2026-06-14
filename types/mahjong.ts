@@ -187,6 +187,10 @@ export interface GameState {
   };
   selectedTileId?: string;
   roundResult?: ScoreResult;
+  /** 本局开始时的累计分，用于把杠分、胡牌、买马合并成完整的本局得分。 */
+  roundStartScores: Record<PlayerId, number>;
+  /** 本局中途即时结算的计分说明，例如杠分。 */
+  roundScoreNotes: Record<PlayerId, string[]>;
   logs: string[];
   actionNonce: number;
   canHumanLiangDao: boolean;
