@@ -40,7 +40,8 @@ export function MahjongGame() {
     }
 
     setShowSettlement(false);
-    const timer = window.setTimeout(() => setShowSettlement(true), 3500);
+    const revealDuration = roundResult.buyHorse.isBuyOneGetOne ? 5200 : 3500;
+    const timer = window.setTimeout(() => setShowSettlement(true), revealDuration);
     return () => window.clearTimeout(timer);
   }, [roundResult]);
 

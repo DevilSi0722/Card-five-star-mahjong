@@ -147,6 +147,13 @@ export interface ScoreResult {
     tile: TileInstance;
     value: number;
     bonus: number;
+    items?: {
+      tile: TileInstance;
+      value: number;
+      bonus: number;
+    }[];
+    totalValue?: number;
+    isBuyOneGetOne?: boolean;
   };
   winDetails?: WinScoreDetail[];
 }

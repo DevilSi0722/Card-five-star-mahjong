@@ -343,6 +343,10 @@ function buyHorseValue(tile: TileInstance): number {
   return typeof tile.rank === "number" ? tile.rank : 10;
 }
 
+function shouldBuyOneGetOne(tile: TileInstance): boolean {
+  return tile.rank === 1 && (tile.suit === "dot" || tile.suit === "bamboo");
+}
+
 const initialPlayers = createPlayers();
 const DISCARD_TO_DRAW_DELAY_MS = 420;
 
@@ -1152,10 +1156,22 @@ export const useGameStore = create<GameStore>((set, get) => ({
       (method === "zimo" || method === "gangshang") &&
       wall.length > 0;
     const buyHorseTile = shouldBuyHorse ? wall.shift() : undefined;
-
+    const buyHorseTiles: TileInstance[] = [];
     if (buyHorseTile) {
-      const value = buyHorseValue(buyHorseTile);
-      const bonus = value * state.baseScore;
+      buyHorseTiles.push(buyHorseTile);
+      if (shouldBuyOneGetOne(buyHorseTile) && wall.length > 0) {
+        const extraBuyHorseTile = wall.shift();
+        if (extraBuyHorseTile) buyHorseTiles.push(extraBuyHorseTile);
+      }
+    }
+
+    if (buyHorseTiles.length > 0) {
+      const buyHorseItems = buyHorseTiles.map((tile) => {
+        const value = buyHorseValue(tile);
+        return { tile, value, bonus: value * state.baseScore };
+      });
+      const value = buyHorseItems.reduce((sum, item) => sum + item.value, 0);
+      const bonus = buyHorseItems.reduce((sum, item) => sum + item.bonus, 0);
       const scoreChanges = { ...result.scoreChanges };
       const ids = Object.keys(state.players) as PlayerId[];
       for (const id of ids) {
@@ -1170,9 +1186,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
           ids.map((id) => [id, state.players[id].score + scoreChanges[id]]),
         ) as Record<PlayerId, number>,
         buyHorse: {
-          tile: buyHorseTile,
+          tile: buyHorseItems[0]!.tile,
           value,
           bonus,
+          items: buyHorseItems,
+          totalValue: value,
+          isBuyOneGetOne: buyHorseItems.length > 1,
         },
       };
       roundScoreNotes = appendBuyHorseScoreNotes(roundScoreNotes, winnerId, ids, bonus);
@@ -1190,7 +1209,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       logs: pushLog(
         state.logs,
         buyHorseTile
-          ? `${result.title}，买马 ${TILE_KIND_LABEL[buyHorseTile.kind]} +${result.buyHorse?.bonus ?? 0}`
+          ? `${result.title}，买马 ${buyHorseTiles.map((tile) => TILE_KIND_LABEL[tile.kind]).join("、")} +${result.buyHorse?.bonus ?? 0}`
           : result.title,
       ),
       actionNonce: state.actionNonce + 1,
