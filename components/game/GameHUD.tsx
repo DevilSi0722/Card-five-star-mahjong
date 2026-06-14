@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { BadgeCheck, CircleDot, LogOut, RotateCcw, Settings, X } from "lucide-react";
+import { BadgeCheck, CircleDot, LogOut, MessageCircle, RotateCcw, SendHorizontal, Settings, X } from "lucide-react";
 import type { Player, PlayerId } from "@/types/mahjong";
+import type { QuickChatMessage, RoomPlayer } from "@/types/multiplayer";
 import { WIND_LABEL, type EngineSeatId, type Wind } from "@/types/multiplayer";
 import { useGameStore } from "@/store/gameStore";
 import { useRoomStore } from "@/store/roomStore";
@@ -20,6 +21,17 @@ const PLAYER_TONES: Record<PlayerId, PlayerTone> = {
 };
 
 const SCORE_PANEL_PLAYER_ORDER: EngineSeatId[] = ["human", "ai_right", "ai_left"];
+const QUICK_CHAT_MESSAGES = [
+  "快点快点，茶都凉了",
+  "这牌也太会折磨人了",
+  "刚才那张我后悔三秒",
+  "别碰我牌，我有预感",
+  "你这牌打得像开了导航",
+  "稳住，我在酝酿大事",
+  "这都能摸到？离谱但合理",
+  "给条活路，别再杠了",
+];
+const QUICK_CHAT_VISIBLE_MS = 5000;
 
 function playerTone(id: PlayerId): PlayerTone {
   return PLAYER_TONES[id];
@@ -92,6 +104,110 @@ function scoreClass(score: number): string {
   if (score > 0) return "text-emerald-200";
   if (score < 0) return "text-rose-300";
   return "text-slate-300";
+}
+
+function quickChatSenderSeat(
+  message: QuickChatMessage,
+  roomPlayers: RoomPlayer[],
+  players: Record<PlayerId, Player>,
+  netWinds?: Record<EngineSeatId, Wind>,
+): EngineSeatId | null {
+  const sender = roomPlayers.find((player) => player.clientId === message.clientId);
+  if (sender && netWinds) {
+    return SCORE_PANEL_PLAYER_ORDER.find((seat) => netWinds[seat] === sender.wind) ?? null;
+  }
+  return SCORE_PANEL_PLAYER_ORDER.find((seat) => players[seat].name === message.playerName) ?? null;
+}
+
+function QuickChatBubble({
+  message,
+  seat,
+  compact,
+}: {
+  message: QuickChatMessage;
+  seat: EngineSeatId;
+  compact: boolean;
+}) {
+  const isMine = seat === "human";
+  const isLeft = seat === "ai_left";
+  const isRight = seat === "ai_right";
+  const positionClass = isMine
+    ? compact
+      ? "bottom-[6.15rem] left-[max(0.6rem,env(safe-area-inset-left))] max-w-[min(260px,38vw)]"
+      : "bottom-[11.25rem] left-4 max-w-[min(360px,calc(100vw-2rem))] sm:left-6"
+    : isLeft
+      ? compact
+        ? "left-[max(3.25rem,calc(env(safe-area-inset-left)+3rem))] top-1/2 max-w-[min(245px,34vw)] -translate-y-[calc(50%+2.65rem)]"
+        : "left-[6.25rem] top-1/2 max-w-[min(320px,34vw)] -translate-y-[calc(50%+3.1rem)]"
+      : compact
+        ? "right-[max(3.25rem,calc(env(safe-area-inset-right)+3rem))] top-1/2 max-w-[min(245px,34vw)] -translate-y-[calc(50%+2.65rem)]"
+        : "right-[6.25rem] top-1/2 max-w-[min(320px,34vw)] -translate-y-[calc(50%+3.1rem)]";
+  const animationClass = isLeft
+    ? "quick-chat-bubble--left"
+    : isRight
+      ? "quick-chat-bubble--right"
+      : "quick-chat-bubble--mine";
+
+  return (
+    <div
+      className={`pointer-events-none fixed z-30 ${positionClass}`}
+    >
+      <div
+        className={`quick-chat-bubble rounded-2xl border px-3 py-2 shadow-panel-lg ${animationClass} ${
+          isMine
+            ? "border-jade/35 bg-gradient-to-b from-jade/25 to-slate-950/92"
+            : "border-gold/35 bg-gradient-to-b from-gold/18 to-slate-950/92"
+        } ${compact ? "text-[11px]" : "text-sm"} ${isRight ? "text-right" : "text-left"}`}
+      >
+        <div className={`font-semibold leading-snug text-bone ${compact ? "text-[12px]" : "text-sm"}`}>
+          {message.text}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function QuickChatPanel({
+  compact,
+  onSend,
+}: {
+  compact: boolean;
+  onSend: (text: string) => void;
+}) {
+  return (
+    <div
+      className={`pointer-events-auto fixed z-40 ${
+        compact
+          ? "bottom-[6.05rem] left-[max(0.5rem,env(safe-area-inset-left))] w-[min(330px,44vw)]"
+          : "bottom-[9.1rem] left-4 w-[min(360px,calc(100vw-2rem))] sm:left-6"
+      }`}
+    >
+      <div className={`surface-modal rounded-2xl ${compact ? "p-2" : "p-3"}`}>
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <div className={`flex items-center gap-1.5 font-semibold text-bone ${compact ? "text-[11px]" : "text-xs"}`}>
+            <MessageCircle className={`${compact ? "h-3.5 w-3.5" : "h-4 w-4"} text-jade`} />
+            快捷聊天
+          </div>
+          <span className={`${compact ? "text-[9px]" : "text-[10px]"} text-slate-500`}>发送后全房间可见</span>
+        </div>
+        <div className={`grid gap-1.5 ${compact ? "grid-cols-2" : "grid-cols-1 sm:grid-cols-2"}`}>
+          {QUICK_CHAT_MESSAGES.map((message) => (
+            <button
+              key={message}
+              type="button"
+              onClick={() => onSend(message)}
+              className={`group flex min-w-0 items-center justify-between gap-2 rounded-xl border border-white/10 bg-slate-950/60 px-2.5 text-left font-semibold text-slate-100 transition hover:border-jade/45 hover:bg-jade/12 hover:text-jade-soft ${
+                compact ? "h-8 text-[11px]" : "min-h-10 text-xs"
+              }`}
+            >
+              <span className="min-w-0 truncate">{message}</span>
+              <SendHorizontal className={`${compact ? "h-3 w-3" : "h-3.5 w-3.5"} shrink-0 text-slate-500 transition group-hover:text-jade`} />
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function SettingsModal({ onClose }: { onClose: () => void }) {
@@ -230,8 +346,13 @@ export function GameHUD() {
   const netWinds = useGameStore((state) => state.netWinds);
   const leaveRoom = useRoomStore((state) => state.leave);
   const backToHome = useRoomStore((state) => state.backToHome);
+  const room = useRoomStore((state) => state.room);
+  const sendQuickChat = useRoomStore((state) => state.sendQuickChat);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [confirmExit, setConfirmExit] = useState(false);
+  const [quickChatOpen, setQuickChatOpen] = useState(false);
+  const [visibleQuickChat, setVisibleQuickChat] = useState<QuickChatMessage | null>(null);
+  const lastQuickChatIdRef = useRef<string | null>(null);
   const logPanelRef = useRef<HTMLDivElement>(null);
 
   function handleExit() {
@@ -247,11 +368,31 @@ export function GameHUD() {
   const buGangMelds = human.melds.filter(
     (meld) => meld.type === "peng" && human.hand.some((tile) => tile.kind === meld.tiles[0].kind),
   );
+  const visibleQuickChatSeat =
+    visibleQuickChat && room
+      ? quickChatSenderSeat(visibleQuickChat, room.players, players, netWinds)
+      : null;
 
   useEffect(() => {
     const panel = logPanelRef.current;
     if (panel) panel.scrollTop = panel.scrollHeight;
   }, [logs]);
+
+  useEffect(() => {
+    const message = room?.quickChat;
+    if (!message || lastQuickChatIdRef.current === message.id) return undefined;
+    lastQuickChatIdRef.current = message.id;
+    setVisibleQuickChat(message);
+    const timer = window.setTimeout(() => {
+      setVisibleQuickChat((current) => (current?.id === message.id ? null : current));
+    }, QUICK_CHAT_VISIBLE_MS);
+    return () => window.clearTimeout(timer);
+  }, [room?.quickChat]);
+
+  function handleSendQuickChat(message: string) {
+    setQuickChatOpen(false);
+    void sendQuickChat(message);
+  }
 
   return (
     <div
@@ -394,6 +535,34 @@ export function GameHUD() {
       </div>
 
       <ActionPanel canSelfHu={canSelfHu} anGangKinds={anGangKinds} buGangMelds={buGangMelds} tingOptions={tingOptions} />
+      {netRole !== "single" ? (
+        <>
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              setQuickChatOpen((open) => !open);
+            }}
+            className={`surface-panel pointer-events-auto fixed z-30 inline-flex items-center justify-center rounded-xl text-slate-100 transition hover:border-jade/45 hover:text-jade-soft ${
+              isMobileLandscape
+                ? "bottom-[4.05rem] left-[max(0.6rem,env(safe-area-inset-left))] h-9 w-9"
+                : "bottom-[8.7rem] left-4 h-11 w-11 sm:left-6"
+            } ${quickChatOpen ? "border-jade/45 text-jade-soft" : ""}`}
+            aria-label="快捷聊天"
+            title="快捷聊天"
+          >
+            <MessageCircle className={isMobileLandscape ? "h-4 w-4" : "h-5 w-5"} />
+          </button>
+          {quickChatOpen ? <QuickChatPanel compact={isMobileLandscape} onSend={handleSendQuickChat} /> : null}
+          {visibleQuickChat && visibleQuickChatSeat ? (
+            <QuickChatBubble
+              message={visibleQuickChat}
+              seat={visibleQuickChatSeat}
+              compact={isMobileLandscape}
+            />
+          ) : null}
+        </>
+      ) : null}
       {settingsOpen ? <SettingsModal onClose={() => setSettingsOpen(false)} /> : null}
       {confirmExit ? (
         <div className={`pointer-events-auto fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm ${isMobileLandscape ? "p-2" : "p-4"}`}>

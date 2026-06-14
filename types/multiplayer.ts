@@ -64,6 +64,15 @@ export interface RoomPlayer {
   lastSeen: number;
 }
 
+/** 多人局内快捷聊天消息（覆盖保存最近一条，客户端本地短暂展示）。 */
+export interface QuickChatMessage {
+  id: string;
+  clientId: string;
+  playerName: string;
+  text: string;
+  createdAt: number;
+}
+
 /** 房间文档（Firestore：rooms/{code}）。 */
 export interface Room {
   /** 4 位房间号，同时是文档 id。 */
@@ -81,6 +90,8 @@ export interface Room {
    * 全部真人就绪后房主自动开下一局，随后清空。
    */
   readyClients?: string[];
+  /** 最近一条快捷聊天消息。 */
+  quickChat?: QuickChatMessage;
   createdAt: number;
   updatedAt: number;
 }

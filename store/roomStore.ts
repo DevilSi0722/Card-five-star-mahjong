@@ -18,6 +18,7 @@ import {
   leaveRoom,
   markReady as markReadyRepo,
   sendAction,
+  sendQuickChat as sendQuickChatRepo,
   subscribeRoom,
   updateRoomPlayers,
   updateRoomProgress,
@@ -113,6 +114,8 @@ interface RoomStore {
   startGame: () => Promise<void>;
   /** 本局结算后点「准备」，等待全员就绪。 */
   markReady: () => Promise<void>;
+  /** 多人局内发送一条快捷聊天。 */
+  sendQuickChat: (text: string) => Promise<void>;
   leave: () => Promise<void>;
 }
 
@@ -306,6 +309,25 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
     const { room, clientId } = get();
     if (!room) return;
     await markReadyRepo(room.code, clientId).catch(() => undefined);
+  },
+
+  sendQuickChat: async (text) => {
+    const { room, clientId, playerName } = get();
+    if (!room || room.status !== "playing") return;
+    const trimmed = text.trim().slice(0, 36);
+    if (!trimmed) return;
+    const roomPlayerName = room.players.find((player) => player.clientId === clientId)?.name;
+    const message = {
+      id: `qc_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      clientId,
+      playerName: roomPlayerName || playerName || "玩家",
+      text: trimmed,
+      createdAt: Date.now(),
+    };
+    set((state) => (state.room?.code === room.code ? { room: { ...state.room, quickChat: message } } : {}));
+    await sendQuickChatRepo(room.code, message).catch((err) => {
+      set({ error: err instanceof Error ? err.message : "快捷聊天发送失败" });
+    });
   },
 
   leave: async () => {

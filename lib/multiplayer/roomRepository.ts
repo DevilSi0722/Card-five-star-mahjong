@@ -17,6 +17,7 @@ import type {
   EngineSeatId,
   NetAction,
   NetGameView,
+  QuickChatMessage,
   Room,
   RoomPlayer,
   RoomSettings,
@@ -164,6 +165,11 @@ export async function beginNextRound(code: string, nextRound: number): Promise<v
     readyClients: [],
     updatedAt: Date.now(),
   });
+}
+
+/** 发送局内快捷聊天：覆盖房间文档里的最近一条，复用现有房间订阅，避免额外监听。 */
+export async function sendQuickChat(code: string, message: QuickChatMessage): Promise<void> {
+  await updateDoc(roomRef(code), { quickChat: message, updatedAt: Date.now() });
 }
 
 /** 成员心跳：刷新自己的 lastSeen。 */

@@ -162,6 +162,24 @@ body.mobile-game-locked {
   animation: human-hand-tile-glow-pulse 1.1s ease-in-out infinite;
 }
 
+.quick-chat-bubble {
+  animation-duration: 5s;
+  animation-fill-mode: both;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.quick-chat-bubble--left {
+  animation-name: quick-chat-left;
+}
+
+.quick-chat-bubble--right {
+  animation-name: quick-chat-right;
+}
+
+.quick-chat-bubble--mine {
+  animation-name: quick-chat-mine;
+}
+
 @keyframes human-hand-tile-enter {
   from {
     opacity: 0;
@@ -170,6 +188,54 @@ body.mobile-game-locked {
   to {
     opacity: 1;
     transform: translateX(0) translateY(0) rotate(0deg) scale(1);
+  }
+}
+
+@keyframes quick-chat-left {
+  0% {
+    opacity: 0;
+    transform: translateX(-14px) translateY(6px) scale(0.94);
+  }
+  8%,
+  82% {
+    opacity: 1;
+    transform: translateX(0) translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-8px) translateY(-6px) scale(0.98);
+  }
+}
+
+@keyframes quick-chat-right {
+  0% {
+    opacity: 0;
+    transform: translateX(14px) translateY(6px) scale(0.94);
+  }
+  8%,
+  82% {
+    opacity: 1;
+    transform: translateX(0) translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(8px) translateY(-6px) scale(0.98);
+  }
+}
+
+@keyframes quick-chat-mine {
+  0% {
+    opacity: 0;
+    transform: translateY(14px) scale(0.94);
+  }
+  8%,
+  82% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
   }
 }
 
