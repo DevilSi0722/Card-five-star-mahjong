@@ -40,6 +40,14 @@ export function HumanHandOverlay() {
   const previousTileRects = useRef(new Map<string, DOMRect>());
   const previousLayoutKey = useRef("");
 
+  function clearTouchResidue(tileId?: string) {
+    selectTile(undefined);
+    setHoveredTileId(undefined);
+    if (tileId) {
+      tileElementRefs.current.get(tileId)?.blur();
+    }
+  }
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     const sources = [frontTileFace.src, ...ALL_TILE_TEXTURE_SRCS];
@@ -134,13 +142,16 @@ export function HumanHandOverlay() {
     if (liangDaoArmed) {
       if (canLiangDaoWithTile) {
         setLiangDaoArmed(false);
+        clearTouchResidue(tileId);
         declareLiangDao("human", tileId);
         return;
       }
       setLiangDaoArmed(false);
+      clearTouchResidue(tileId);
       discardTile("human", tileId);
       return;
     }
+    clearTouchResidue(tileId);
     discardTile("human", tileId);
   }
 
@@ -258,7 +269,7 @@ export function HumanHandOverlay() {
                   : dangerous
                     ? "shadow-[0_12px_24px_rgba(239,68,68,0.22),0_0_14px_rgba(239,68,68,0.22)]"
                   : "shadow-panel"
-              } ${interactive ? `pointer-events-auto cursor-pointer ${isMobileLandscape ? "hover:-translate-y-2" : "hover:-translate-y-4"}` : "pointer-events-auto cursor-default"}`}
+              } ${interactive ? `pointer-events-auto cursor-pointer ${isMobileLandscape ? "" : "hover:-translate-y-4"}` : "pointer-events-auto cursor-default"}`}
             >
               <div
                 ref={(element) => {
