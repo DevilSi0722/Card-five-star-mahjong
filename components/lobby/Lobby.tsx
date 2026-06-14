@@ -6,6 +6,7 @@ import { useRoomStore } from "@/store/roomStore";
 import { useUiStore } from "@/store/uiStore";
 import { useResponsiveGameLayout } from "@/hooks/useResponsiveGameLayout";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
+import { TABLECLOTH_OPTIONS } from "@/utils/tablecloths";
 import { CreateRoomForm } from "./CreateRoomForm";
 import { JoinRoomForm } from "./JoinRoomForm";
 import { RoomWaiting } from "./RoomWaiting";
@@ -32,6 +33,8 @@ function LobbySettingsModal({ onClose }: { onClose: () => void }) {
   const { isMobileLandscape } = useResponsiveGameLayout();
   const discardPhysicsEnabled = useUiStore((s) => s.discardPhysicsEnabled);
   const setDiscardPhysicsEnabled = useUiStore((s) => s.setDiscardPhysicsEnabled);
+  const tableclothId = useUiStore((s) => s.tableclothId);
+  const setTableclothId = useUiStore((s) => s.setTableclothId);
 
   return (
     <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm ${isMobileLandscape ? "p-2" : "p-4"}`}>
@@ -57,6 +60,34 @@ function LobbySettingsModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className={`${isMobileLandscape ? "mt-3" : "mt-4"} grid gap-3`}>
+          <div className="rounded-xl border border-white/12 bg-slate-900/70 p-3">
+            <div className="mb-2 text-sm font-semibold text-bone">桌布</div>
+            <div className={`grid gap-2 ${isMobileLandscape ? "grid-cols-4" : "grid-cols-2"}`}>
+              {TABLECLOTH_OPTIONS.map((option) => {
+                const selected = option.id === tableclothId;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => setTableclothId(option.id)}
+                    className={`overflow-hidden rounded-xl border bg-slate-950/70 text-left transition ${
+                      selected ? "border-gold/70 shadow-[0_0_18px_rgba(233,196,106,0.2)]" : "border-white/12 hover:border-white/25"
+                    }`}
+                    aria-pressed={selected}
+                  >
+                    <span
+                      className="block h-14 bg-cover bg-center"
+                      style={{ backgroundImage: `url(${option.texture.src})` }}
+                    />
+                    <span className={`block truncate px-2 py-1.5 text-xs font-semibold ${selected ? "text-gold-soft" : "text-slate-300"}`}>
+                      {option.name}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-white/12 bg-slate-900/70 px-3 py-3 text-sm text-slate-200 transition hover:border-white/20">
             <span className="grid gap-0.5">
               <span className="font-semibold text-bone">物理碰撞弃牌</span>

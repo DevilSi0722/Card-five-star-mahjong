@@ -3,10 +3,25 @@
 import { create } from "zustand";
 
 const DISCARD_PHYSICS_KEY = "kwx:discardPhysicsEnabled";
+const TABLECLOTH_KEY = "kwx:tableclothId";
+
+const TABLECLOTH_IDS = ["table", "table2", "table3", "table4"] as const;
+
+export type TableclothId = (typeof TABLECLOTH_IDS)[number];
 
 function loadDiscardPhysicsEnabled(): boolean {
   if (typeof window === "undefined") return false;
   return window.localStorage.getItem(DISCARD_PHYSICS_KEY) === "1";
+}
+
+function isTableclothId(value: string | null): value is TableclothId {
+  return TABLECLOTH_IDS.some((id) => id === value);
+}
+
+function loadTableclothId(): TableclothId {
+  if (typeof window === "undefined") return "table";
+  const value = window.localStorage.getItem(TABLECLOTH_KEY);
+  return isTableclothId(value) ? value : "table";
 }
 
 interface UiStore {
@@ -16,15 +31,19 @@ interface UiStore {
   liangDaoArmed: boolean;
   // 是否使用物理碰撞弃牌显示。只影响本机画面，不同步到多人房间。
   discardPhysicsEnabled: boolean;
+  // 本机桌布显示设置。只影响自己的画面，不同步到多人房间。
+  tableclothId: TableclothId;
   setHoveredTileId: (id?: string) => void;
   setLiangDaoArmed: (armed: boolean) => void;
   setDiscardPhysicsEnabled: (enabled: boolean) => void;
+  setTableclothId: (id: TableclothId) => void;
 }
 
 export const useUiStore = create<UiStore>((set) => ({
   hoveredTileId: undefined,
   liangDaoArmed: false,
   discardPhysicsEnabled: loadDiscardPhysicsEnabled(),
+  tableclothId: loadTableclothId(),
   setHoveredTileId: (id) => set((state) => (state.hoveredTileId === id ? state : { hoveredTileId: id })),
   setLiangDaoArmed: (armed) =>
     set((state) => (state.liangDaoArmed === armed ? state : { liangDaoArmed: armed })),
@@ -33,5 +52,11 @@ export const useUiStore = create<UiStore>((set) => ({
       window.localStorage.setItem(DISCARD_PHYSICS_KEY, enabled ? "1" : "0");
     }
     set((state) => (state.discardPhysicsEnabled === enabled ? state : { discardPhysicsEnabled: enabled }));
+  },
+  setTableclothId: (id) => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(TABLECLOTH_KEY, id);
+    }
+    set((state) => (state.tableclothId === id ? state : { tableclothId: id }));
   },
 }));

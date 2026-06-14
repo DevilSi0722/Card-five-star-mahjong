@@ -2,7 +2,8 @@
 
 import { useTexture } from "@react-three/drei";
 import { SRGBColorSpace } from "three";
-import tableTextureSrc from "@/png/optimized/table.webp";
+import type { TableclothId } from "@/store/uiStore";
+import { getTableclothOption } from "@/utils/tablecloths";
 
 // 四个座位角落的装饰点位（绕桌心对称）
 const CORNER_POSITIONS: Array<[number, number]> = [
@@ -12,8 +13,9 @@ const CORNER_POSITIONS: Array<[number, number]> = [
   [3.2, 2.5],
 ];
 
-function TableSurfaceImage() {
-  const texture = useTexture(tableTextureSrc.src);
+function TableSurfaceImage({ tableclothId }: { tableclothId: TableclothId }) {
+  const tablecloth = getTableclothOption(tableclothId);
+  const texture = useTexture(tablecloth.texture.src);
   texture.colorSpace = SRGBColorSpace;
   texture.anisotropy = 8;
 
@@ -25,7 +27,7 @@ function TableSurfaceImage() {
   );
 }
 
-export function MahjongTable({ textured = true }: { textured?: boolean }) {
+export function MahjongTable({ textured = true, tableclothId = "table" }: { textured?: boolean; tableclothId?: TableclothId }) {
   return (
     <group>
       {/* 外层木质桌身 */}
@@ -51,7 +53,7 @@ export function MahjongTable({ textured = true }: { textured?: boolean }) {
         <boxGeometry args={[7.38, 0.08, 5.78]} />
         <meshStandardMaterial color="#1f1612" roughness={0.92} />
       </mesh>
-      {textured ? <TableSurfaceImage /> : null}
+      {textured ? <TableSurfaceImage tableclothId={tableclothId} /> : null}
 
       {/* 四角金色装饰点 */}
       {CORNER_POSITIONS.map(([x, z], index) => (

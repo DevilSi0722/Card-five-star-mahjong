@@ -103,6 +103,7 @@ export function GameCanvas() {
   const currentPlayerId = useGameStore((state) => state.currentPlayerId);
   const phase = useGameStore((state) => state.phase);
   const discardPhysicsEnabled = useUiStore((state) => state.discardPhysicsEnabled);
+  const tableclothId = useUiStore((state) => state.tableclothId);
   const { isMobileLandscape } = useResponsiveGameLayout();
   const canvasDpr = useCappedCanvasDpr(isMobileLandscape);
 
@@ -133,7 +134,7 @@ export function GameCanvas() {
           position={isMobileLandscape ? [0, 0, -0.58] : [0, 0, 0]}
           scale={isMobileLandscape ? [1.25, 1.25, 1.25] : [1.16, 1.16, 1.16]}
         >
-          <MahjongTable />
+          <MahjongTable tableclothId={tableclothId} />
 
           <TurnIndicator3D
             players={players}
