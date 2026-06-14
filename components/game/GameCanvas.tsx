@@ -131,7 +131,7 @@ export function GameCanvas() {
       <Suspense fallback={<LoadingTableFallback />}>
         <TileTextureWarmup />
         <group
-          position={isMobileLandscape ? [0, 0, -0.58] : [0, 0, 0]}
+          position={isMobileLandscape ? [0, 0, -0.86] : [0, 0, 0]}
           scale={isMobileLandscape ? [1.25, 1.25, 1.25] : [1.16, 1.16, 1.16]}
         >
           <MahjongTable tableclothId={tableclothId} />
@@ -169,7 +169,10 @@ export function GameCanvas() {
           />
 
           {discardPhysicsEnabled ? (
-            <PhysicsDiscardArea3D players={[players.human, players.ai_left, players.ai_right]} />
+            <PhysicsDiscardArea3D
+              players={[players.human, players.ai_left, players.ai_right]}
+              mobileLandscape={isMobileLandscape}
+            />
           ) : (
             <>
               <DiscardArea3D player={players.human} />

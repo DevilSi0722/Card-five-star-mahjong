@@ -41,21 +41,27 @@ type DiscardTile = {
   sequence: number;
 };
 
-function handSourcePosition(seat: Player["seat"], sequence: number): [number, number, number] {
+function handSourcePosition(seat: Player["seat"], sequence: number, mobileLandscape: boolean): [number, number, number] {
   // 出牌初始位置。只调 X/Z 会改变牌从哪个桌边推出；Y 保持 BODY_Y，避免牌从空中掉落。
   // 这里的坐标必须在四周挡墙内侧，否则手机低帧率或多人游戏重渲染时容易把牌解算到桌边卡住。
   // 出生点也做轻微分散，避免某张牌异常停在出牌口时，后续牌全部叠在同一位置被堵住。
   const sourceDrift = ((sequence % 5) - 2) * 0.18;
-  if (seat === "bottom") return [sourceDrift, BODY_Y, TABLE_HALF_LENGTH - SPAWN_EDGE_PADDING];
+  if (seat === "bottom") {
+    const mobileInset = mobileLandscape ? 0.38 : 0;
+    return [sourceDrift, BODY_Y, TABLE_HALF_LENGTH - SPAWN_EDGE_PADDING - mobileInset];
+  }
   if (seat === "left") return [-TABLE_HALF_WIDTH + SPAWN_EDGE_PADDING, BODY_Y, sourceDrift];
   return [TABLE_HALF_WIDTH - SPAWN_EDGE_PADDING, BODY_Y, -sourceDrift];
 }
 
-function launchVelocity(seat: Player["seat"], sequence: number): [number, number, number] {
+function launchVelocity(seat: Player["seat"], sequence: number, mobileLandscape: boolean): [number, number, number] {
   // 出牌初速度，是最直接影响“滑多远”的参数。
   // x/z 的主方向数值越大，牌越能滑向桌心；sideDrift 越大，同一玩家连续弃牌越分散。
   const sideDrift = ((sequence % 5) - 2) * 0.58;
-  if (seat === "bottom") return [sideDrift, 0, -16 - (sequence % 3) * 0.38];
+  if (seat === "bottom") {
+    const mobileBoost = mobileLandscape ? 1.35 : 0;
+    return [sideDrift, 0, -16 - mobileBoost - (sequence % 3) * 0.38];
+  }
   if (seat === "left") return [16 + (sequence % 3) * 0.38, 0, sideDrift];
   return [-16.0 - (sequence % 3) * 0.38, 0, -sideDrift];
 }
@@ -68,9 +74,9 @@ function startRotation(seat: Player["seat"], sequence: number): [number, number,
   return [0, scatter, 0];
 }
 
-function PhysicsDiscardTile({ item, fresh }: { item: DiscardTile; fresh: boolean }) {
+function PhysicsDiscardTile({ item, fresh, mobileLandscape }: { item: DiscardTile; fresh: boolean; mobileLandscape: boolean }) {
   const bodyRef = useRef<RapierRigidBody>(null);
-  const initialPositionRef = useRef(handSourcePosition(item.seat, item.sequence));
+  const initialPositionRef = useRef(handSourcePosition(item.seat, item.sequence, mobileLandscape));
   const start = initialPositionRef.current;
   const rotation = startRotation(item.seat, item.sequence);
 
@@ -85,12 +91,13 @@ function PhysicsDiscardTile({ item, fresh }: { item: DiscardTile; fresh: boolean
     const launchTimer = window.setTimeout(() => {
       const liveBody = bodyRef.current;
       if (!liveBody) return;
-      const velocity = launchVelocity(item.seat, item.sequence);
+      liveBody.wakeUp();
+      const velocity = launchVelocity(item.seat, item.sequence, mobileLandscape);
       liveBody.setLinvel({ x: velocity[0], y: velocity[1], z: velocity[2] }, true);
       liveBody.setAngvel({ x: 0, y: 2.4 + (item.sequence % 4) * 0.45, z: 0 }, true);
     }, 40);
     return () => window.clearTimeout(launchTimer);
-  }, [fresh, item.seat, item.sequence, rotation, start]);
+  }, [fresh, item.seat, item.sequence, mobileLandscape, rotation, start]);
 
   return (
     <RigidBody
@@ -145,7 +152,7 @@ function TableColliders() {
   );
 }
 
-export function PhysicsDiscardArea3D({ players }: { players: Player[] }) {
+export function PhysicsDiscardArea3D({ players, mobileLandscape = false }: { players: Player[]; mobileLandscape?: boolean }) {
   const renderedTileIdsRef = useRef<Set<string> | null>(null);
   const discards = useMemo(
     () =>
@@ -182,6 +189,7 @@ export function PhysicsDiscardArea3D({ players }: { players: Player[] }) {
           key={`${item.playerId}-${item.tile.id}`}
           item={item}
           fresh={freshTileIds.has(item.tile.id)}
+          mobileLandscape={mobileLandscape}
         />
       ))}
     </Physics>
