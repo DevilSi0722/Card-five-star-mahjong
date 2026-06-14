@@ -7,7 +7,7 @@ import { TileMesh } from "./TileMesh";
 function baseForSeat(seat: Player["seat"]): [number, number, number] {
   if (seat === "bottom") return [-2.15, 0.18, 1.52];
   if (seat === "left") return [-3.32, 0.18, -1.95];
-  return [3.32, 0.18, 1.95];
+  return [3.32, 0.18, -1.95];
 }
 
 function tilePosition(
@@ -18,7 +18,7 @@ function tilePosition(
 ): [number, number, number] {
   if (seat === "bottom") return [base[0] + meldIndex * 1.02 + tileIndex * 0.25, base[1], base[2]];
   if (seat === "left") return [base[0], base[1], base[2] + meldIndex * 0.72 + tileIndex * 0.2];
-  return [base[0], base[1], base[2] - meldIndex * 0.72 - tileIndex * 0.2];
+  return [base[0], base[1], base[2] + meldIndex * 0.72 + tileIndex * 0.2];
 }
 
 function stackedGangTilePosition(

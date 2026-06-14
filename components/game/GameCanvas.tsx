@@ -127,7 +127,7 @@ export function GameCanvas() {
       <Suspense fallback={<LoadingTableFallback />}>
         <TileTextureWarmup />
         <group
-          position={isMobileLandscape ? [0, 0, -0.38] : [0, 0, 0]}
+          position={isMobileLandscape ? [0, 0, -0.58] : [0, 0, 0]}
           scale={isMobileLandscape ? [1.25, 1.25, 1.25] : [1.16, 1.16, 1.16]}
         >
           <MahjongTable />

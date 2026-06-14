@@ -834,6 +834,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   claimHu: (playerId) => {
     const state = get();
+    if (state.phase !== "playing" && state.phase !== "responding") return;
     if (forwardIfGuest(state, { type: "hu" })) return;
     if (state.pendingBuGang) {
       if (state.pendingReactions) {
@@ -854,6 +855,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       get().settleWins(huPlayerIds, "discard", discard.playerId, discard.tile);
       return;
     }
+    if (state.phase !== "playing" || state.currentPlayerId !== playerId) return;
     const player = state.players[playerId];
     const winningTile = player.hand.find((tile) => tile.id === player.lastDrawnTileId) ?? player.hand[player.hand.length - 1];
     const method = state.supplementContext === "gangshang" ? "gangshang" : "zimo";
@@ -943,6 +945,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   settleWin: (winnerId, method, loserId, winningTile) => {
     const state = get();
+    if (state.phase !== "playing" && state.phase !== "responding") return;
     const wall = [...state.wall];
     const player = state.players[winnerId];
     const tile = winningTile ?? player.hand.find((item) => item.id === player.lastDrawnTileId);
@@ -1014,6 +1017,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   settleWins: (winnerIds, method, loserId, winningTile) => {
     const state = get();
+    if (state.phase !== "responding") return;
     const ids = Object.keys(state.players) as PlayerId[];
     const uniqueWinnerIds = Array.from(new Set(winnerIds)).filter((id) => id !== loserId);
     const isGangShangPao = method === "discard" && state.supplementContext === "gangshang";

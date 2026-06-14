@@ -11,8 +11,10 @@ import type { Player, PlayerId } from "@/types/mahjong";
 const SEAT_ANGLE: Record<Player["seat"], number> = {
   bottom: 0,
   right: Math.PI / 2,
-  left: -Math.PI / 2,
+  left: (Math.PI * 3) / 2,
 };
+const FULL_TURN = Math.PI * 2;
+const ANGLE_EPSILON = 0.0001;
 
 // 活动时高亮金色，非出牌阶段淡出
 const ACTIVE_COLOR = "#facc15";
@@ -30,10 +32,21 @@ export function TurnIndicator3D({
   const ringRef = useRef<Mesh>(null);
   const arrowRef = useRef<Group>(null);
   const haloRef = useRef<MeshStandardMaterial>(null);
+  const previousSeatRef = useRef<Player["seat"]>(seat);
+  const rotationTargetRef = useRef(SEAT_ANGLE[seat]);
+
+  if (previousSeatRef.current !== seat) {
+    let nextRotation = SEAT_ANGLE[seat];
+    while (nextRotation <= rotationTargetRef.current + ANGLE_EPSILON) {
+      nextRotation += FULL_TURN;
+    }
+    previousSeatRef.current = seat;
+    rotationTargetRef.current = nextRotation;
+  }
 
   // 平滑摆动到当前出牌玩家方向；非出牌阶段整体缩小淡出
   const spring = useSpring({
-    rotationY: SEAT_ANGLE[seat],
+    rotationY: rotationTargetRef.current,
     scale: active ? 1 : 0.001,
     config: { tension: 170, friction: 22 },
   });
