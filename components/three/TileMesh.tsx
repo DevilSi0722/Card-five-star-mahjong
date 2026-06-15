@@ -29,9 +29,11 @@ interface TileMeshProps {
 
 const FACE_BACKGROUND = "#f5f1df";
 const TILE_BACK_COLOR = "#182446";
-const TILE_WIDTH = 0.34;
-const TILE_LENGTH = 0.5;
-const TILE_THICKNESS = 0.12;
+// 牌的基础尺寸（导出供物理碰撞盒派生，确保可见厚度与碰撞盒永远一致）。
+// 调厚度只改这里，PhysicsDiscardArea3D 的碰撞盒半高会自动跟随，不会穿模。
+export const TILE_WIDTH = 0.34;
+export const TILE_LENGTH = 0.5;
+export const TILE_THICKNESS = 0.15;
 const TILE_CORNER_RADIUS = 0.035;
 const TILE_EDGE_BEVEL = 0.018;
 const TILE_RENDERED_HALF_THICKNESS = TILE_THICKNESS / 2 + TILE_EDGE_BEVEL;

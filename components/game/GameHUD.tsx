@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { BadgeCheck, CircleDot, LogOut, MessageCircle, RotateCcw, SendHorizontal, Settings, X } from "lucide-react";
+import { BadgeCheck, CircleDot, LogOut, MessageCircle, RotateCcw, SendHorizontal, Settings, Volume2, VolumeX, X } from "lucide-react";
 import type { Player, PlayerId } from "@/types/mahjong";
 import type { QuickChatMessage, RoomPlayer } from "@/types/multiplayer";
 import { WIND_LABEL, type EngineSeatId, type Wind } from "@/types/multiplayer";
 import { useGameStore } from "@/store/gameStore";
 import { useRoomStore } from "@/store/roomStore";
+import { useUiStore } from "@/store/uiStore";
 import { useResponsiveGameLayout } from "@/hooks/useResponsiveGameLayout";
 import { analyzeWin, getAnGangKinds, getTingDiscardOptions } from "@/utils/mahjong/handAnalyzer";
 import { ActionPanel } from "./ActionPanel";
@@ -359,6 +360,8 @@ export function GameHUD() {
   const backToHome = useRoomStore((state) => state.backToHome);
   const room = useRoomStore((state) => state.room);
   const sendQuickChat = useRoomStore((state) => state.sendQuickChat);
+  const soundEnabled = useUiStore((state) => state.soundEnabled);
+  const setSoundEnabled = useUiStore((state) => state.setSoundEnabled);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [confirmExit, setConfirmExit] = useState(false);
   const [quickChatOpen, setQuickChatOpen] = useState(false);
@@ -429,6 +432,21 @@ export function GameHUD() {
             <CircleDot className={`${isMobileLandscape ? "h-3 w-3" : "h-4 w-4"} text-jade`} />
             牌墙剩余 <span className="tabular-nums text-gold-soft">{wall.length}</span> 张
           </div>
+          <button
+            type="button"
+            onClick={() => setSoundEnabled(!soundEnabled)}
+            className={`inline-flex items-center justify-center rounded-lg border border-white/12 bg-white/5 transition hover:border-gold/40 hover:bg-white/12 hover:text-gold-soft ${
+              soundEnabled ? "text-jade" : "text-slate-400"
+            } ${isMobileLandscape ? "h-5 w-5" : "h-7 w-7"}`}
+            aria-label={soundEnabled ? "关闭音效" : "开启音效"}
+            title={soundEnabled ? "关闭音效" : "开启音效"}
+          >
+            {soundEnabled ? (
+              <Volume2 className={isMobileLandscape ? "h-3 w-3" : "h-4 w-4"} />
+            ) : (
+              <VolumeX className={isMobileLandscape ? "h-3 w-3" : "h-4 w-4"} />
+            )}
+          </button>
           <button
             type="button"
             onClick={() => setSettingsOpen(true)}

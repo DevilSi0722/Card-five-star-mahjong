@@ -3,16 +3,17 @@
 import { useEffect, useMemo, useRef } from "react";
 import { CuboidCollider, Physics, RigidBody, type RapierRigidBody } from "@react-three/rapier";
 import type { Player } from "@/types/mahjong";
-import { TileMesh } from "./TileMesh";
+import { TileMesh, TILE_WIDTH, TILE_LENGTH, TILE_THICKNESS } from "./TileMesh";
 
 // 每家最多保留多少张弃牌参与物理模拟；数量越大，碰撞越真实，但移动端压力也越大。
 const DISCARD_LIMIT_PER_PLAYER = 18;
 // 牌模型的渲染/碰撞整体缩放。调大后牌看起来更大，碰撞盒也更大，更容易互相顶开。
 const TILE_SCALE = 0.64;
-// 单张麻将牌碰撞盒的半尺寸。宽/长越大，牌之间越不容易重叠，但也更容易被挤开。
-const TILE_HALF_WIDTH = 0.34 * TILE_SCALE * 0.5;
-const TILE_HALF_LENGTH = 0.5 * TILE_SCALE * 0.5;
-const TILE_HALF_HEIGHT = 0.12 * TILE_SCALE * 0.5;
+// 单张麻将牌碰撞盒的半尺寸。直接从 TileMesh 的可见尺寸派生，确保碰撞盒厚度永远和渲染厚度一致；
+// 想改牌的薄厚只需改 TileMesh.tsx 里的 TILE_THICKNESS，这里会自动跟随，不会出现碰撞盒和模型对不上的穿模问题。
+const TILE_HALF_WIDTH = TILE_WIDTH * TILE_SCALE * 0.5;
+const TILE_HALF_LENGTH = TILE_LENGTH * TILE_SCALE * 0.5;
+const TILE_HALF_HEIGHT = TILE_THICKNESS * TILE_SCALE * 0.5;
 // 桌面和牌刚体的高度。BODY_Y 是牌在桌面水平滑动时的固定 Y 坐标。
 const TABLE_Y = 0.19;
 const BODY_Y = TABLE_Y + TILE_HALF_HEIGHT + 0.025;

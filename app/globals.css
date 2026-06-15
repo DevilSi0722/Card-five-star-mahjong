@@ -354,6 +354,83 @@ body.mobile-game-locked {
   }
 }
 
+/* 胡牌书法文字特效：与主标题同款书法体 + 金/红渐变，重锤登场后持续辉光呼吸 */
+.win-callig {
+  font-family: var(--font-brand), "STKaiti", "KaiTi", serif;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: win-callig-in 780ms cubic-bezier(0.16, 1.18, 0.3, 1) both;
+}
+
+/* 赢家：金色渐变（同主标题色系），描边辉光让笔画发光 */
+.win-callig--winner {
+  background-image: linear-gradient(180deg, #fff6da 0%, #f7e6b8 32%, #e9c46a 62%, #c79a3a 100%);
+  filter: drop-shadow(0 6px 22px rgba(233, 196, 106, 0.6)) drop-shadow(0 2px 6px rgba(0, 0, 0, 0.55));
+}
+
+/* 放炮/被抢杠：红色渐变 */
+.win-callig--loser {
+  background-image: linear-gradient(180deg, #ffe1e1 0%, #ff9d9d 38%, #f43f5e 74%, #b4123f 100%);
+  filter: drop-shadow(0 6px 22px rgba(244, 63, 94, 0.55)) drop-shadow(0 2px 6px rgba(0, 0, 0, 0.55));
+}
+
+.win-stamp-glow {
+  animation:
+    win-stamp-glow-in 780ms ease-out both,
+    win-stamp-glow-pulse 2000ms ease-in-out 780ms infinite;
+}
+
+/* 重锤登场：从大尺寸带旋转砸入，两段回弹收定 */
+@keyframes win-callig-in {
+  0% {
+    opacity: 0;
+    transform: scale(2.4) rotate(-8deg);
+  }
+  45% {
+    opacity: 1;
+    transform: scale(0.86) rotate(3deg);
+  }
+  68% {
+    transform: scale(1.09) rotate(-2deg);
+  }
+  84% {
+    transform: scale(0.97) rotate(1deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+@keyframes win-stamp-glow-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+  100% {
+    opacity: 0.7;
+    transform: scale(1.1);
+  }
+}
+
+/* 定格后辉光持续轻微呼吸，撑住更长的停留时间不显呆板 */
+@keyframes win-stamp-glow-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1.06);
+  }
+  50% {
+    opacity: 0.92;
+    transform: scale(1.3);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .ambient-frame {
     animation: none;
@@ -361,5 +438,9 @@ body.mobile-game-locked {
   }
   .ambient-frame--pulse {
     opacity: 0.4;
+  }
+  .win-callig,
+  .win-stamp-glow {
+    animation: none;
   }
 }

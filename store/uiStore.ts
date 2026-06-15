@@ -4,6 +4,7 @@ import { create } from "zustand";
 
 const DISCARD_PHYSICS_KEY = "kwx:discardPhysicsEnabled";
 const TABLECLOTH_KEY = "kwx:tableclothId";
+const SOUND_ENABLED_KEY = "kwx:soundEnabled";
 
 const TABLECLOTH_IDS = ["table", "table2", "table3", "table4"] as const;
 
@@ -12,6 +13,12 @@ export type TableclothId = (typeof TABLECLOTH_IDS)[number];
 function loadDiscardPhysicsEnabled(): boolean {
   if (typeof window === "undefined") return false;
   return window.localStorage.getItem(DISCARD_PHYSICS_KEY) === "1";
+}
+
+function loadSoundEnabled(): boolean {
+  if (typeof window === "undefined") return true;
+  // 默认开启音效；仅当用户明确关闭过才记为关闭。
+  return window.localStorage.getItem(SOUND_ENABLED_KEY) !== "0";
 }
 
 function isTableclothId(value: string | null): value is TableclothId {
@@ -33,10 +40,13 @@ interface UiStore {
   discardPhysicsEnabled: boolean;
   // 本机桌布显示设置。只影响自己的画面，不同步到多人房间。
   tableclothId: TableclothId;
+  // 音效开关。只影响本机，不同步到多人房间。
+  soundEnabled: boolean;
   setHoveredTileId: (id?: string) => void;
   setLiangDaoArmed: (armed: boolean) => void;
   setDiscardPhysicsEnabled: (enabled: boolean) => void;
   setTableclothId: (id: TableclothId) => void;
+  setSoundEnabled: (enabled: boolean) => void;
 }
 
 export const useUiStore = create<UiStore>((set) => ({
@@ -44,6 +54,7 @@ export const useUiStore = create<UiStore>((set) => ({
   liangDaoArmed: false,
   discardPhysicsEnabled: loadDiscardPhysicsEnabled(),
   tableclothId: loadTableclothId(),
+  soundEnabled: loadSoundEnabled(),
   setHoveredTileId: (id) => set((state) => (state.hoveredTileId === id ? state : { hoveredTileId: id })),
   setLiangDaoArmed: (armed) =>
     set((state) => (state.liangDaoArmed === armed ? state : { liangDaoArmed: armed })),
@@ -58,5 +69,11 @@ export const useUiStore = create<UiStore>((set) => ({
       window.localStorage.setItem(TABLECLOTH_KEY, id);
     }
     set((state) => (state.tableclothId === id ? state : { tableclothId: id }));
+  },
+  setSoundEnabled: (enabled) => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(SOUND_ENABLED_KEY, enabled ? "1" : "0");
+    }
+    set((state) => (state.soundEnabled === enabled ? state : { soundEnabled: enabled }));
   },
 }));

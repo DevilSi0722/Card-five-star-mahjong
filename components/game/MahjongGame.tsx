@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useGameStore } from "@/store/gameStore";
 import { useAiTurn } from "@/hooks/useAiTurn";
 import { useNetBridge } from "@/hooks/useNetBridge";
+import { useSoundEffects } from "@/hooks/useSoundEffects";
+import { unlockAudio } from "@/lib/audio/soundEngine";
 import { useResponsiveGameLayout } from "@/hooks/useResponsiveGameLayout";
 import { GameCanvas } from "./GameCanvas";
 import { GameHUD } from "./GameHUD";
@@ -12,6 +14,7 @@ import { TingInfoBar } from "./TingInfoBar";
 import { HumanHandOverlay } from "./HumanHandOverlay";
 import { BuyHorseRevealOverlay } from "./BuyHorseRevealOverlay";
 import { SettlementModal } from "./SettlementModal";
+import { WinAnnouncementOverlay } from "./WinAnnouncementOverlay";
 
 export function MahjongGame() {
   const { width, height, isMobileLandscape } = useResponsiveGameLayout();
@@ -21,8 +24,10 @@ export function MahjongGame() {
   const selectTile = useGameStore((state) => state.selectTile);
   const netRole = useGameStore((state) => state.netRole);
   const [showSettlement, setShowSettlement] = useState(false);
+  const [showAnnouncement, setShowAnnouncement] = useState(false);
   useAiTurn();
   useNetBridge();
+  useSoundEffects();
 
   useEffect(() => {
     if (!isMobileLandscape) return undefined;
@@ -55,17 +60,41 @@ export function MahjongGame() {
   useEffect(() => {
     if (!roundResult) {
       setShowSettlement(false);
-      return undefined;
-    }
-    if (!roundResult.buyHorse) {
-      setShowSettlement(true);
+      setShowAnnouncement(false);
       return undefined;
     }
 
+    // 有赢家时先在其座位弹出文字特效，再进入买马/结算；流局无赢家则跳过。
+    const hasWinner = Boolean(roundResult.winnerId || (roundResult.winDetails?.length ?? 0) > 0);
+    const ANNOUNCEMENT_MS = 2200;
+
+    const proceed = () => {
+      setShowAnnouncement(false);
+      if (!roundResult.buyHorse) {
+        setShowSettlement(true);
+        return;
+      }
+      setShowSettlement(false);
+      const revealDuration = roundResult.buyHorse.isBuyOneGetOne ? 5200 : 3500;
+      buyHorseTimer = window.setTimeout(() => setShowSettlement(true), revealDuration);
+    };
+
+    let buyHorseTimer: number | undefined;
+    let announcementTimer: number | undefined;
+
     setShowSettlement(false);
-    const revealDuration = roundResult.buyHorse.isBuyOneGetOne ? 5200 : 3500;
-    const timer = window.setTimeout(() => setShowSettlement(true), revealDuration);
-    return () => window.clearTimeout(timer);
+    if (hasWinner) {
+      setShowAnnouncement(true);
+      announcementTimer = window.setTimeout(proceed, ANNOUNCEMENT_MS);
+    } else {
+      setShowAnnouncement(false);
+      proceed();
+    }
+
+    return () => {
+      if (announcementTimer) window.clearTimeout(announcementTimer);
+      if (buyHorseTimer) window.clearTimeout(buyHorseTimer);
+    };
   }, [roundResult]);
 
   return (
@@ -78,6 +107,7 @@ export function MahjongGame() {
         height: height > 0 ? `${height}px` : "100dvh",
       }}
       onPointerDown={() => {
+        unlockAudio();
         if (selectedTileId) selectTile(undefined);
       }}
     >
@@ -86,7 +116,8 @@ export function MahjongGame() {
       <HumanHandOverlay />
       <AmbientLights />
       <TingInfoBar />
-      {roundResult?.buyHorse && !showSettlement ? <BuyHorseRevealOverlay result={roundResult.buyHorse} /> : null}
+      {roundResult && showAnnouncement ? <WinAnnouncementOverlay key={roundResult.title} result={roundResult} /> : null}
+      {roundResult?.buyHorse && !showSettlement && !showAnnouncement ? <BuyHorseRevealOverlay result={roundResult.buyHorse} /> : null}
       {roundResult && showSettlement ? <SettlementModal result={roundResult} /> : null}
     </main>
   );
