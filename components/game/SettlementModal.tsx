@@ -1,11 +1,15 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import { Check, LogOut, RotateCcw, Trophy, X } from "lucide-react";
-import type { PlayerId, ScoreResult } from "@/types/mahjong";
+import frontTileFace from "@/png/optimized/front.webp";
+import type { PlayerId, ScoreResult, TileInstance } from "@/types/mahjong";
 import { useGameStore } from "@/store/gameStore";
 import { useRoomStore } from "@/store/roomStore";
 import { useResponsiveGameLayout } from "@/hooks/useResponsiveGameLayout";
+import { TILE_KIND_LABEL, sortTiles } from "@/utils/mahjong/tiles";
+import { getTileTextureSrc } from "@/utils/mahjong/tileTextures";
 
 const SETTLEMENT_PLAYER_ORDER: PlayerId[] = ["human", "ai_right", "ai_left"];
 
@@ -26,6 +30,56 @@ function notePriority(note: string): number {
 function displayNotes(notes: string[] | undefined): string[] {
   if (!notes || notes.length === 0) return ["无计分"];
   return [...notes].sort((a, b) => notePriority(a) - notePriority(b));
+}
+
+function settlementHandTiles(playerId: PlayerId, result: ScoreResult, players: ReturnType<typeof useGameStore.getState>["players"]): TileInstance[] {
+  const snapshot = result.winningHands?.find((item) => item.playerId === playerId);
+  if (snapshot) return snapshot.tiles;
+  const player = players[playerId];
+  const meldTiles = player.melds.flatMap((meld) =>
+    meld.type === "ming_gang" || meld.type === "an_gang" || meld.type === "bu_gang"
+      ? meld.tiles.slice(0, 3)
+      : meld.tiles,
+  );
+  return [...meldTiles, ...sortTiles(player.hand)];
+}
+
+function SettlementTile({ tile, compact }: { tile: TileInstance; compact: boolean }) {
+  const textureSrc = getTileTextureSrc(tile.kind);
+  const label = TILE_KIND_LABEL[tile.kind];
+  return (
+    <span
+      className={`relative inline-block shrink-0 overflow-hidden rounded-[5px] shadow-[0_4px_10px_rgba(0,0,0,0.32)] ${
+        compact ? "h-[28px] w-[19px]" : "h-[54px] w-[37px]"
+      }`}
+      title={label}
+      aria-label={label}
+    >
+      <Image src={frontTileFace} alt="" fill sizes={compact ? "19px" : "37px"} className="object-fill" unoptimized />
+      {textureSrc ? (
+        <Image
+          src={textureSrc}
+          alt={label}
+          width={compact ? 13 : 26}
+          height={compact ? 18 : 36}
+          className={`absolute left-1/2 top-[53%] -translate-x-1/2 -translate-y-1/2 object-contain ${
+            compact ? "h-[18px] w-[13px]" : "h-[36px] w-[26px]"
+          }`}
+          unoptimized
+        />
+      ) : null}
+    </span>
+  );
+}
+
+function SettlementHand({ tiles, compact }: { tiles: TileInstance[]; compact: boolean }) {
+  return (
+    <div className={`flex max-w-full items-end ${compact ? "gap-px" : "gap-0.5"}`}>
+      {tiles.map((tile, index) => (
+        <SettlementTile key={`${tile.id}-${index}`} tile={tile} compact={compact} />
+      ))}
+    </div>
+  );
 }
 
 export function SettlementModal({ result }: { result: ScoreResult }) {
@@ -85,10 +139,10 @@ export function SettlementModal({ result }: { result: ScoreResult }) {
   }
 
   return (
-    <div className={`absolute inset-0 z-30 flex items-center justify-center bg-black/45 backdrop-blur-sm ${isMobileLandscape ? "p-2" : "p-4"}`}>
+    <div className={`absolute inset-0 z-30 flex items-center justify-center bg-black/45 ${isMobileLandscape ? "p-2" : "p-4"}`}>
       <div
         className={`surface-modal w-full overflow-y-auto rounded-2xl hud-scrollbar ${
-          isMobileLandscape ? "max-h-[calc(100dvh-1rem)] max-w-[min(700px,calc(100vw-1rem))] p-3" : "max-w-3xl p-5"
+          isMobileLandscape ? "max-h-[calc(100dvh-1rem)] max-w-[min(700px,calc(100vw-1rem))] p-3" : "max-w-5xl p-5"
         }`}
       >
         {/* 标题 */}
@@ -100,16 +154,13 @@ export function SettlementModal({ result }: { result: ScoreResult }) {
             <div className={`brand-title font-semibold leading-tight ${isMobileLandscape ? "text-base" : "text-xl"}`}>
               {isDraw ? "流局" : `赢家：${winnerNames}`}
             </div>
-            <div className={`mt-0.5 text-slate-400 ${isMobileLandscape ? "text-[11px]" : "text-xs"}`}>
-              {isDraw ? "牌墙摸空" : "本局计分明细"}
-            </div>
           </div>
         </div>
 
         {/* 五列结算表：玩家 / 明细 / 上局 / 本局 / 总分 */}
         <div className={`overflow-x-auto rounded-xl border border-white/10 hud-scrollbar ${isMobileLandscape ? "mt-2" : "mt-4"}`}>
-          <div className={`min-w-[620px] ${isMobileLandscape ? "text-[11px]" : "text-xs"}`}>
-            <div className={`grid grid-cols-[0.8fr_2.4fr_0.8fr_0.8fr_0.8fr] border-b border-white/10 bg-white/[0.04] font-medium text-slate-400 ${
+          <div className={`${isMobileLandscape ? "min-w-[620px] text-[11px]" : "min-w-[880px] text-xs"}`}>
+            <div className={`grid ${isMobileLandscape ? "grid-cols-[0.75fr_2.6fr_0.75fr_0.75fr_0.75fr]" : "grid-cols-[0.7fr_4.4fr_0.7fr_0.7fr_0.7fr]"} border-b border-white/10 bg-white/[0.04] font-medium text-slate-400 ${
               isMobileLandscape ? "px-2 py-1" : "px-3 py-1.5"
             }`}>
               <span>玩家</span>
@@ -120,6 +171,8 @@ export function SettlementModal({ result }: { result: ScoreResult }) {
             </div>
             {ids.map((id) => {
               const notes = displayNotes(roundScoreNotes[id]);
+              const isWinner = winDetails.some((detail) => detail.winnerId === id);
+              const winningTiles = isWinner ? settlementHandTiles(id, result, players) : [];
               const previousScore = roundStartScores[id] ?? (result.totalScores[id] - result.scoreChanges[id]);
               const change = result.scoreChanges[id];
               const total = result.totalScores[id];
@@ -127,26 +180,31 @@ export function SettlementModal({ result }: { result: ScoreResult }) {
               return (
                 <div
                   key={id}
-                  className={`grid grid-cols-[0.8fr_2.4fr_0.8fr_0.8fr_0.8fr] items-center border-b border-white/8 last:border-b-0 ${
+                  className={`grid ${isMobileLandscape ? "grid-cols-[0.75fr_2.6fr_0.75fr_0.75fr_0.75fr]" : "grid-cols-[0.7fr_4.4fr_0.7fr_0.7fr_0.7fr]"} items-center border-b border-white/8 last:border-b-0 ${
                     isHuman ? "bg-gold/10" : ""
                   } ${isMobileLandscape ? "px-2 py-1.5" : "px-3 py-2"}`}
                 >
                   <span className={`min-w-0 truncate ${isHuman ? "font-semibold text-bone" : "text-slate-200"}`}>{nameOf(id)}</span>
-                  <span className="flex min-w-0 flex-wrap gap-1">
-                    {notes.map((note, index) => (
-                      <span
-                        key={`${id}-${note}-${index}`}
-                        className={`rounded-md border px-1.5 py-0.5 font-medium ${
-                          note.includes("+")
-                            ? "border-jade/30 bg-jade/12 text-jade-soft"
-                            : note.includes("-")
-                              ? "border-rose-300/25 bg-rose-400/10 text-rose-200"
-                              : "border-white/10 bg-white/5 text-slate-400"
-                        }`}
-                      >
-                        {note}
-                      </span>
-                    ))}
+                  <span className={`flex min-w-0 flex-col ${isMobileLandscape ? "gap-1" : "gap-1.5"}`}>
+                    {isWinner && winningTiles.length > 0 ? (
+                      <SettlementHand tiles={winningTiles} compact={isMobileLandscape} />
+                    ) : null}
+                    <span className="flex min-w-0 flex-wrap gap-1">
+                      {notes.map((note, index) => (
+                        <span
+                          key={`${id}-${note}-${index}`}
+                          className={`rounded-md border px-1.5 py-0.5 font-medium ${
+                            note.includes("+")
+                              ? "border-jade/30 bg-jade/12 text-jade-soft"
+                              : note.includes("-")
+                                ? "border-rose-300/25 bg-rose-400/10 text-rose-200"
+                                : "border-white/10 bg-white/5 text-slate-400"
+                          }`}
+                        >
+                          {note}
+                        </span>
+                      ))}
+                    </span>
                   </span>
                   <span className="text-right tabular-nums text-slate-300">{previousScore}</span>
                   <span className={`text-right font-semibold tabular-nums ${scoreTone(change)}`}>

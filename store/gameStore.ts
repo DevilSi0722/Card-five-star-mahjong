@@ -13,6 +13,7 @@ import type {
   TileKind,
   WinMethod,
   WinResult,
+  WinHandSnapshot,
   ActionAnnouncement,
 } from "@/types/mahjong";
 import { createTileSet, sortTiles, TILE_KIND_LABEL } from "@/utils/mahjong/tiles";
@@ -291,6 +292,22 @@ function appendBuyHorseScoreNotes(
   }
   if (total > 0) next[winnerId].push(`买马+${total}`);
   return next;
+}
+
+function buildWinHandSnapshot(
+  playerId: PlayerId,
+  player: Player,
+  concealedTiles: TileInstance[],
+): WinHandSnapshot {
+  const meldTiles = player.melds.flatMap((meld) =>
+    meld.type === "ming_gang" || meld.type === "an_gang" || meld.type === "bu_gang"
+      ? meld.tiles.slice(0, 3)
+      : meld.tiles,
+  );
+  return {
+    playerId,
+    tiles: [...meldTiles, ...sortTiles(concealedTiles)],
+  };
 }
 
 function normalizeRoundResult(
@@ -1277,6 +1294,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
       isGangShangPao,
       isHaiDiLao,
     });
+    result = {
+      ...result,
+      winningHands: [buildWinHandSnapshot(winnerId, player, tilesForWin)],
+    };
     let roundScoreNotes = appendWinScoreNotes(state.roundScoreNotes, result);
     const shouldBuyHorse =
       state.liangDaoZimoBuyHorseEnabled &&
@@ -1354,10 +1375,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     for (const winnerId of uniqueWinnerIds) {
       const player = state.players[winnerId];
-      const win = analyzeWin([...player.hand, winningTile], winningTile.kind, player.melds);
+      const tilesForWin = [...player.hand, winningTile];
+      const win = analyzeWin(tilesForWin, winningTile.kind, player.melds);
       if (!win.isWin) continue;
-      scoreResults.push(
-        scoreWin({
+      const scoreResult = scoreWin({
           players: state.players,
           winnerId,
           loserId,
@@ -1365,8 +1386,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
           win,
           baseScore: state.baseScore,
           isGangShangPao,
-        }),
-      );
+        });
+      scoreResults.push({
+        ...scoreResult,
+        winningHands: [buildWinHandSnapshot(winnerId, player, tilesForWin)],
+      });
     }
 
     if (scoreResults.length === 0) return;
@@ -1420,6 +1444,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         multiplier: scoreResult.multiplier,
         title: scoreResult.title,
       })),
+      winningHands: scoreResults.flatMap((scoreResult) => scoreResult.winningHands ?? []),
     }, state.roundStartScores);
 
     set({

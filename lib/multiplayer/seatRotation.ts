@@ -192,5 +192,9 @@ function rotateRoundResult(
       winnerId: realToDisplaySeat(detail.winnerId, viewerSeat),
       loserId: mapPlayerId(detail.loserId, viewerSeat),
     })),
+    winningHands: result.winningHands?.map((item) => ({
+      ...item,
+      playerId: realToDisplaySeat(item.playerId, viewerSeat),
+    })),
   };
 }

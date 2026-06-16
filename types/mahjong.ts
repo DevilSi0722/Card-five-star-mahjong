@@ -168,6 +168,7 @@ export interface ScoreResult {
     isBuyOneGetOne?: boolean;
   };
   winDetails?: WinScoreDetail[];
+  winningHands?: WinHandSnapshot[];
 }
 
 export interface WinScoreDetail {
@@ -179,6 +180,11 @@ export interface WinScoreDetail {
   baseScore: number;
   multiplier: number;
   title: string;
+}
+
+export interface WinHandSnapshot {
+  playerId: PlayerId;
+  tiles: TileInstance[];
 }
 
 export interface AiDecision {
