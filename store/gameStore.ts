@@ -360,6 +360,7 @@ function makeActionAnnouncement(playerId: PlayerId, text: string): ActionAnnounc
 
 const initialPlayers = createPlayers();
 const DISCARD_TO_DRAW_DELAY_MS = 420;
+const DICE_ROLL_DURATION_MS = 1550;
 const INITIAL_DEAL_FIRST_STEP_DELAY_MS = 180;
 const INITIAL_DEAL_STEP_DELAY_MS = 360;
 const INITIAL_DEAL_COUNTS: Record<PlayerId, number[]> = {
@@ -393,6 +394,7 @@ function dealRevealCountsForStep(step: number): Record<PlayerId, number> {
 }
 
 let initialDealAnimationId = 0;
+let roundIntroAnimationId = 0;
 
 function scheduleInitialDealReveal() {
   initialDealAnimationId += 1;
@@ -417,6 +419,20 @@ function scheduleInitialDealReveal() {
   };
 
   runStep(0);
+}
+
+function scheduleDiceRollThenInitialDeal() {
+  roundIntroAnimationId += 1;
+  const animationId = roundIntroAnimationId;
+  window.setTimeout(() => {
+    const state = useGameStore.getState();
+    if (animationId !== roundIntroAnimationId || state.phase !== "rolling") return;
+    useGameStore.setState({
+      phase: "dealing",
+      actionNonce: state.actionNonce + 1,
+    });
+    scheduleInitialDealReveal();
+  }, DICE_ROLL_DURATION_MS);
 }
 
 /** 把名册（真人/AI、昵称）套用到玩家表，返回新表。 */
@@ -608,7 +624,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       roundScoreNotes: emptyRoundScoreNotes(),
       currentPlayerId: dealerId,
       dealerId,
-      phase: "dealing",
+      phase: "rolling",
       dealRevealCounts: emptyDealRevealCounts(),
       lastDiscard: undefined,
       pendingReactions: undefined,
@@ -625,7 +641,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       logs: pushLog([], `新局开始，${dealtWithRoster[dealerId].name} 坐庄先出牌`),
       actionNonce: state.actionNonce + 1,
     });
-    scheduleInitialDealReveal();
+    scheduleDiceRollThenInitialDeal();
   },
 
   shuffleWall: () => set({ wall: shuffle(createTileSet()) }),
@@ -634,7 +650,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   drawTile: (playerId) => {
     const state = get();
-    if (state.phase === "settled" || state.phase === "draw") return;
+    if (state.phase === "rolling" || state.phase === "settled" || state.phase === "draw") return;
     const wall = [...state.wall];
     if (wall.length === 0) {
       const result = normalizeRoundResult(scoreDraw(state.players), state.roundStartScores);

@@ -12,14 +12,30 @@ import { playSound, setMuted } from "@/lib/audio/soundEngine";
  */
 export function useSoundEffects(): void {
   const logs = useGameStore((state) => state.logs);
+  const phase = useGameStore((state) => state.phase);
+  const dealRevealCounts = useGameStore((state) => state.dealRevealCounts);
   const soundEnabled = useUiStore((state) => state.soundEnabled);
   // 记录上次发声的日志内容。logs 上限 8 条（pushLog 会 slice(-8)），
   // 满 8 条后长度不再变化，必须比对内容而非长度，否则会漏音。
   const prevLatestRef = useRef<string | null>(null);
+  const prevDealRevealTotalRef = useRef(0);
 
   useEffect(() => {
     setMuted(!soundEnabled);
   }, [soundEnabled]);
+
+  useEffect(() => {
+    const total = dealRevealCounts.human + dealRevealCounts.ai_left + dealRevealCounts.ai_right;
+    if (total < prevDealRevealTotalRef.current) {
+      prevDealRevealTotalRef.current = total;
+      return;
+    }
+    if (total <= prevDealRevealTotalRef.current) return;
+    const previousTotal = prevDealRevealTotalRef.current;
+    prevDealRevealTotalRef.current = total;
+    if (phase !== "dealing" && !(previousTotal > 0 && total === 40)) return;
+    playSound("deal");
+  }, [dealRevealCounts, phase]);
 
   useEffect(() => {
     const latest = logs[logs.length - 1];
@@ -31,6 +47,10 @@ export function useSoundEffects(): void {
 
     if (/打出/.test(latest)) {
       playSound("discard");
+    } else if (/碰/.test(latest)) {
+      playSound("peng");
+    } else if (/杠/.test(latest)) {
+      playSound("gang");
     }
   }, [logs]);
 }

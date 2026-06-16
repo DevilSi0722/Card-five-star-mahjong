@@ -14,6 +14,7 @@ import { DiscardArea3D } from "@/components/three/DiscardArea3D";
 import { PhysicsDiscardArea3D } from "@/components/three/PhysicsDiscardArea3D";
 import { MeldArea3D } from "@/components/three/MeldArea3D";
 import { TurnIndicator3D } from "@/components/three/TurnIndicator3D";
+import { DiceRoll3D } from "@/components/three/DiceRoll3D";
 import { ALL_TILE_TEXTURE_SRCS } from "@/utils/mahjong/tileTextures";
 import { useResponsiveGameLayout } from "@/hooks/useResponsiveGameLayout";
 
@@ -108,15 +109,16 @@ export function GameCanvas() {
   const { isMobileLandscape } = useResponsiveGameLayout();
   const canvasDpr = useCappedCanvasDpr(isMobileLandscape);
 
+  const rollingDice = phase === "rolling";
   // 牌局结束（结算/流局）时，三家手牌全部亮出并平放
   const revealAll = phase === "settled" || phase === "draw";
-  const showHumanTableHand = revealAll || players.human.isLiangDao;
+  const showHumanTableHand = !rollingDice && (revealAll || players.human.isLiangDao);
   const initialDealInProgress =
     phase === "dealing" &&
     (dealRevealCounts.human < players.human.hand.length ||
       dealRevealCounts.ai_left < players.ai_left.hand.length ||
       dealRevealCounts.ai_right < players.ai_right.hand.length);
-  const turnIndicatorActive = phase !== "settled" && phase !== "draw" && !initialDealInProgress;
+  const turnIndicatorActive = phase !== "settled" && phase !== "draw" && !initialDealInProgress && !rollingDice;
 
   return (
     <Canvas
@@ -141,6 +143,7 @@ export function GameCanvas() {
           scale={isMobileLandscape ? [1.25, 1.25, 1.25] : [1.16, 1.16, 1.16]}
         >
           <MahjongTable tableclothId={tableclothId} />
+          <DiceRoll3D active={rollingDice} />
 
           <TurnIndicator3D
             players={players}
@@ -158,26 +161,30 @@ export function GameCanvas() {
               compact={isMobileLandscape}
             />
           ) : null}
-          <PlayerHand3D
-            key="hand-ai-left"
-            player={players.ai_left}
-            current={currentPlayerId === "ai_left" && phase === "playing"}
-            revealAll={revealAll}
-            visibleTileCount={initialDealInProgress ? dealRevealCounts.ai_left : undefined}
-            scale={isMobileLandscape ? 0.64 : 0.72}
-            compact={isMobileLandscape}
-            showWaitingPreview
-          />
-          <PlayerHand3D
-            key="hand-ai-right"
-            player={players.ai_right}
-            current={currentPlayerId === "ai_right" && phase === "playing"}
-            revealAll={revealAll}
-            visibleTileCount={initialDealInProgress ? dealRevealCounts.ai_right : undefined}
-            scale={isMobileLandscape ? 0.64 : 0.72}
-            compact={isMobileLandscape}
-            showWaitingPreview
-          />
+          {!rollingDice ? (
+            <>
+              <PlayerHand3D
+                key="hand-ai-left"
+                player={players.ai_left}
+                current={currentPlayerId === "ai_left" && phase === "playing"}
+                revealAll={revealAll}
+                visibleTileCount={initialDealInProgress ? dealRevealCounts.ai_left : undefined}
+                scale={isMobileLandscape ? 0.64 : 0.72}
+                compact={isMobileLandscape}
+                showWaitingPreview
+              />
+              <PlayerHand3D
+                key="hand-ai-right"
+                player={players.ai_right}
+                current={currentPlayerId === "ai_right" && phase === "playing"}
+                revealAll={revealAll}
+                visibleTileCount={initialDealInProgress ? dealRevealCounts.ai_right : undefined}
+                scale={isMobileLandscape ? 0.64 : 0.72}
+                compact={isMobileLandscape}
+                showWaitingPreview
+              />
+            </>
+          ) : null}
 
           {discardPhysicsEnabled ? (
             <PhysicsDiscardArea3D

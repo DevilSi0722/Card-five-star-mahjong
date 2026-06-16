@@ -157,7 +157,7 @@ export function HumanHandOverlay() {
     previousVisibleTileIds.current = new Set(tiles.map((tile) => tile.id));
   }, [layoutKey, tiles]);
 
-  if (human.hand.length === 0 || human.isLiangDao || revealAll || (dealing && dealVisibleCount === 0)) return null;
+  if (phase === "rolling" || human.hand.length === 0 || human.isLiangDao || revealAll || (dealing && dealVisibleCount === 0)) return null;
 
   function playTile(tileId: string, canLiangDaoWithTile: boolean) {
     if (!interactive) return;

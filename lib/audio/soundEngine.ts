@@ -107,6 +107,12 @@ const DISCARD_SRCS = [
   "/sounds/tiles/mahjong_tile_4.mp3",
 ];
 const discardBuffers: (AudioBuffer | null)[] = [null, null, null, null];
+const DEAL_SRC = "/sounds/tiles/mahjong_tile_4.mp3";
+let dealBuffer: AudioBuffer | null = null;
+let dealBufferPromise: Promise<void> | null = null;
+const MELD_SRC = "/sounds/tiles/mahjong_tile_3.mp3";
+let meldBuffer: AudioBuffer | null = null;
+let meldBufferPromise: Promise<void> | null = null;
 
 async function preloadDiscardBuffers(c: AudioContext): Promise<void> {
   await Promise.all(
@@ -143,21 +149,11 @@ function playDraw(c: AudioContext): void {
 }
 
 function playPeng(c: AudioContext): void {
-  const t = now();
-  crack(c, 0.9, 1600, 0.07, t);
-  tone(c, 200, "sine", 0.2, 0.001, 0.09, t);
-  crack(c, 0.7, 1600, 0.06, t + 0.1);
-  tone(c, 200, "sine", 0.15, 0.001, 0.08, t + 0.1);
+  playMeld(c);
 }
 
 function playGang(c: AudioContext): void {
-  const t = now();
-  for (let i = 0; i < 3; i++) {
-    crack(c, 0.85, 1400, 0.07, t + i * 0.08);
-    tone(c, 160, "sine", 0.2, 0.001, 0.1, t + i * 0.08);
-  }
-  // 低频共鸣
-  tone(c, 80, "sine", 0.35, 0.005, 0.5, t + 0.24);
+  playMeld(c);
 }
 
 function playWin(c: AudioContext): void {
@@ -193,25 +189,67 @@ function playLiuju(c: AudioContext): void {
 }
 
 function playDeal(c: AudioContext): void {
+  if (dealBuffer) {
+    const src = c.createBufferSource();
+    src.buffer = dealBuffer;
+    src.connect(master!);
+    src.start();
+    return;
+  }
+  void preloadDealBuffer(c).then(() => {
+    if (dealBuffer) playDeal(c);
+    else playDealFallback(c);
+  });
+}
+
+async function preloadDealBuffer(c: AudioContext): Promise<void> {
+  if (dealBuffer) return;
+  if (!dealBufferPromise) {
+    dealBufferPromise = (async () => {
+      try {
+        const res = await fetch(DEAL_SRC);
+        dealBuffer = await c.decodeAudioData(await res.arrayBuffer());
+      } catch {
+        // 静默失败，保留合成回退
+      }
+    })();
+  }
+  await dealBufferPromise;
+}
+
+function playDealFallback(c: AudioContext): void {
   const t = now();
-  // 洗牌扫频：噪声 + 滤波器频率快速上扫
-  const dst = out();
-  if (!dst) return;
-  const src = noiseNode(c, 0.45);
-  const filt = c.createBiquadFilter();
-  filt.type = "bandpass";
-  filt.frequency.setValueAtTime(200, t);
-  filt.frequency.exponentialRampToValueAtTime(3000, t + 0.35);
-  filt.Q.value = 1.2;
-  const g = c.createGain();
-  g.gain.setValueAtTime(0.5, t);
-  g.gain.linearRampToValueAtTime(0.7, t + 0.1);
-  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.45);
-  src.connect(filt);
-  filt.connect(g);
-  g.connect(dst);
-  src.start(t);
-  src.stop(t + 0.46);
+  crack(c, 0.45, 2200, 0.05, t);
+  tone(c, 260, "sine", 0.16, 0.001, 0.06, t);
+}
+
+function playMeld(c: AudioContext): void {
+  if (meldBuffer) {
+    const src = c.createBufferSource();
+    src.buffer = meldBuffer;
+    src.connect(master!);
+    src.start();
+    return;
+  }
+  void preloadMeldBuffer(c).then(() => {
+    if (meldBuffer) playMeld(c);
+    else playDealFallback(c);
+  });
+}
+
+async function preloadMeldBuffer(c: AudioContext): Promise<void> {
+  if (meldBuffer) return;
+  if (!meldBufferPromise) {
+    meldBufferPromise = (async () => {
+      try {
+        const res = await fetch(MELD_SRC);
+        meldBuffer = await c.decodeAudioData(await res.arrayBuffer());
+      } catch {
+        // 静默失败，保留合成回退
+      }
+    })();
+  }
+  await meldBufferPromise;
 }
 
 // ── 主播放入口 ────────────────────────────────────────────
@@ -220,7 +258,6 @@ export function playSound(name: SoundName): void {
   if (muted) return;
   const c = getCtx();
   if (!c) return;
-  if (c.state === "suspended") { void c.resume(); return; }
   const fn: Record<SoundName, (c: AudioContext) => void> = {
     discard: playDiscard,
     draw: playDraw,
@@ -232,5 +269,12 @@ export function playSound(name: SoundName): void {
     liuju: playLiuju,
     deal: playDeal,
   };
-  try { fn[name](c); } catch { /* 忽略音频错误，不影响游戏逻辑 */ }
+  const run = () => {
+    try { fn[name](c); } catch { /* 忽略音频错误，不影响游戏逻辑 */ }
+  };
+  if (c.state === "suspended") {
+    void c.resume().then(run).catch(() => undefined);
+    return;
+  }
+  run();
 }

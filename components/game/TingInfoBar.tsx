@@ -80,7 +80,7 @@ export function TingInfoBar() {
   // 2) 未亮倒但当前已上听：常驻展示当前所听
   // 3) 悬浮某张可听牌：展示「打出这张后」所听
   const info = useMemo<{ title: string; waits: WaitDetail[] } | null>(() => {
-    if (phase === "settled" || phase === "draw") return null;
+    if (phase === "rolling" || phase === "settled" || phase === "draw") return null;
 
     // 已亮倒：直接用当前手牌（亮倒后手牌即为听牌状态的 3n+1 张）
     if (human.isLiangDao) {

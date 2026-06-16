@@ -42,6 +42,7 @@ export interface Player {
 
 export type GamePhase =
   | "ready"
+  | "rolling"
   | "dealing"
   | "playing"
   | "responding"
