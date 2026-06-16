@@ -144,6 +144,7 @@ export function GameCanvas() {
 
           {showHumanTableHand ? (
             <PlayerHand3D
+              key="hand-human"
               player={players.human}
               current={currentPlayerId === "human" && phase === "playing"}
               revealAll={revealAll}
@@ -152,6 +153,7 @@ export function GameCanvas() {
             />
           ) : null}
           <PlayerHand3D
+            key="hand-ai-left"
             player={players.ai_left}
             current={currentPlayerId === "ai_left" && phase === "playing"}
             revealAll={revealAll}
@@ -160,6 +162,7 @@ export function GameCanvas() {
             showWaitingPreview
           />
           <PlayerHand3D
+            key="hand-ai-right"
             player={players.ai_right}
             current={currentPlayerId === "ai_right" && phase === "playing"}
             revealAll={revealAll}
@@ -170,20 +173,21 @@ export function GameCanvas() {
 
           {discardPhysicsEnabled ? (
             <PhysicsDiscardArea3D
+              key="discard-physics"
               players={[players.human, players.ai_left, players.ai_right]}
               mobileLandscape={isMobileLandscape}
             />
           ) : (
             <>
-              <DiscardArea3D player={players.human} />
-              <DiscardArea3D player={players.ai_left} />
-              <DiscardArea3D player={players.ai_right} />
+              <DiscardArea3D key="discard-human" player={players.human} />
+              <DiscardArea3D key="discard-ai-left" player={players.ai_left} />
+              <DiscardArea3D key="discard-ai-right" player={players.ai_right} />
             </>
           )}
 
-          <MeldArea3D player={players.human} />
-          <MeldArea3D player={players.ai_left} />
-          <MeldArea3D player={players.ai_right} />
+          <MeldArea3D key="meld-human" player={players.human} />
+          <MeldArea3D key="meld-ai-left" player={players.ai_left} />
+          <MeldArea3D key="meld-ai-right" player={players.ai_right} />
         </group>
       </Suspense>
     </Canvas>

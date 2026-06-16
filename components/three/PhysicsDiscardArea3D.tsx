@@ -42,6 +42,9 @@ type DiscardTile = {
   sequence: number;
 };
 
+const renderedDiscardTileIds = new Set<string>();
+let renderedDiscardTileIdsInitialized = false;
+
 function handSourcePosition(seat: Player["seat"], sequence: number, mobileLandscape: boolean): [number, number, number] {
   // 出牌初始位置。只调 X/Z 会改变牌从哪个桌边推出；Y 保持 BODY_Y，避免牌从空中掉落。
   // 这里的坐标必须在四周挡墙内侧，否则手机低帧率或多人游戏重渲染时容易把牌解算到桌边卡住。
@@ -154,7 +157,6 @@ function TableColliders() {
 }
 
 export function PhysicsDiscardArea3D({ players, mobileLandscape = false }: { players: Player[]; mobileLandscape?: boolean }) {
-  const renderedTileIdsRef = useRef<Set<string> | null>(null);
   const discards = useMemo(
     () =>
       players.flatMap((player) =>
@@ -168,12 +170,17 @@ export function PhysicsDiscardArea3D({ players, mobileLandscape = false }: { pla
     [players],
   );
   const currentTileIds = discards.map((item) => item.tile.id);
-  const freshTileIds = renderedTileIdsRef.current
-    ? new Set(currentTileIds.filter((tileId) => !renderedTileIdsRef.current?.has(tileId)))
+  const freshTileIds = renderedDiscardTileIdsInitialized
+    ? new Set(currentTileIds.filter((tileId) => !renderedDiscardTileIds.has(tileId)))
     : new Set<string>();
 
   useEffect(() => {
-    renderedTileIdsRef.current = new Set(currentTileIds);
+    const current = new Set(currentTileIds);
+    for (const tileId of Array.from(renderedDiscardTileIds)) {
+      if (!current.has(tileId)) renderedDiscardTileIds.delete(tileId);
+    }
+    for (const tileId of currentTileIds) renderedDiscardTileIds.add(tileId);
+    renderedDiscardTileIdsInitialized = true;
   }, [currentTileIds]);
 
   return (
