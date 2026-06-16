@@ -32,6 +32,7 @@ function extractSnapshot(state: ReturnType<typeof useGameStore.getState>): NetGa
     currentPlayerId: state.currentPlayerId,
     dealerId: state.dealerId,
     phase: state.phase,
+    dealRevealCounts: state.dealRevealCounts,
     lastDiscard: state.lastDiscard,
     pendingReactions: state.pendingReactions,
     reactionPasses: state.reactionPasses,

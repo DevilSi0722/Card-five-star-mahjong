@@ -160,6 +160,7 @@ export type NetGameSnapshot = Pick<
   | "currentPlayerId"
   | "dealerId"
   | "phase"
+  | "dealRevealCounts"
   | "lastDiscard"
   | "pendingReactions"
   | "reactionPasses"

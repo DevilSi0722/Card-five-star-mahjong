@@ -42,11 +42,9 @@ export function rotateWindsForSeat(
   return result;
 }
 
-let hiddenCounter = 0;
 /** 生成一张匿名占位牌（用于隐藏他人暗手牌与牌墙，避免泄露牌面）。 */
-function hiddenTile(): TileInstance {
-  hiddenCounter += 1;
-  return { id: `hidden:${hiddenCounter}`, suit: "dot", rank: 1, kind: "dot-1", copy: 0 };
+function hiddenTile(id: string): TileInstance {
+  return { id, suit: "dot", rank: 1, kind: "dot-1", copy: 0 };
 }
 
 function mapMeld(meld: Meld, viewerSeat: EngineSeatId): Meld {
@@ -70,7 +68,7 @@ function rotatePlayer(player: Player, viewerSeat: EngineSeatId): Player {
     ...player,
     id: displaySeat,
     seat: SEAT_BY_DISPLAY[displaySeat],
-    hand: reveal ? player.hand : player.hand.map(() => hiddenTile()),
+    hand: reveal ? player.hand : player.hand.map((_, index) => hiddenTile(`hidden:${displaySeat}:hand:${index}`)),
     melds: player.melds.map((meld) => mapMeld(meld, viewerSeat)),
     lastDrawnTileId: isSelf ? player.lastDrawnTileId : undefined,
   };
@@ -138,10 +136,11 @@ export function cropSnapshotForSeat(
 
   return {
     players,
-    deadWall: state.deadWall.map(() => hiddenTile()),
+    deadWall: state.deadWall.map((_, index) => hiddenTile(`hidden:${viewerSeat}:dead:${index}`)),
     currentPlayerId: realToDisplaySeat(state.currentPlayerId, viewerSeat),
     dealerId: realToDisplaySeat(state.dealerId, viewerSeat),
     phase: state.phase,
+    dealRevealCounts: remapScoreRecord(state.dealRevealCounts, viewerSeat),
     lastDiscard,
     pendingReactions,
     reactionPasses: state.reactionPasses.map((id) => realToDisplaySeat(id, viewerSeat)),
@@ -157,7 +156,7 @@ export function cropSnapshotForSeat(
     baseScore: state.baseScore,
     liangDaoZimoBuyHorseEnabled: state.liangDaoZimoBuyHorseEnabled,
     // 隐藏牌墙具体牌面，仅保留数量（牌墙剩余张数用于 UI）。
-    wall: state.wall.map(() => hiddenTile()),
+    wall: state.wall.map((_, index) => hiddenTile(`hidden:${viewerSeat}:wall:${index}`)),
   };
 }
 

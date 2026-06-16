@@ -22,6 +22,7 @@ export function HumanHandOverlay() {
   const phase = useGameStore((state) => state.phase);
   const currentPlayerId = useGameStore((state) => state.currentPlayerId);
   const selectedTileId = useGameStore((state) => state.selectedTileId);
+  const dealRevealCounts = useGameStore((state) => state.dealRevealCounts);
   const aiLeft = useGameStore((state) => state.players.ai_left);
   const aiRight = useGameStore((state) => state.players.ai_right);
   const pendingReactions = useGameStore((state) => state.pendingReactions);
@@ -39,6 +40,7 @@ export function HumanHandOverlay() {
   const tileContentRefs = useRef(new Map<string, HTMLDivElement>());
   const previousTileRects = useRef(new Map<string, DOMRect>());
   const previousLayoutKey = useRef("");
+  const previousVisibleTileIds = useRef<Set<string>>(new Set());
 
   function clearTouchResidue(tileId?: string) {
     selectTile(undefined);
@@ -61,13 +63,29 @@ export function HumanHandOverlay() {
 
   const current = phase === "playing" && currentPlayerId === "human";
   const revealAll = phase === "settled" || phase === "draw";
+  const dealing = phase === "dealing" && dealRevealCounts.human < human.hand.length;
   const interactive = current && !human.autoPlay && !human.isLiangDao && !revealAll;
-  const drawnId = !human.isLiangDao && !revealAll ? human.lastDrawnTileId : undefined;
+  const dealVisibleCount = dealing ? Math.min(human.hand.length, dealRevealCounts.human) : human.hand.length;
+  const drawnId = !dealing && !human.isLiangDao && !revealAll ? human.lastDrawnTileId : undefined;
   const hasDrawn = drawnId ? human.hand.some((tile) => tile.id === drawnId) : false;
-  const rest = hasDrawn ? human.hand.filter((tile) => tile.id !== drawnId) : human.hand;
-  const drawn = hasDrawn ? human.hand.find((tile) => tile.id === drawnId) : undefined;
-  const tiles = drawn ? [...rest, drawn] : rest;
+  const revealTiles = useMemo(
+    () =>
+      dealing
+        ? human.hand.slice(0, dealVisibleCount)
+        : hasDrawn
+          ? human.hand.filter((tile) => tile.id !== drawnId)
+          : human.hand,
+    [dealVisibleCount, dealing, drawnId, hasDrawn, human.hand],
+  );
+  const drawn = useMemo(
+    () => (!dealing && hasDrawn ? human.hand.find((tile) => tile.id === drawnId) : undefined),
+    [dealing, drawnId, hasDrawn, human.hand],
+  );
+  const tiles = useMemo(() => (drawn ? [...revealTiles, drawn] : revealTiles), [drawn, revealTiles]);
   const layoutKey = tiles.map((tile) => tile.id).join("|");
+  const dealTileIds = new Set(
+    dealing ? tiles.map((tile) => tile.id).filter((id) => !previousVisibleTileIds.current.has(id)) : [],
+  );
   const exposedWaitKinds = useMemo(
     () =>
       new Set(
@@ -135,7 +153,11 @@ export function HumanHandOverlay() {
     previousLayoutKey.current = layoutKey;
   }, [layoutKey, tiles]);
 
-  if (human.hand.length === 0 || human.isLiangDao || revealAll) return null;
+  useEffect(() => {
+    previousVisibleTileIds.current = new Set(tiles.map((tile) => tile.id));
+  }, [layoutKey, tiles]);
+
+  if (human.hand.length === 0 || human.isLiangDao || revealAll || (dealing && dealVisibleCount === 0)) return null;
 
   function playTile(tileId: string, canLiangDaoWithTile: boolean) {
     if (!interactive) return;
@@ -234,6 +256,7 @@ export function HumanHandOverlay() {
           const canPengTile = tile.kind === canPengKind;
           const canLiangDaoWithTile = liangDaoDiscardTileIds.has(tile.id);
           const highlightLiangDaoChoice = liangDaoArmed && canLiangDaoWithTile;
+          const isDealingReveal = dealing && dealTileIds.has(tile.id);
 
           return (
             <button
@@ -257,7 +280,7 @@ export function HumanHandOverlay() {
               }}
               className={`relative shrink-0 overflow-visible rounded-lg bg-transparent transition ${
                 isMobileLandscape ? "h-[84px] w-[57px]" : "h-[126px] w-[86px] sm:h-[138px] sm:w-[94px]"
-              } ${isDrawn ? "human-hand-tile--enter" : ""} ${
+              } ${isDrawn || isDealingReveal ? "human-hand-tile--enter" : ""} ${
                 isDrawn ? DRAWN_TILE_GAP_CLASS : ""
               } ${
                 selected

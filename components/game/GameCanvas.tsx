@@ -102,6 +102,7 @@ export function GameCanvas() {
   const players = useGameStore((state) => state.players);
   const currentPlayerId = useGameStore((state) => state.currentPlayerId);
   const phase = useGameStore((state) => state.phase);
+  const dealRevealCounts = useGameStore((state) => state.dealRevealCounts);
   const discardPhysicsEnabled = useUiStore((state) => state.discardPhysicsEnabled);
   const tableclothId = useUiStore((state) => state.tableclothId);
   const { isMobileLandscape } = useResponsiveGameLayout();
@@ -110,7 +111,12 @@ export function GameCanvas() {
   // 牌局结束（结算/流局）时，三家手牌全部亮出并平放
   const revealAll = phase === "settled" || phase === "draw";
   const showHumanTableHand = revealAll || players.human.isLiangDao;
-  const turnIndicatorActive = phase !== "settled" && phase !== "draw";
+  const initialDealInProgress =
+    phase === "dealing" &&
+    (dealRevealCounts.human < players.human.hand.length ||
+      dealRevealCounts.ai_left < players.ai_left.hand.length ||
+      dealRevealCounts.ai_right < players.ai_right.hand.length);
+  const turnIndicatorActive = phase !== "settled" && phase !== "draw" && !initialDealInProgress;
 
   return (
     <Canvas
@@ -157,6 +163,7 @@ export function GameCanvas() {
             player={players.ai_left}
             current={currentPlayerId === "ai_left" && phase === "playing"}
             revealAll={revealAll}
+            visibleTileCount={initialDealInProgress ? dealRevealCounts.ai_left : undefined}
             scale={isMobileLandscape ? 0.64 : 0.72}
             compact={isMobileLandscape}
             showWaitingPreview
@@ -166,6 +173,7 @@ export function GameCanvas() {
             player={players.ai_right}
             current={currentPlayerId === "ai_right" && phase === "playing"}
             revealAll={revealAll}
+            visibleTileCount={initialDealInProgress ? dealRevealCounts.ai_right : undefined}
             scale={isMobileLandscape ? 0.64 : 0.72}
             compact={isMobileLandscape}
             showWaitingPreview

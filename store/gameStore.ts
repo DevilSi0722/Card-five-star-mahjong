@@ -360,6 +360,64 @@ function makeActionAnnouncement(playerId: PlayerId, text: string): ActionAnnounc
 
 const initialPlayers = createPlayers();
 const DISCARD_TO_DRAW_DELAY_MS = 420;
+const INITIAL_DEAL_FIRST_STEP_DELAY_MS = 180;
+const INITIAL_DEAL_STEP_DELAY_MS = 360;
+const INITIAL_DEAL_COUNTS: Record<PlayerId, number[]> = {
+  human: [],
+  ai_left: [],
+  ai_right: [],
+};
+
+function emptyDealRevealCounts(): Record<PlayerId, number> {
+  return {
+    human: 0,
+    ai_left: 0,
+    ai_right: 0,
+  };
+}
+
+function fullDealRevealCounts(players: Record<PlayerId, Player>): Record<PlayerId, number> {
+  return {
+    human: players.human.hand.length,
+    ai_left: players.ai_left.hand.length,
+    ai_right: players.ai_right.hand.length,
+  };
+}
+
+function dealRevealCountsForStep(step: number): Record<PlayerId, number> {
+  return {
+    human: INITIAL_DEAL_COUNTS.human[Math.min(step, INITIAL_DEAL_COUNTS.human.length - 1)] ?? 0,
+    ai_left: INITIAL_DEAL_COUNTS.ai_left[Math.min(step, INITIAL_DEAL_COUNTS.ai_left.length - 1)] ?? 0,
+    ai_right: INITIAL_DEAL_COUNTS.ai_right[Math.min(step, INITIAL_DEAL_COUNTS.ai_right.length - 1)] ?? 0,
+  };
+}
+
+let initialDealAnimationId = 0;
+
+function scheduleInitialDealReveal() {
+  initialDealAnimationId += 1;
+  const animationId = initialDealAnimationId;
+  const runStep = (step: number) => {
+    const delayMs = step === 0 ? INITIAL_DEAL_FIRST_STEP_DELAY_MS : INITIAL_DEAL_STEP_DELAY_MS;
+    window.setTimeout(() => {
+      const state = useGameStore.getState();
+      if (animationId !== initialDealAnimationId || state.phase !== "dealing") return;
+
+      const nextRevealCounts = dealRevealCountsForStep(step);
+      const finished = step >= 3;
+      useGameStore.setState({
+        dealRevealCounts: nextRevealCounts,
+        phase: finished ? "playing" : "dealing",
+        canHumanLiangDao: finished ? updateHumanLiangDaoHint(state.players.human) : false,
+        actionNonce: state.actionNonce + 1,
+      });
+
+      if (!finished) runStep(step + 1);
+    }, delayMs);
+  };
+
+  runStep(0);
+}
 
 /** 把名册（真人/AI、昵称）套用到玩家表，返回新表。 */
 function applyRoster(
@@ -409,6 +467,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   currentPlayerId: "human",
   dealerId: "human",
   phase: "ready",
+  dealRevealCounts: emptyDealRevealCounts(),
   reactionPasses: [],
   logs: [],
   actionNonce: 0,
@@ -440,6 +499,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       currentPlayerId: "human",
       dealerId: "human",
       phase: "ready",
+      dealRevealCounts: emptyDealRevealCounts(),
       roundResult: undefined,
       actionAnnouncement: undefined,
       pendingReactions: undefined,
@@ -476,6 +536,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       pendingReactions: snapshot.pendingReactions,
       pendingBuGang: snapshot.pendingBuGang,
       roundResult: snapshot.roundResult,
+      dealRevealCounts: snapshot.dealRevealCounts ?? fullDealRevealCounts(snapshot.players),
       actionAnnouncement: snapshot.actionAnnouncement,
       roundStartScores: snapshot.roundStartScores ?? playerScores(snapshot.players),
       roundScoreNotes: snapshot.roundScoreNotes ?? emptyRoundScoreNotes(),
@@ -519,6 +580,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const dealerId = state.roundResult?.winnerId ?? state.dealerId ?? "human";
     const previous = state.players;
     const players = createPlayers(previous, dealerId);
+    INITIAL_DEAL_COUNTS.human = dealerId === "human" ? [4, 8, 12, 14] : [4, 8, 12, 13];
+    INITIAL_DEAL_COUNTS.ai_left = dealerId === "ai_left" ? [4, 8, 12, 14] : [4, 8, 12, 13];
+    INITIAL_DEAL_COUNTS.ai_right = dealerId === "ai_right" ? [4, 8, 12, 14] : [4, 8, 12, 13];
     const wall = shuffle(createTileSet());
     const dealt = { ...players };
     const nextWall = [...wall];
@@ -544,7 +608,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       roundScoreNotes: emptyRoundScoreNotes(),
       currentPlayerId: dealerId,
       dealerId,
-      phase: "playing",
+      phase: "dealing",
+      dealRevealCounts: emptyDealRevealCounts(),
       lastDiscard: undefined,
       pendingReactions: undefined,
       reactionPasses: [],
@@ -560,6 +625,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       logs: pushLog([], `新局开始，${dealtWithRoster[dealerId].name} 坐庄先出牌`),
       actionNonce: state.actionNonce + 1,
     });
+    scheduleInitialDealReveal();
   },
 
   shuffleWall: () => set({ wall: shuffle(createTileSet()) }),

@@ -55,6 +55,7 @@ export function PlayerHand3D({
   current,
   revealAll,
   selectedTileId,
+  visibleTileCount,
   scale = 1,
   compact = false,
   onTileClick,
@@ -65,6 +66,7 @@ export function PlayerHand3D({
   current?: boolean;
   revealAll?: boolean;
   selectedTileId?: string;
+  visibleTileCount?: number;
   scale?: number;
   compact?: boolean;
   onTileClick?: (tileId: string) => void;
@@ -72,8 +74,13 @@ export function PlayerHand3D({
   showWaitingPreview?: boolean;
 }) {
   const transform = handTransform(player.seat, compact);
+  const shownCount = Math.min(
+    player.hand.length,
+    typeof visibleTileCount === "number" ? Math.max(0, visibleTileCount) : player.hand.length,
+  );
+  const visibleHand = player.hand.slice(0, shownCount);
   const renderedTileIdsRef = useRef<Set<string> | null>(null);
-  const currentTileIds = player.hand.map((tile) => tile.id);
+  const currentTileIds = visibleHand.map((tile) => tile.id);
   const newTileIds = renderedTileIdsRef.current
     ? currentTileIds.filter((tileId) => !renderedTileIdsRef.current?.has(tileId))
     : [];
@@ -90,7 +97,7 @@ export function PlayerHand3D({
   // 仅人类、未平放（无亮倒/结算）、且确有新摸牌时，把新摸牌单独挪到最右侧并留间隔
   const anyRevealed = revealAllTiles || isLiangDao;
   const drawnId = !anyRevealed && isHuman ? player.lastDrawnTileId : undefined;
-  const hasDrawn = drawnId ? player.hand.some((tile) => tile.id === drawnId) : false;
+  const hasDrawn = drawnId ? visibleHand.some((tile) => tile.id === drawnId) : false;
 
   const setHoveredTileId = useUiStore((state) => state.setHoveredTileId);
 
@@ -108,9 +115,9 @@ export function PlayerHand3D({
   }, [currentTileIds]);
 
   // 先排出“非新摸牌”的牌，再把新摸牌放到末尾（带额外间隔的槽位）
-  const rest = hasDrawn ? player.hand.filter((tile) => tile.id !== drawnId) : player.hand;
-  const drawn = hasDrawn ? player.hand.find((tile) => tile.id === drawnId)! : undefined;
-  const slots: Array<{ tile: (typeof player.hand)[number]; slot: number }> = rest.map((tile, index) => ({
+  const rest = hasDrawn ? visibleHand.filter((tile) => tile.id !== drawnId) : visibleHand;
+  const drawn = hasDrawn ? visibleHand.find((tile) => tile.id === drawnId)! : undefined;
+  const slots: Array<{ tile: (typeof visibleHand)[number]; slot: number }> = rest.map((tile, index) => ({
     tile,
     slot: index,
   }));

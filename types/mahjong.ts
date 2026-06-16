@@ -195,6 +195,8 @@ export interface GameState {
   currentPlayerId: PlayerId;
   dealerId: PlayerId;
   phase: GamePhase;
+  /** 开局起牌时，各玩家当前已展示的手牌数量。 */
+  dealRevealCounts: Record<PlayerId, number>;
   lastDiscard?: LastDiscard;
   pendingReactions?: PendingReactions;
   reactionPasses: PlayerId[];
