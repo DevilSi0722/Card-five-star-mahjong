@@ -8,6 +8,7 @@
 export type SoundName =
   | "discard"  // 出牌
   | "draw"     // 摸牌
+  | "diceRoll" // 骰子落桌
   | "peng"     // 碰
   | "gang"     // 杠
   | "win"      // 胡
@@ -113,6 +114,13 @@ let dealBufferPromise: Promise<void> | null = null;
 const MELD_SRC = "/sounds/tiles/mahjong_tile_3.mp3";
 let meldBuffer: AudioBuffer | null = null;
 let meldBufferPromise: Promise<void> | null = null;
+const DICE_ROLL_SRCS = [
+  "/sounds/roll/roll_two_dice_1.mp3",
+  "/sounds/roll/roll_two_dice_2.mp3",
+  "/sounds/roll/roll_two_dice_3.mp3",
+];
+const diceRollBuffers: (AudioBuffer | null)[] = [null, null, null];
+let diceRollBuffersPromise: Promise<void> | null = null;
 
 async function preloadDiscardBuffers(c: AudioContext): Promise<void> {
   await Promise.all(
@@ -154,6 +162,19 @@ function playPeng(c: AudioContext): void {
 
 function playGang(c: AudioContext): void {
   playMeld(c);
+}
+
+function playDiceRoll(c: AudioContext): void {
+  const buf = diceRollBuffers[Math.floor(Math.random() * diceRollBuffers.length)];
+  if (buf) {
+    const src = c.createBufferSource();
+    src.buffer = buf;
+    src.connect(master!);
+    src.start();
+    return;
+  }
+  void preloadDiceRollBuffers(c);
+  playPass(c);
 }
 
 function playWin(c: AudioContext): void {
@@ -252,6 +273,24 @@ async function preloadMeldBuffer(c: AudioContext): Promise<void> {
   await meldBufferPromise;
 }
 
+async function preloadDiceRollBuffers(c: AudioContext): Promise<void> {
+  if (diceRollBuffers.every(Boolean)) return;
+  if (!diceRollBuffersPromise) {
+    diceRollBuffersPromise = Promise.all(
+      DICE_ROLL_SRCS.map(async (src, i) => {
+        if (diceRollBuffers[i]) return;
+        try {
+          const res = await fetch(src);
+          diceRollBuffers[i] = await c.decodeAudioData(await res.arrayBuffer());
+        } catch {
+          // 静默失败，保留合成回退
+        }
+      }),
+    ).then(() => undefined);
+  }
+  await diceRollBuffersPromise;
+}
+
 // ── 主播放入口 ────────────────────────────────────────────
 
 export function playSound(name: SoundName): void {
@@ -261,6 +300,7 @@ export function playSound(name: SoundName): void {
   const fn: Record<SoundName, (c: AudioContext) => void> = {
     discard: playDiscard,
     draw: playDraw,
+    diceRoll: playDiceRoll,
     peng: playPeng,
     gang: playGang,
     win: playWin,
@@ -277,4 +317,18 @@ export function playSound(name: SoundName): void {
     return;
   }
   run();
+}
+
+export function preloadSound(name: SoundName): void {
+  const c = getCtx();
+  if (!c) return;
+  if (name === "diceRoll") {
+    void preloadDiceRollBuffers(c);
+  } else if (name === "deal") {
+    void preloadDealBuffer(c);
+  } else if (name === "discard") {
+    void preloadDiscardBuffers(c);
+  } else if (name === "peng" || name === "gang") {
+    void preloadMeldBuffer(c);
+  }
 }

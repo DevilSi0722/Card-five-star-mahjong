@@ -360,7 +360,7 @@ function makeActionAnnouncement(playerId: PlayerId, text: string): ActionAnnounc
 
 const initialPlayers = createPlayers();
 const DISCARD_TO_DRAW_DELAY_MS = 420;
-const DICE_ROLL_DURATION_MS = 1550;
+const DICE_ROLL_DURATION_MS = 2800;
 const INITIAL_DEAL_FIRST_STEP_DELAY_MS = 180;
 const INITIAL_DEAL_STEP_DELAY_MS = 360;
 const INITIAL_DEAL_COUNTS: Record<PlayerId, number[]> = {
