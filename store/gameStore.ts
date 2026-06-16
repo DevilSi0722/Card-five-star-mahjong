@@ -1212,9 +1212,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       reactionPasses: [],
       logs: pushLog(
         state.logs,
-        buyHorseTile
-          ? `${result.title}，买马 ${buyHorseTiles.map((tile) => TILE_KIND_LABEL[tile.kind]).join("、")} +${result.buyHorse?.bonus ?? 0}`
-          : result.title,
+        // 顶部日志先只显示本局结论，买马明细留到动画和结算面板再展示。
+        result.title,
       ),
       actionNonce: state.actionNonce + 1,
     });
