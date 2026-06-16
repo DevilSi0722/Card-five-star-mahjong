@@ -167,6 +167,7 @@ export type NetGameSnapshot = Pick<
   | "roundResult"
   | "roundStartScores"
   | "roundScoreNotes"
+  | "actionAnnouncement"
   | "logs"
   | "actionNonce"
   | "supplementContext"

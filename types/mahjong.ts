@@ -102,6 +102,17 @@ export interface FanItem {
   fan: number;
 }
 
+export interface AnnouncementBadge {
+  playerId: PlayerId;
+  text: string;
+  tone: "winner" | "loser";
+}
+
+export interface ActionAnnouncement {
+  id: number;
+  badges: AnnouncementBadge[];
+}
+
 export type WinMethod = "zimo" | "discard" | "qianggang" | "gangshang";
 
 export interface MeldGroup {
@@ -198,6 +209,8 @@ export interface GameState {
   roundStartScores: Record<PlayerId, number>;
   /** 本局中途即时结算的计分说明，例如杠分。 */
   roundScoreNotes: Record<PlayerId, string[]>;
+  /** 最近一次碰/杠/亮倒文字特效事件。 */
+  actionAnnouncement?: ActionAnnouncement;
   logs: string[];
   actionNonce: number;
   canHumanLiangDao: boolean;

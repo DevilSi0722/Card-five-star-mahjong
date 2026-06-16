@@ -100,7 +100,37 @@ function crack(c: AudioContext, peak: number, filterFreq: number, release: numbe
 
 // ── 各音效合成函数 ───────────────────────────────────────
 
+const DISCARD_SRCS = [
+  "/sounds/tiles/mahjong_tile_1.mp3",
+  "/sounds/tiles/mahjong_tile_2.mp3",
+  "/sounds/tiles/mahjong_tile_3.mp3",
+  "/sounds/tiles/mahjong_tile_4.mp3",
+];
+const discardBuffers: (AudioBuffer | null)[] = [null, null, null, null];
+
+async function preloadDiscardBuffers(c: AudioContext): Promise<void> {
+  await Promise.all(
+    DISCARD_SRCS.map(async (src, i) => {
+      if (discardBuffers[i]) return;
+      try {
+        const res = await fetch(src);
+        discardBuffers[i] = await c.decodeAudioData(await res.arrayBuffer());
+      } catch { /* 静默失败，回退合成音 */ }
+    })
+  );
+}
+
 function playDiscard(c: AudioContext): void {
+  const buf = discardBuffers[Math.floor(Math.random() * discardBuffers.length)];
+  if (buf) {
+    const src = c.createBufferSource();
+    src.buffer = buf;
+    src.connect(master!);
+    src.start();
+    return;
+  }
+  // 尚未加载完毕时回退合成音，并触发一次预加载
+  void preloadDiscardBuffers(c);
   const t = now();
   crack(c, 0.9, 1800, 0.07, t);
   tone(c, 220, "sine", 0.25, 0.001, 0.08, t);

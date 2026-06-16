@@ -14,7 +14,7 @@ import { TingInfoBar } from "./TingInfoBar";
 import { HumanHandOverlay } from "./HumanHandOverlay";
 import { BuyHorseRevealOverlay } from "./BuyHorseRevealOverlay";
 import { SettlementModal } from "./SettlementModal";
-import { WinAnnouncementOverlay } from "./WinAnnouncementOverlay";
+import { ANNOUNCEMENT_STEP_MS, getWinAnnouncementStepCount, WinAnnouncementOverlay } from "./WinAnnouncementOverlay";
 
 export function MahjongGame() {
   const { width, height, isMobileLandscape } = useResponsiveGameLayout();
@@ -23,8 +23,11 @@ export function MahjongGame() {
   const selectedTileId = useGameStore((state) => state.selectedTileId);
   const selectTile = useGameStore((state) => state.selectTile);
   const netRole = useGameStore((state) => state.netRole);
+  const actionAnnouncement = useGameStore((state) => state.actionAnnouncement);
   const [showSettlement, setShowSettlement] = useState(false);
   const [showAnnouncement, setShowAnnouncement] = useState(false);
+  const [winAnnouncementStep, setWinAnnouncementStep] = useState(0);
+  const [activeActionAnnouncement, setActiveActionAnnouncement] = useState(actionAnnouncement);
   useAiTurn();
   useNetBridge();
   useSoundEffects();
@@ -61,15 +64,18 @@ export function MahjongGame() {
     if (!roundResult) {
       setShowSettlement(false);
       setShowAnnouncement(false);
+      setWinAnnouncementStep(0);
       return undefined;
     }
 
     // 有赢家时先在其座位弹出文字特效，再进入买马/结算；流局无赢家则跳过。
     const hasWinner = Boolean(roundResult.winnerId || (roundResult.winDetails?.length ?? 0) > 0);
-    const ANNOUNCEMENT_MS = 2200;
+    const stepCount = getWinAnnouncementStepCount(roundResult);
+    const announcementMs = Math.max(ANNOUNCEMENT_STEP_MS, stepCount * ANNOUNCEMENT_STEP_MS);
 
     const proceed = () => {
       setShowAnnouncement(false);
+      setWinAnnouncementStep(0);
       if (!roundResult.buyHorse) {
         setShowSettlement(true);
         return;
@@ -81,11 +87,19 @@ export function MahjongGame() {
 
     let buyHorseTimer: number | undefined;
     let announcementTimer: number | undefined;
+    let stepTimer: number | undefined;
 
     setShowSettlement(false);
     if (hasWinner) {
+      setActiveActionAnnouncement(undefined);
       setShowAnnouncement(true);
-      announcementTimer = window.setTimeout(proceed, ANNOUNCEMENT_MS);
+      setWinAnnouncementStep(0);
+      if (stepCount > 1) {
+        stepTimer = window.setInterval(() => {
+          setWinAnnouncementStep((current) => Math.min(current + 1, stepCount - 1));
+        }, ANNOUNCEMENT_STEP_MS);
+      }
+      announcementTimer = window.setTimeout(proceed, announcementMs);
     } else {
       setShowAnnouncement(false);
       proceed();
@@ -93,9 +107,24 @@ export function MahjongGame() {
 
     return () => {
       if (announcementTimer) window.clearTimeout(announcementTimer);
+      if (stepTimer) window.clearInterval(stepTimer);
       if (buyHorseTimer) window.clearTimeout(buyHorseTimer);
     };
   }, [roundResult]);
+
+  useEffect(() => {
+    if (!actionAnnouncement || roundResult) return;
+    setActiveActionAnnouncement(actionAnnouncement);
+  }, [actionAnnouncement, roundResult]);
+
+  useEffect(() => {
+    if (!activeActionAnnouncement || roundResult) {
+      if (roundResult) setActiveActionAnnouncement(undefined);
+      return undefined;
+    }
+    const timer = window.setTimeout(() => setActiveActionAnnouncement(undefined), ANNOUNCEMENT_STEP_MS);
+    return () => window.clearTimeout(timer);
+  }, [activeActionAnnouncement, roundResult]);
 
   return (
     <main
@@ -116,7 +145,12 @@ export function MahjongGame() {
       <HumanHandOverlay />
       <AmbientLights />
       <TingInfoBar />
-      {roundResult && showAnnouncement ? <WinAnnouncementOverlay key={roundResult.title} result={roundResult} /> : null}
+      {activeActionAnnouncement && !roundResult && !showAnnouncement ? (
+        <WinAnnouncementOverlay announcement={activeActionAnnouncement} />
+      ) : null}
+      {roundResult && showAnnouncement ? (
+        <WinAnnouncementOverlay key={`${roundResult.title}-${winAnnouncementStep}`} result={roundResult} step={winAnnouncementStep} />
+      ) : null}
       {roundResult?.buyHorse && !showSettlement && !showAnnouncement ? <BuyHorseRevealOverlay result={roundResult.buyHorse} /> : null}
       {roundResult && showSettlement ? <SettlementModal result={roundResult} /> : null}
     </main>

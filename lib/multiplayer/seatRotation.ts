@@ -80,6 +80,21 @@ function mapPlayerId(id: PlayerId | undefined, viewerSeat: EngineSeatId): Player
   return id ? realToDisplaySeat(id, viewerSeat) : undefined;
 }
 
+function rotateActionAnnouncement(
+  announcement: NetGameSnapshot["actionAnnouncement"],
+  viewerSeat: EngineSeatId,
+): NetGameSnapshot["actionAnnouncement"] {
+  return announcement
+    ? {
+        ...announcement,
+        badges: announcement.badges.map((badge) => ({
+          ...badge,
+          playerId: realToDisplaySeat(badge.playerId, viewerSeat),
+        })),
+      }
+    : undefined;
+}
+
 /**
  * 把房主权威引擎状态裁剪 + 旋转成「某观察者视角」的可发布快照。
  * 观察者永远坐在底部（human），看不到他人暗手牌与牌墙具体牌面。
@@ -134,6 +149,7 @@ export function cropSnapshotForSeat(
     roundResult,
     roundStartScores,
     roundScoreNotes,
+    actionAnnouncement: rotateActionAnnouncement(state.actionAnnouncement, viewerSeat),
     logs: state.logs,
     actionNonce: state.actionNonce,
     supplementContext: state.supplementContext,

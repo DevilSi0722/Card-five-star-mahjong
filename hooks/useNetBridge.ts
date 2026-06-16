@@ -39,6 +39,7 @@ function extractSnapshot(state: ReturnType<typeof useGameStore.getState>): NetGa
     roundResult: state.roundResult,
     roundStartScores: state.roundStartScores,
     roundScoreNotes: state.roundScoreNotes,
+    actionAnnouncement: state.actionAnnouncement,
     logs: state.logs,
     actionNonce: state.actionNonce,
     supplementContext: state.supplementContext,
@@ -215,7 +216,7 @@ export function useNetBridge() {
       // 重连恢复完成前不能把 configureNet 后的空初始状态覆盖到 Firestore。
       if (state.phase === "ready" && state.wall.length === 0) return;
       // 仅在「有意义的对局变化」时发布，跳过选牌/悬浮等纯 UI 变化，降低 Firestore 写入量。
-      const signature = `${state.actionNonce}|${state.phase}|${state.roundResult ? "r" : "-"}`;
+      const signature = `${state.actionNonce}|${state.phase}|${state.roundResult ? "r" : "-"}|${state.actionAnnouncement?.id ?? "-"}`;
       if (signature === lastPublishSigRef.current) return;
       lastPublishSigRef.current = signature;
 

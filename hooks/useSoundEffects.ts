@@ -29,24 +29,8 @@ export function useSoundEffects(): void {
     // 首次挂载时不补播历史最后一条（避免重连/重挂载误触发）。
     if (isFirst) return;
 
-    if (/新局开始/.test(latest)) {
-      playSound("deal");
-    } else if (/胡|自摸|杠上开花|抢杠胡|一炮双响/.test(latest)) {
-      playSound("win");
-    } else if (/亮倒/.test(latest)) {
-      playSound("liangdao");
-    } else if (/杠/.test(latest)) {
-      playSound("gang");
-    } else if (/碰/.test(latest)) {
-      playSound("peng");
-    } else if (/打出/.test(latest)) {
+    if (/打出/.test(latest)) {
       playSound("discard");
-    } else if (/摸牌/.test(latest)) {
-      playSound("draw");
-    } else if (/过$/.test(latest)) {
-      playSound("pass");
-    } else if (/流局/.test(latest)) {
-      playSound("liuju");
     }
   }, [logs]);
 }

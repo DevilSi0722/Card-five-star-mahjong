@@ -13,6 +13,7 @@ import type {
   TileKind,
   WinMethod,
   WinResult,
+  ActionAnnouncement,
 } from "@/types/mahjong";
 import { createTileSet, sortTiles, TILE_KIND_LABEL } from "@/utils/mahjong/tiles";
 import { shuffle } from "@/utils/mahjong/shuffle";
@@ -347,6 +348,16 @@ function shouldBuyOneGetOne(tile: TileInstance): boolean {
   return tile.rank === 1 && (tile.suit === "dot" || tile.suit === "bamboo");
 }
 
+let actionAnnouncementId = 0;
+
+function makeActionAnnouncement(playerId: PlayerId, text: string): ActionAnnouncement {
+  actionAnnouncementId += 1;
+  return {
+    id: actionAnnouncementId,
+    badges: [{ playerId, text, tone: "winner" }],
+  };
+}
+
 const initialPlayers = createPlayers();
 const DISCARD_TO_DRAW_DELAY_MS = 420;
 
@@ -430,6 +441,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       dealerId: "human",
       phase: "ready",
       roundResult: undefined,
+      actionAnnouncement: undefined,
       pendingReactions: undefined,
       pendingBuGang: undefined,
       reactionPasses: [],
@@ -464,6 +476,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       pendingReactions: snapshot.pendingReactions,
       pendingBuGang: snapshot.pendingBuGang,
       roundResult: snapshot.roundResult,
+      actionAnnouncement: snapshot.actionAnnouncement,
       roundStartScores: snapshot.roundStartScores ?? playerScores(snapshot.players),
       roundScoreNotes: snapshot.roundScoreNotes ?? emptyRoundScoreNotes(),
       supplementContext: snapshot.supplementContext,
@@ -538,6 +551,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       pendingBuGang: undefined,
       selectedTileId: undefined,
       roundResult: undefined,
+      actionAnnouncement: undefined,
       supplementContext: undefined,
       canHumanLiangDao: updateHumanLiangDaoHint(dealt.human),
       gangCount: 0,
@@ -562,6 +576,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         phase: "draw",
         roundResult: result,
         logs: pushLog(state.logs, "牌墙摸空，流局"),
+        actionAnnouncement: undefined,
+        actionNonce: state.actionNonce + 1,
       });
       return;
     }
@@ -586,6 +602,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       supplementContext: undefined,
       canHumanLiangDao: playerId === "human" ? updateHumanLiangDaoHint(players.human) : state.canHumanLiangDao,
       logs: pushLog(state.logs, `${player.name} 摸牌`),
+      actionAnnouncement: undefined,
       actionNonce: state.actionNonce + 1,
     });
   },
@@ -616,6 +633,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         selectedTileId: undefined,
         canHumanLiangDao: false,
         logs: pushLog(state.logs, `${player.name} 打出 ${TILE_KIND_LABEL[tile.kind]}`),
+        actionAnnouncement: undefined,
         actionNonce: state.actionNonce + 1,
       });
       return;
@@ -632,6 +650,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }
       set({
         logs: pushLog(state.logs, `${TILE_KIND_LABEL[tile.kind]} 是 ${forbiddenOwner.name} 的亮倒听牌，不能打出`),
+        actionAnnouncement: undefined,
         actionNonce: state.actionNonce + 1,
       });
       return;
@@ -661,6 +680,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       canHumanLiangDao: false,
       supplementContext: state.supplementContext,
       logs: pushLog(state.logs, `${player.name} 打出 ${TILE_KIND_LABEL[tile.kind]}`),
+      actionAnnouncement: undefined,
       actionNonce: state.actionNonce + 1,
     });
 
@@ -679,6 +699,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({
       reactionPasses: Array.from(new Set([...state.reactionPasses, playerId])),
       logs: pushLog(state.logs, `${state.players[playerId].name} 过`),
+      actionAnnouncement: undefined,
       actionNonce: state.actionNonce + 1,
     });
     get().resolveReactions();
@@ -729,6 +750,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       reactionPasses: [],
       lastDiscard: undefined,
       logs: pushLog(state.logs, `${player.name} 碰 ${TILE_KIND_LABEL[kind]}`),
+      actionAnnouncement: makeActionAnnouncement(playerId, "碰"),
       actionNonce: state.actionNonce + 1,
     });
   },
@@ -777,7 +799,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     if (!supplement) {
       const result = normalizeRoundResult(scoreDraw(players), state.roundStartScores);
-      set({ players: applyRoundResult(players, result), wall, phase: "draw", roundResult: result, logs: pushLog(state.logs, "杠后无牌，流局") });
+      set({
+        players: applyRoundResult(players, result),
+        wall,
+        phase: "draw",
+        roundResult: result,
+        actionAnnouncement: undefined,
+        logs: pushLog(state.logs, "杠后无牌，流局"),
+        actionNonce: state.actionNonce + 1,
+      });
       return;
     }
 
@@ -811,6 +841,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           ? `${player.name} 杠 ${TILE_KIND_LABEL[kind]}（${gang.label}），补摸一张`
           : `${player.name} 杠 ${TILE_KIND_LABEL[kind]}，补摸一张`,
       ),
+      actionAnnouncement: makeActionAnnouncement(playerId, "杠"),
       actionNonce: state.actionNonce + 1,
     });
   },
@@ -852,6 +883,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         players: applyRoundResult(players, result),
         phase: "draw",
         roundResult: result,
+        actionAnnouncement: undefined,
         logs: pushLog(state.logs, "暗杠后无牌，流局"),
         actionNonce: state.actionNonce + 1,
       });
@@ -880,6 +912,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           ? `${player.name} 暗杠 ${TILE_KIND_LABEL[tileType]}（${gang.label}），补摸一张`
           : `${player.name} 暗杠 ${TILE_KIND_LABEL[tileType]}，补摸一张`,
       ),
+      actionAnnouncement: makeActionAnnouncement(playerId, "杠"),
       actionNonce: state.actionNonce + 1,
     });
   },
@@ -920,6 +953,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         phase: "responding",
         reactionPasses: [],
         logs: pushLog(state.logs, `${player.name} 补杠 ${TILE_KIND_LABEL[kind]}，等待抢杠胡`),
+        actionAnnouncement: makeActionAnnouncement(playerId, "杠"),
         actionNonce: state.actionNonce + 1,
       });
       return;
@@ -947,6 +981,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         pendingReactions: undefined,
         reactionPasses: [],
         logs: pushLog(state.logs, "补杠后无牌，流局"),
+        actionAnnouncement: undefined,
         actionNonce: state.actionNonce + 1,
       });
       return;
@@ -965,6 +1000,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       roundScoreNotes: scored.notes,
       supplementContext: "gangshang",
       logs: scored.logs,
+      actionAnnouncement: makeActionAnnouncement(playerId, "杠"),
       actionNonce: state.actionNonce + 1,
     });
   },
@@ -983,6 +1019,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (forbiddenOwner) {
       set({
         logs: pushLog(state.logs, `${TILE_KIND_LABEL[tile.kind]} 是 ${forbiddenOwner.name} 的亮倒听牌，不能亮倒打出`),
+        actionAnnouncement: undefined,
         actionNonce: state.actionNonce + 1,
       });
       return;
@@ -1001,9 +1038,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({
       players,
       logs: pushLog(state.logs, `${player.name} 亮倒，听 ${waits.map((kind) => TILE_KIND_LABEL[kind]).join("、")}`),
+      actionAnnouncement: undefined,
       actionNonce: state.actionNonce + 1,
     });
     get().discardTile(playerId, discardTileId);
+    set({ actionAnnouncement: makeActionAnnouncement(playerId, "亮倒") });
   },
 
   claimHu: (playerId) => {
@@ -1071,6 +1110,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           phase: "draw",
           roundResult: result,
           logs: pushLog(state.logs, "无人抢杠胡，补杠后无牌，流局"),
+          actionAnnouncement: undefined,
           actionNonce: state.actionNonce + 1,
         });
         return;
@@ -1094,6 +1134,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         phase: "playing",
         supplementContext: "gangshang",
         logs: scored.logs,
+        actionAnnouncement: makeActionAnnouncement(playerId, "杠"),
         actionNonce: state.actionNonce + 1,
       });
       return;
@@ -1105,6 +1146,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       reactionPasses: [],
       phase: "dealing",
       supplementContext: undefined,
+      actionAnnouncement: undefined,
       actionNonce: state.actionNonce + 1,
     });
     get().nextTurn(DISCARD_TO_DRAW_DELAY_MS);
@@ -1215,6 +1257,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         // 顶部日志先只显示本局结论，买马明细留到动画和结算面板再展示。
         result.title,
       ),
+      actionAnnouncement: undefined,
       actionNonce: state.actionNonce + 1,
     });
   },
@@ -1257,6 +1300,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         pendingBuGang: undefined,
         reactionPasses: [],
         logs: pushLog(state.logs, result.title),
+        actionAnnouncement: undefined,
         actionNonce: state.actionNonce + 1,
       });
       return;
@@ -1305,6 +1349,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       pendingBuGang: undefined,
       reactionPasses: [],
       logs: pushLog(state.logs, result.title),
+      actionAnnouncement: undefined,
       actionNonce: state.actionNonce + 1,
     });
   },
@@ -1319,6 +1364,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       pendingBuGang: undefined,
       reactionPasses: [],
       logs: pushLog(state.logs, `${state.players[playerId].name} 无可安全出牌，流局`),
+      actionAnnouncement: undefined,
       actionNonce: state.actionNonce + 1,
     });
   },
