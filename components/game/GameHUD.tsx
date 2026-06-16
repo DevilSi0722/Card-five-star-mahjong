@@ -442,7 +442,7 @@ export function GameHUD() {
         </>
       ) : null}
       <div className="flex items-start justify-between gap-3">
-        <div className={`pointer-events-auto flex ${isMobileLandscape ? "flex-col items-start gap-1.5" : "items-start gap-2"}`}>
+        <div className={`pointer-events-auto flex ${isMobileLandscape ? "flex-col items-start gap-1.5" : "flex-col items-start gap-2"}`}>
           <div
             className={`surface-panel flex items-center rounded-xl ${
               isMobileLandscape ? "gap-1 px-2.5 py-1.5" : "gap-2 px-3.5 py-2"
