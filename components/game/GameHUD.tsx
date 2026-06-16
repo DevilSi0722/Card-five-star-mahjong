@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MouseEvent, type PointerEvent } from "react";
 import { BadgeCheck, CircleDot, LogOut, MessageCircle, RotateCcw, SendHorizontal, Settings, Volume2, VolumeX, X } from "lucide-react";
 import type { Player, PlayerId } from "@/types/mahjong";
 import type { QuickChatMessage, RoomPlayer } from "@/types/multiplayer";
@@ -367,6 +367,7 @@ export function GameHUD() {
   const [quickChatOpen, setQuickChatOpen] = useState(false);
   const [visibleQuickChat, setVisibleQuickChat] = useState<QuickChatMessage | null>(null);
   const lastQuickChatIdRef = useRef<string | null>(null);
+  const lastHudControlPointerActionRef = useRef(0);
   const logPanelRef = useRef<HTMLDivElement>(null);
 
   function handleExit() {
@@ -408,6 +409,24 @@ export function GameHUD() {
     void sendQuickChat(message);
   }
 
+  function handleHudControlPointerDown(event: PointerEvent<HTMLButtonElement>) {
+    event.stopPropagation();
+    if (event.pointerType !== "mouse") event.preventDefault();
+  }
+
+  function handleHudControlPointerUp(event: PointerEvent<HTMLButtonElement>, action: () => void) {
+    event.stopPropagation();
+    if (event.pointerType === "mouse") return;
+    lastHudControlPointerActionRef.current = Date.now();
+    action();
+  }
+
+  function handleHudControlClick(event: MouseEvent<HTMLButtonElement>, action: () => void) {
+    event.stopPropagation();
+    if (Date.now() - lastHudControlPointerActionRef.current < 650) return;
+    action();
+  }
+
   return (
     <div
       className={`pointer-events-none absolute inset-0 flex flex-col justify-between ${
@@ -423,58 +442,74 @@ export function GameHUD() {
         </>
       ) : null}
       <div className="flex items-start justify-between gap-3">
-        <div
-          className={`surface-panel pointer-events-auto flex items-center rounded-xl ${
-            isMobileLandscape ? "gap-1 px-2 py-1" : "gap-2.5 px-3.5 py-2"
-          }`}
-        >
-          <div className={`flex items-center font-semibold text-bone ${isMobileLandscape ? "gap-1 text-[10px]" : "gap-2 text-sm"}`}>
-            <CircleDot className={`${isMobileLandscape ? "h-3 w-3" : "h-4 w-4"} text-jade`} />
-            牌墙剩余 <span className="tabular-nums text-gold-soft">{wall.length}</span> 张
+        <div className={`pointer-events-auto flex ${isMobileLandscape ? "flex-col items-start gap-1.5" : "items-start gap-2"}`}>
+          <div
+            className={`surface-panel flex items-center rounded-xl ${
+              isMobileLandscape ? "gap-1 px-2.5 py-1.5" : "gap-2 px-3.5 py-2"
+            }`}
+          >
+            <div className={`flex items-center font-semibold text-bone ${isMobileLandscape ? "gap-1 text-[10px]" : "gap-2 text-sm"}`}>
+              <CircleDot className={`${isMobileLandscape ? "h-3 w-3" : "h-4 w-4"} text-jade`} />
+              牌墙剩余 <span className="tabular-nums text-gold-soft">{wall.length}</span> 张
+            </div>
           </div>
+          <div
+            className={`flex ${
+              isMobileLandscape
+                ? "flex-col gap-1.5"
+                : "surface-panel items-center gap-2 rounded-xl px-2 py-2"
+            }`}
+          >
           <button
             type="button"
-            onClick={() => setSoundEnabled(!soundEnabled)}
+            onPointerDown={handleHudControlPointerDown}
+            onPointerUp={(event) => handleHudControlPointerUp(event, () => setSoundEnabled(!soundEnabled))}
+            onClick={(event) => handleHudControlClick(event, () => setSoundEnabled(!soundEnabled))}
             className={`inline-flex items-center justify-center rounded-lg border border-white/12 bg-white/5 transition hover:border-gold/40 hover:bg-white/12 hover:text-gold-soft ${
               soundEnabled ? "text-jade" : "text-slate-400"
-            } ${isMobileLandscape ? "h-5 w-5" : "h-7 w-7"}`}
+            } ${isMobileLandscape ? "surface-panel h-8 w-8" : "h-7 w-7"}`}
             aria-label={soundEnabled ? "关闭音效" : "开启音效"}
             title={soundEnabled ? "关闭音效" : "开启音效"}
           >
             {soundEnabled ? (
-              <Volume2 className={isMobileLandscape ? "h-3 w-3" : "h-4 w-4"} />
+              <Volume2 className={isMobileLandscape ? "h-4 w-4" : "h-4 w-4"} />
             ) : (
-              <VolumeX className={isMobileLandscape ? "h-3 w-3" : "h-4 w-4"} />
+              <VolumeX className={isMobileLandscape ? "h-4 w-4" : "h-4 w-4"} />
             )}
           </button>
           <button
             type="button"
-            onClick={() => setSettingsOpen(true)}
+            onPointerDown={handleHudControlPointerDown}
+            onPointerUp={(event) => handleHudControlPointerUp(event, () => setSettingsOpen(true))}
+            onClick={(event) => handleHudControlClick(event, () => setSettingsOpen(true))}
             className={`inline-flex items-center justify-center rounded-lg border border-white/12 bg-white/5 text-slate-200 transition hover:border-gold/40 hover:bg-white/12 hover:text-gold-soft ${
-              isMobileLandscape ? "h-5 w-5" : "h-7 w-7"
+              isMobileLandscape ? "surface-panel h-8 w-8" : "h-7 w-7"
             }`}
             aria-label="设置"
             title="设置"
           >
-            <Settings className={isMobileLandscape ? "h-3 w-3" : "h-4 w-4"} />
+            <Settings className={isMobileLandscape ? "h-4 w-4" : "h-4 w-4"} />
           </button>
           <button
             type="button"
-            onClick={() => setConfirmExit(true)}
+            onPointerDown={handleHudControlPointerDown}
+            onPointerUp={(event) => handleHudControlPointerUp(event, () => setConfirmExit(true))}
+            onClick={(event) => handleHudControlClick(event, () => setConfirmExit(true))}
             className={`inline-flex items-center justify-center rounded-lg border border-white/12 bg-white/5 text-slate-200 transition hover:border-rose-300/40 hover:bg-rose-400/15 hover:text-rose-200 ${
-              isMobileLandscape ? "h-5 w-5" : "h-7 w-7"
+              isMobileLandscape ? "surface-panel h-8 w-8" : "h-7 w-7"
             }`}
             aria-label="退出到主页"
             title="退出到主页"
           >
-            <LogOut className={isMobileLandscape ? "h-3 w-3" : "h-4 w-4"} />
+            <LogOut className={isMobileLandscape ? "h-4 w-4" : "h-4 w-4"} />
           </button>
+          </div>
         </div>
 
-        <div className={`pointer-events-auto grid gap-2 ${isMobileLandscape ? "min-w-[118px]" : "min-w-[168px]"}`}>
+        <div className={`pointer-events-auto grid gap-2 ${isMobileLandscape ? "w-[104px]" : "min-w-[168px]"}`}>
           <div
             className={`surface-panel grid rounded-xl ${
-              isMobileLandscape ? "gap-0.5 px-1.5 py-1.5 text-[10px]" : "gap-1 px-3 py-2.5 text-xs"
+              isMobileLandscape ? "gap-0.5 px-1 py-1.5 text-[10px]" : "gap-1 px-3 py-2.5 text-xs"
             }`}
           >
             {SCORE_PANEL_PLAYER_ORDER.map((playerId) => {
@@ -486,7 +521,7 @@ export function GameHUD() {
                 <div
                   key={player.id}
                   className={`flex items-center justify-between rounded-lg px-1.5 py-1 transition ${
-                    isMobileLandscape ? "gap-1.5" : "gap-3"
+                    isMobileLandscape ? "gap-1" : "gap-3"
                   } ${isCurrent ? "bg-gold/12 ring-1 ring-inset ring-gold/30" : ""}`}
                 >
                   <span className={`flex min-w-0 items-center gap-1.5 ${isCurrent ? "text-bone" : tone.text}`}>
@@ -517,51 +552,35 @@ export function GameHUD() {
         </div>
       </div>
 
-      <div
-        ref={logPanelRef}
-        className={`surface-panel pointer-events-auto fixed left-1/2 z-10 -translate-x-1/2 overflow-auto rounded-xl hud-scrollbar ${
-          isMobileLandscape
-            ? "mobile-landscape-log max-h-[3.9rem] w-[min(232px,30vw)] space-y-0 p-1 text-[10px]"
-            : "top-16 max-h-32 w-[calc(100vw-1.5rem)] space-y-1 p-2 text-xs sm:top-3 sm:w-[min(460px,46vw)]"
-        }`}
-      >
-        {logs.map((log, index) => {
-          const { player, body } = parseLog(log, players);
-          const isLatest = index === logs.length - 1;
-          return (
-            <div
-              key={`${log}-${index}`}
-              className={`flex items-center rounded ${
-                isMobileLandscape ? "gap-1 px-1 leading-4 py-0" : "gap-2 px-1.5 leading-5 py-1"
-              } ${isLatest ? "bg-white/8" : ""}`}
-            >
-              {player ? (
-                <span
-                  className={`inline-flex shrink-0 items-center gap-1 font-semibold ${
-                    isMobileLandscape
-                      ? `text-[9px] ${player.text}`
-                      : `rounded-full border px-1.5 py-0.5 text-[11px] ${player.chip}`
-                  }`}
-                >
-                  <span className={`h-1.5 w-1.5 rounded-full ${player.dot}`} />
-                  {player.name}
-                </span>
-              ) : (
-                <span
-                  className={`inline-flex shrink-0 items-center font-medium text-slate-300 ${
-                    isMobileLandscape
-                      ? "text-[9px]"
-                      : "rounded-full border border-white/15 bg-white/8 px-1.5 py-0.5 text-[11px]"
-                  }`}
-                >
-                  系统
-                </span>
-              )}
-              <span className={eventToneClass(body)}>{body}</span>
-            </div>
-          );
-        })}
-      </div>
+      {!isMobileLandscape ? (
+        <div
+          ref={logPanelRef}
+          className="surface-panel pointer-events-auto fixed left-1/2 top-16 z-10 max-h-32 w-[calc(100vw-1.5rem)] -translate-x-1/2 space-y-1 overflow-auto rounded-none border-gold/40 p-2 text-xs hud-scrollbar sm:top-3 sm:w-[min(460px,46vw)]"
+        >
+          {logs.map((log, index) => {
+            const { player, body } = parseLog(log, players);
+            const isLatest = index === logs.length - 1;
+            return (
+              <div
+                key={`${log}-${index}`}
+                className={`flex items-center gap-2 rounded px-1.5 py-1 leading-5 ${isLatest ? "bg-white/8" : ""}`}
+              >
+                {player ? (
+                  <span className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-0.5 text-[11px] font-semibold ${player.chip}`}>
+                    <span className={`h-1.5 w-1.5 rounded-full ${player.dot}`} />
+                    {player.name}
+                  </span>
+                ) : (
+                  <span className="inline-flex shrink-0 items-center rounded-full border border-white/15 bg-white/8 px-1.5 py-0.5 text-[11px] font-medium text-slate-300">
+                    系统
+                  </span>
+                )}
+                <span className={eventToneClass(body)}>{body}</span>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
 
       <ActionPanel canSelfHu={canSelfHu} anGangKinds={anGangKinds} buGangMelds={buGangMelds} tingOptions={tingOptions} />
       {netRole !== "single" ? (
