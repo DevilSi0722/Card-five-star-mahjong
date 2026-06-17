@@ -150,10 +150,10 @@ export function Lobby({ onStartSingle }: { onStartSingle: () => void }) {
         </button>
       ) : null}
       <div className={`surface-modal relative w-full overflow-y-auto rounded-2xl hud-scrollbar ${
-        isMobileLandscape ? `max-h-[calc(100dvh-1rem)] ${landscapeMaxW} p-4` : "max-w-sm p-6"
+        isMobileLandscape ? `max-h-[calc(100dvh-1rem)] ${landscapeMaxW} p-3` : "max-w-sm p-6"
       }`}>
         <div className="text-center">
-          <div className={`brand-title font-bold ${isMobileLandscape ? "text-2xl" : "text-3xl"}`}>卡五星麻将</div>
+          <div className={`brand-title font-bold ${isMobileLandscape ? "text-xl" : "text-3xl"}`}>卡五星麻将</div>
           {isMobileLandscape && view !== "home" ? null : (
             <div className="mt-1 text-xs tracking-[0.3em] text-slate-400">3D 在线对战</div>
           )}
@@ -245,8 +245,8 @@ export function Lobby({ onStartSingle }: { onStartSingle: () => void }) {
 
             // 横屏：顶部横条「昵称 + 标签页」并排，表单占满整宽，返回在底；竖屏：单列堆叠
             return isMobileLandscape ? (
-              <div className="mt-3 grid gap-3">
-                <div className="grid grid-cols-[1fr_1fr] items-end gap-3">
+              <div className="mt-2 grid gap-2">
+                <div className="grid grid-cols-[1fr_1fr] items-end gap-2">
                   <NameField />
                   {tabs}
                 </div>
