@@ -17,12 +17,7 @@ import { TurnIndicator3D } from "@/components/three/TurnIndicator3D";
 import { DiceRoll3D } from "@/components/three/DiceRoll3D";
 import { ALL_TILE_TEXTURE_SRCS } from "@/utils/mahjong/tileTextures";
 import { useResponsiveGameLayout } from "@/hooks/useResponsiveGameLayout";
-import {
-  physicsSpawnOffsetZ,
-  physicsTableOffsetZ,
-  tableGroupPosition,
-  tableGroupScale,
-} from "@/components/three/tableSceneLayout";
+import { getTableSceneLayout } from "@/components/three/tableSceneLayout";
 
 // 启动即预加载全部牌面贴图，避免游戏中途首次加载触发 Suspense 导致画面闪黑
 useTexture.preload(ALL_TILE_TEXTURE_SRCS);
@@ -125,10 +120,7 @@ export function GameCanvas() {
       dealRevealCounts.ai_left < players.ai_left.hand.length ||
       dealRevealCounts.ai_right < players.ai_right.hand.length);
   const turnIndicatorActive = phase !== "settled" && phase !== "draw" && !initialDealInProgress && !rollingDice;
-  const tablePosition = tableGroupPosition(isMobileLandscape);
-  const tableScale = tableGroupScale(isMobileLandscape);
-  const physicsOffsetZ = physicsTableOffsetZ(isMobileLandscape);
-  const physicsSpawnOffset = physicsSpawnOffsetZ(isMobileLandscape);
+  const tableLayout = getTableSceneLayout(isMobileLandscape);
 
   return (
     <Canvas
@@ -149,8 +141,8 @@ export function GameCanvas() {
       <Suspense fallback={<LoadingTableFallback />}>
         <TileTextureWarmup />
         <group
-          position={tablePosition}
-          scale={tableScale}
+          position={tableLayout.position}
+          scale={tableLayout.scale}
         >
           <MahjongTable tableclothId={tableclothId} />
           <DiceRoll3D active={rollingDice} />
@@ -201,8 +193,8 @@ export function GameCanvas() {
               key="discard-physics"
               players={[players.human, players.ai_left, players.ai_right]}
               mobileLandscape={isMobileLandscape}
-              tableOffsetZ={physicsOffsetZ}
-              spawnOffsetZ={physicsSpawnOffset}
+              tableOffsetZ={tableLayout.physicsTableOffsetZ}
+              spawnOffsetZ={tableLayout.physicsSpawnOffsetZ}
             />
           ) : (
             <>

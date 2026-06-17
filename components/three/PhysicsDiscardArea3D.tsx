@@ -20,8 +20,6 @@ const BODY_Y = TABLE_Y + TILE_HALF_HEIGHT + 0.025;
 // 桌面可活动边界。调小会让牌更早撞墙停在中心附近；调大会允许牌滑得更远。
 const TABLE_HALF_WIDTH = 3.12;
 const TABLE_HALF_LENGTH = 2.32;
-// 四周隐形挡墙厚度。主要防止牌滑出桌面，通常不需要频繁调整。
-const WALL_THICKNESS = 0.12;
 // 出牌出生点离桌边的安全距离。必须大于牌的半长/半宽，避免刚体一生成就卡进挡墙。
 const SPAWN_EDGE_PADDING = Math.max(TILE_HALF_WIDTH, TILE_HALF_LENGTH) + 0.38;
 // 桌面摩擦力：现实麻将桌的主要摩擦来源。越大，牌贴桌面滑动时越快减速。
@@ -167,23 +165,6 @@ function TableColliders({ tableOffsetZ }: { tableOffsetZ: number }) {
         position={[0, TABLE_Y - 0.035, tableOffsetZ]}
         args={[TABLE_HALF_WIDTH, 0.035, TABLE_HALF_LENGTH]}
         friction={TABLE_FRICTION}
-      />
-      {/* 四周隐形挡墙。主要影响牌是否会滑出桌面，以及撞墙后是否回弹到中心。 */}
-      <CuboidCollider
-        position={[0, BODY_Y, -TABLE_HALF_LENGTH - WALL_THICKNESS + tableOffsetZ]}
-        args={[TABLE_HALF_WIDTH, 0.18, WALL_THICKNESS]}
-      />
-      <CuboidCollider
-        position={[0, BODY_Y, TABLE_HALF_LENGTH + WALL_THICKNESS + tableOffsetZ]}
-        args={[TABLE_HALF_WIDTH, 0.18, WALL_THICKNESS]}
-      />
-      <CuboidCollider
-        position={[-TABLE_HALF_WIDTH - WALL_THICKNESS, BODY_Y, tableOffsetZ]}
-        args={[WALL_THICKNESS, 0.18, TABLE_HALF_LENGTH]}
-      />
-      <CuboidCollider
-        position={[TABLE_HALF_WIDTH + WALL_THICKNESS, BODY_Y, tableOffsetZ]}
-        args={[WALL_THICKNESS, 0.18, TABLE_HALF_LENGTH]}
       />
     </>
   );

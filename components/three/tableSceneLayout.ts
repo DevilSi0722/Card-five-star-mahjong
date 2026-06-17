@@ -16,6 +16,13 @@ export interface HandTransform {
   rotation: Vec3;
 }
 
+export interface TableSceneLayout {
+  position: Vec3;
+  scale: Vec3;
+  physicsTableOffsetZ: number;
+  physicsSpawnOffsetZ: number;
+}
+
 const MOBILE_TABLE_GROUP_Z = -0.86;
 const DESKTOP_TABLE_GROUP_Z = -0.95;
 const MOBILE_TABLE_SCALE = 1.25;
@@ -23,6 +30,7 @@ const DESKTOP_TABLE_SCALE = 1.16;
 
 const DESKTOP_REVEALED_BOTTOM_HAND_OFFSET_Z = 0.28;
 const DESKTOP_PHYSICS_SPAWN_RESTORE_Z = -0.77;
+const MOBILE_PHYSICS_SPAWN_RESTORE_Z = -0.38;
 const DESKTOP_SIDE_STANDING_HAND_OFFSET_Z = 0.14;
 
 export function tableGroupPosition(mobileLandscape: boolean): Vec3 {
@@ -39,7 +47,16 @@ export function physicsTableOffsetZ(_mobileLandscape: boolean): number {
 }
 
 export function physicsSpawnOffsetZ(mobileLandscape: boolean): number {
-  return mobileLandscape ? 0 : DESKTOP_PHYSICS_SPAWN_RESTORE_Z;
+  return mobileLandscape ? MOBILE_PHYSICS_SPAWN_RESTORE_Z : DESKTOP_PHYSICS_SPAWN_RESTORE_Z;
+}
+
+export function getTableSceneLayout(mobileLandscape: boolean): TableSceneLayout {
+  return {
+    position: tableGroupPosition(mobileLandscape),
+    scale: tableGroupScale(mobileLandscape),
+    physicsTableOffsetZ: physicsTableOffsetZ(mobileLandscape),
+    physicsSpawnOffsetZ: physicsSpawnOffsetZ(mobileLandscape),
+  };
 }
 
 export function playerHandTransform(seat: Player["seat"], compact: boolean): HandTransform {
