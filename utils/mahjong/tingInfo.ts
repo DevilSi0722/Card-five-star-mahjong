@@ -1,4 +1,4 @@
-import type { Meld, Player, PlayerId, TileInstance, TileKind } from "@/types/mahjong";
+import type { Meld, Player, PlayerId, TileInstance, TileKind, WinMultiplierLimit } from "@/types/mahjong";
 import { analyzeWin, getTingDiscardOptions } from "./handAnalyzer";
 import { calculateFans, capWinMultiplier, multiplyFans } from "./scoring";
 import { ALL_TILE_KINDS, parseTileKind } from "./tiles";
@@ -41,7 +41,7 @@ function visibleCounts(players: Record<PlayerId, Player>, observerId: PlayerId):
 export function getWaitDetails(
   hand13: TileInstance[],
   melds: Meld[],
-  options: { players: Record<PlayerId, Player>; observerId: PlayerId; isLiangDao: boolean },
+  options: { players: Record<PlayerId, Player>; observerId: PlayerId; isLiangDao: boolean; maxWinMultiplier?: WinMultiplierLimit },
 ): WaitDetail[] {
   const seen = visibleCounts(options.players, options.observerId);
   const details: WaitDetail[] = [];
@@ -53,7 +53,7 @@ export function getWaitDetails(
     if (!win.isWin) continue;
 
     const fans = calculateFans(win, { isLiangDao: options.isLiangDao, method: "discard" });
-    const multiplier = capWinMultiplier(multiplyFans(fans));
+    const multiplier = capWinMultiplier(multiplyFans(fans), options.maxWinMultiplier);
     const remaining = Math.max(0, 4 - (seen.get(kind) ?? 0));
     details.push({ kind, remaining, multiplier });
   }

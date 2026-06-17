@@ -103,6 +103,8 @@ export interface FanItem {
   fan: number;
 }
 
+export type WinMultiplierLimit = 8 | 16 | 32 | 64 | null;
+
 export interface AnnouncementBadge {
   playerId: PlayerId;
   text: string;
@@ -234,6 +236,10 @@ export interface GameState {
   baseScore: number;
   /** 下一局底分。 */
   nextBaseScore: number;
+  /** 本局胡牌最大倍率；null 表示无限制。 */
+  maxWinMultiplier: WinMultiplierLimit;
+  /** 下一局胡牌最大倍率；null 表示无限制。 */
+  nextMaxWinMultiplier: WinMultiplierLimit;
   /** 可选拓展玩法：亮倒后自摸胡牌触发买马。 */
   liangDaoZimoBuyHorseEnabled: boolean;
   /** 下一局是否启用「亮倒自摸买马」。 */

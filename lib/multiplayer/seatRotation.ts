@@ -154,6 +154,7 @@ export function cropSnapshotForSeat(
     supplementContext: state.supplementContext,
     gangCount: state.gangCount,
     baseScore: state.baseScore,
+    maxWinMultiplier: state.maxWinMultiplier,
     liangDaoZimoBuyHorseEnabled: state.liangDaoZimoBuyHorseEnabled,
     // 隐藏牌墙具体牌面，仅保留数量（牌墙剩余张数用于 UI）。
     wall: state.wall.map((_, index) => hiddenTile(`hidden:${viewerSeat}:wall:${index}`)),

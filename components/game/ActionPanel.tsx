@@ -31,7 +31,7 @@ function ActionButton({
   variant?: ActionButtonVariant;
 }) {
   const isPass = label === "过";
-  const isMobileProminent = compact && !isPass;
+  const isProminent = !isPass;
   const prominentToneClass: Record<ActionButtonVariant, string> = {
     winner:
       "action-call-button action-call-button--winner border-gold/75 bg-gradient-to-b from-[#3a2d13]/95 via-[#161b20]/95 to-[#070b12]/95 text-gold-soft shadow-[0_16px_34px_rgba(0,0,0,0.48),0_0_20px_rgba(233,196,106,0.34),inset_0_1px_0_rgba(255,255,255,0.18)] hover:border-gold hover:text-gold",
@@ -43,7 +43,7 @@ function ActionButton({
       "action-call-button action-call-button--liangdao border-sky-200/70 bg-gradient-to-b from-[#0b3147]/95 via-[#0a2233]/95 to-[#04101a]/95 text-sky-100 shadow-[0_16px_34px_rgba(0,0,0,0.48),0_0_20px_rgba(56,189,248,0.34),inset_0_1px_0_rgba(255,255,255,0.18)] hover:border-sky-100 hover:text-sky-50",
   };
   const toneClass =
-    isMobileProminent
+    isProminent
       ? prominentToneClass[variant]
       : tone === "primary"
         ? "border-gold/70 bg-gradient-to-b from-slate-900/90 to-slate-950/90 text-gold-soft shadow-[0_10px_26px_rgba(233,196,106,0.4),0_0_16px_rgba(233,196,106,0.35)] hover:border-gold hover:text-gold"
@@ -54,7 +54,9 @@ function ActionButton({
     ? isPass
       ? "h-11 w-11 text-xl"
       : "h-[68px] w-[68px] text-[2.35rem]"
-    : "h-16 w-16 text-2xl sm:h-[72px] sm:w-[72px] sm:text-3xl";
+    : isPass
+      ? "h-16 w-16 text-2xl sm:h-[72px] sm:w-[72px] sm:text-3xl"
+      : "h-[76px] w-[76px] text-[2.7rem] sm:h-[84px] sm:w-[84px] sm:text-[3rem]";
 
   return (
     <button
@@ -65,7 +67,7 @@ function ActionButton({
       title={label}
       className={`group flex shrink-0 flex-col items-center justify-center rounded-full border-2 font-bold leading-none shadow-panel backdrop-blur-md transition active:scale-90 ${
         sizeClass
-      } ${isMobileProminent ? "tracking-normal" : ""} ${toneClass}`}
+      } ${isProminent ? "tracking-normal" : ""} ${toneClass}`}
     >
       {children}
     </button>

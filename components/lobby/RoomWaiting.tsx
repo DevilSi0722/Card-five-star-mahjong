@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useRoomStore } from "@/store/roomStore";
 import { useResponsiveGameLayout } from "@/hooks/useResponsiveGameLayout";
 import { WIND_DISPLAY_ORDER, WIND_LABEL, type RoomPlayer, type Wind } from "@/types/multiplayer";
+import { formatWinMultiplierLimit } from "@/utils/mahjong/winMultiplierLimit";
 
 function WindSeat({
   wind,
@@ -150,7 +151,7 @@ export function RoomWaiting() {
 
           <div className={isMobileLandscape ? "grid content-start gap-3" : "contents"}>
             {/* 设置摘要 */}
-            <div className={`grid grid-cols-3 gap-2 rounded-xl border border-white/8 bg-white/5 text-center ${isMobileLandscape ? "p-2" : "mt-4 p-3"}`}>
+            <div className={`grid grid-cols-2 gap-2 rounded-xl border border-white/8 bg-white/5 text-center ${isMobileLandscape ? "p-2" : "mt-4 p-3 sm:grid-cols-4"}`}>
               <div>
                 <div className="text-[11px] text-slate-400">局数</div>
                 <div className="text-sm font-semibold text-bone">{room.settings.rounds}</div>
@@ -158,6 +159,12 @@ export function RoomWaiting() {
               <div>
                 <div className="text-[11px] text-slate-400">底分</div>
                 <div className="text-sm font-semibold text-bone">{room.settings.baseScore}</div>
+              </div>
+              <div>
+                <div className="text-[11px] text-slate-400">封顶</div>
+                <div className="text-sm font-semibold text-gold-soft">
+                  {formatWinMultiplierLimit(room.settings.maxWinMultiplier === undefined ? 8 : room.settings.maxWinMultiplier)}
+                </div>
               </div>
               <div>
                 <div className="text-[11px] text-slate-400">买马</div>

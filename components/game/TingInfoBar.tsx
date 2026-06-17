@@ -71,6 +71,7 @@ export function TingInfoBar() {
   const { isMobileLandscape } = useResponsiveGameLayout();
   const players = useGameStore((state) => state.players);
   const phase = useGameStore((state) => state.phase);
+  const maxWinMultiplier = useGameStore((state) => state.maxWinMultiplier);
   const hoveredTileId = useUiStore((state) => state.hoveredTileId);
 
   const human = players.human;
@@ -92,6 +93,7 @@ export function TingInfoBar() {
         players,
         observerId: "human",
         isLiangDao: true,
+        maxWinMultiplier,
       });
       if (waits.length === 0) return null;
       return { title: "已亮倒，听", waits };
@@ -102,6 +104,7 @@ export function TingInfoBar() {
         players,
         observerId: "human",
         isLiangDao: false,
+        maxWinMultiplier,
       });
       if (waits.length > 0) return { title: "已上听，听", waits };
     }
@@ -117,13 +120,14 @@ export function TingInfoBar() {
         players,
         observerId: "human",
         isLiangDao: false,
+        maxWinMultiplier,
       });
       if (waits.length === 0) return null;
       return { title: `打出 ${TILE_KIND_LABEL[tile.kind]} 后听`, waits };
     }
 
     return null;
-  }, [phase, human.isLiangDao, human.hand, human.lastDrawnTileId, human.melds, hoveredTileId, players]);
+  }, [phase, human.isLiangDao, human.hand, human.lastDrawnTileId, human.melds, hoveredTileId, maxWinMultiplier, players]);
 
   if (!info) return null;
 

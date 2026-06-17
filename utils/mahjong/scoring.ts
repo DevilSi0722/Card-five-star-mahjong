@@ -4,6 +4,7 @@ import type {
   Player,
   PlayerId,
   ScoreResult,
+  WinMultiplierLimit,
   WinMethod,
   WinResult,
 } from "@/types/mahjong";
@@ -11,7 +12,8 @@ import { BASE_SCORE } from "./rules";
 
 /** 杠分基础单位。规则给出的 1/2/4 分即以此为单位（设为 1 时与规则数值完全一致）。 */
 export const GANG_UNIT = 1;
-export const WIN_MULTIPLIER_CAP = 8;
+export const GRAND_SLAM_MULTIPLIER = 8;
+export const DEFAULT_WIN_MULTIPLIER_LIMIT: WinMultiplierLimit = 8;
 
 const FAN_META: Record<FanItem["type"], { name: string; fan: number }> = {
   base: { name: "基础胡", fan: 1 },
@@ -41,8 +43,8 @@ export function multiplyFans(fans: FanItem[]): number {
   return fans.reduce((product, item) => product * item.fan, 1);
 }
 
-export function capWinMultiplier(multiplier: number): number {
-  return Math.min(WIN_MULTIPLIER_CAP, multiplier);
+export function capWinMultiplier(multiplier: number, limit: WinMultiplierLimit = DEFAULT_WIN_MULTIPLIER_LIMIT): number {
+  return limit === null ? multiplier : Math.min(limit, multiplier);
 }
 
 export function calculateFans(
@@ -83,6 +85,7 @@ export function scoreWin(options: {
   method: WinMethod;
   win: WinResult;
   baseScore?: number;
+  maxWinMultiplier?: WinMultiplierLimit;
   isGangShangPao?: boolean;
   isHaiDiLao?: boolean;
 }): ScoreResult {
@@ -95,9 +98,12 @@ export function scoreWin(options: {
     isHaiDiLao: options.isHaiDiLao,
   });
   const uncappedTotalFan = multiplyFans(fans);
-  const multiplier = capWinMultiplier(uncappedTotalFan);
+  const multiplier = capWinMultiplier(
+    uncappedTotalFan,
+    options.maxWinMultiplier === undefined ? DEFAULT_WIN_MULTIPLIER_LIMIT : options.maxWinMultiplier,
+  );
   const nonLiangDaoMultiplier = multiplyFans(fans.filter((item) => item.type !== "liangdao"));
-  const isGrandSlam = nonLiangDaoMultiplier >= WIN_MULTIPLIER_CAP;
+  const isGrandSlam = nonLiangDaoMultiplier >= GRAND_SLAM_MULTIPLIER;
   const totalFan = multiplier;
   const baseScore = scoreUnit * multiplier;
   const ids = Object.keys(players) as PlayerId[];

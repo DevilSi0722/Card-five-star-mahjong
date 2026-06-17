@@ -67,7 +67,7 @@ function FixedCamera({ mobileLandscape }: { mobileLandscape: boolean }) {
     } else {
       perspectiveCamera.position.set(0, 6.8, 4.1);
       perspectiveCamera.fov = 40;
-      perspectiveCamera.lookAt(0, 0.12, 0);
+      perspectiveCamera.lookAt(0, 0.36, 0);
     }
     perspectiveCamera.updateProjectionMatrix();
   }, [camera, mobileLandscape]);
@@ -139,7 +139,7 @@ export function GameCanvas() {
       <Suspense fallback={<LoadingTableFallback />}>
         <TileTextureWarmup />
         <group
-          position={isMobileLandscape ? [0, 0, -0.86] : [0, 0, 0]}
+          position={isMobileLandscape ? [0, 0, -0.86] : [0, 0, -0.18]}
           scale={isMobileLandscape ? [1.25, 1.25, 1.25] : [1.16, 1.16, 1.16]}
         >
           <MahjongTable tableclothId={tableclothId} />

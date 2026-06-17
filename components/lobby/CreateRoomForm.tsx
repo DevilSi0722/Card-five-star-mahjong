@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRoomStore } from "@/store/roomStore";
 import { DEFAULT_ROOM_SETTINGS, type RoomSettings } from "@/types/multiplayer";
+import { formatWinMultiplierLimit, WIN_MULTIPLIER_LIMIT_OPTIONS } from "@/utils/mahjong/winMultiplierLimit";
 
 const ROUND_OPTIONS = [1, 4, 8, 16];
 
@@ -68,6 +69,30 @@ export function CreateRoomForm({ compact = false }: { compact?: boolean }) {
             className="h-4 w-4 accent-jade"
           />
         </label>
+
+        <div className={`grid gap-1.5 ${compact ? "col-span-2" : ""}`}>
+          <span className="text-xs font-medium text-slate-300">胡牌倍率封顶</span>
+          <div className="grid grid-cols-5 gap-1.5">
+            {WIN_MULTIPLIER_LIMIT_OPTIONS.map((limit) => {
+              const active = settings.maxWinMultiplier === limit;
+              return (
+                <button
+                  key={limit ?? "unlimited"}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => patch({ maxWinMultiplier: limit })}
+                  className={`h-9 rounded-lg border text-[11px] font-bold transition ${
+                    active
+                      ? "scale-[1.03] border-gold bg-gradient-to-b from-[#f7e6b8] via-gold to-gold-deep text-slate-900 shadow-[0_4px_14px_rgba(233,196,106,0.38)]"
+                      : "border-white/12 bg-slate-900/60 text-slate-300 hover:border-gold/40 hover:text-gold-soft"
+                  }`}
+                >
+                  {formatWinMultiplierLimit(limit)}
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
         <div className="grid gap-1.5">
           <span className="text-xs font-medium text-slate-300">房间号</span>

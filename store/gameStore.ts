@@ -15,6 +15,7 @@ import type {
   WinResult,
   WinHandSnapshot,
   ActionAnnouncement,
+  WinMultiplierLimit,
 } from "@/types/mahjong";
 import { createTileSet, sortTiles, TILE_KIND_LABEL } from "@/utils/mahjong/tiles";
 import { shuffle } from "@/utils/mahjong/shuffle";
@@ -57,7 +58,7 @@ interface GameStore extends GameState {
   /** host 按房间名册修正各座位的玩家类型与昵称（真人座位 type=human，AI 座位 type=ai）。 */
   applyNetRoster: (roster: Partial<Record<EngineSeatId, { name: string; isAi: boolean }>>) => void;
   setNextLiangDaoZimoBuyHorseEnabled: (enabled: boolean) => void;
-  saveNextRoundSettings: (settings: { baseScore: number; liangDaoZimoBuyHorseEnabled: boolean }) => void;
+  saveNextRoundSettings: (settings: { baseScore: number; liangDaoZimoBuyHorseEnabled: boolean; maxWinMultiplier: WinMultiplierLimit }) => void;
   startNewRound: () => void;
   shuffleWall: () => void;
   dealInitialHands: () => void;
@@ -508,6 +509,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   gangCount: 0,
   baseScore: BASE_SCORE,
   nextBaseScore: BASE_SCORE,
+  maxWinMultiplier: 8,
+  nextMaxWinMultiplier: 8,
   liangDaoZimoBuyHorseEnabled: false,
   nextLiangDaoZimoBuyHorseEnabled: false,
   netRole: "single",
@@ -545,6 +548,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       canHumanLiangDao: false,
       gangCount: 0,
       baseScore: BASE_SCORE,
+      maxWinMultiplier: 8,
       liangDaoZimoBuyHorseEnabled: false,
     });
   },
@@ -575,6 +579,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       roundScoreNotes: snapshot.roundScoreNotes ?? emptyRoundScoreNotes(),
       supplementContext: snapshot.supplementContext,
       gangCount: snapshot.gangCount ?? 0,
+      maxWinMultiplier: snapshot.maxWinMultiplier === undefined ? 8 : snapshot.maxWinMultiplier,
       liangDaoZimoBuyHorseEnabled: snapshot.liangDaoZimoBuyHorseEnabled ?? false,
       canHumanLiangDao: updateHumanLiangDaoHint(snapshot.players.human),
     });
@@ -595,10 +600,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({ nextLiangDaoZimoBuyHorseEnabled: enabled });
   },
 
-  saveNextRoundSettings: ({ baseScore, liangDaoZimoBuyHorseEnabled }) => {
+  saveNextRoundSettings: ({ baseScore, liangDaoZimoBuyHorseEnabled, maxWinMultiplier }) => {
     const safeBaseScore = Math.max(1, Math.floor(baseScore));
     set({
       nextBaseScore: safeBaseScore,
+      maxWinMultiplier,
+      nextMaxWinMultiplier: maxWinMultiplier,
       liangDaoZimoBuyHorseEnabled,
       nextLiangDaoZimoBuyHorseEnabled: liangDaoZimoBuyHorseEnabled,
     });
@@ -610,6 +617,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (state.netRole === "guest") return;
     const nextLiangDaoZimoBuyHorseEnabled = get().nextLiangDaoZimoBuyHorseEnabled;
     const nextBaseScore = get().nextBaseScore;
+    const nextMaxWinMultiplier = get().nextMaxWinMultiplier;
     const dealerId = state.roundResult?.winnerId ?? state.dealerId ?? "human";
     const previous = state.players;
     const players = createPlayers(previous, dealerId);
@@ -654,6 +662,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       canHumanLiangDao: updateHumanLiangDaoHint(dealt.human),
       gangCount: 0,
       baseScore: nextBaseScore,
+      maxWinMultiplier: nextMaxWinMultiplier,
       liangDaoZimoBuyHorseEnabled: nextLiangDaoZimoBuyHorseEnabled,
       logs: pushLog([], `新局开始，${dealtWithRoster[dealerId].name} 坐庄先出牌`),
       actionNonce: state.actionNonce + 1,
@@ -1291,6 +1300,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       method,
       win,
       baseScore: state.baseScore,
+      maxWinMultiplier: state.maxWinMultiplier,
       isGangShangPao,
       isHaiDiLao,
     });
@@ -1385,6 +1395,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           method,
           win,
           baseScore: state.baseScore,
+          maxWinMultiplier: state.maxWinMultiplier,
           isGangShangPao,
         });
       scoreResults.push({

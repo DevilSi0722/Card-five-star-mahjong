@@ -1,4 +1,4 @@
-import type { GameState, PlayerId, TileKind } from "./mahjong";
+import type { GameState, PlayerId, TileKind, WinMultiplierLimit } from "./mahjong";
 
 /** 游戏模式：单机 vs 联机。 */
 export type GameMode = "single" | "multiplayer";
@@ -33,6 +33,8 @@ export interface RoomSettings {
   rounds: number;
   /** 底分。 */
   baseScore: number;
+  /** 胡牌最大倍率；null 表示无限制。 */
+  maxWinMultiplier: WinMultiplierLimit;
   /** 是否开启「亮倒自摸买马」。 */
   liangDaoZimoBuyHorse: boolean;
 }
@@ -40,6 +42,7 @@ export interface RoomSettings {
 export const DEFAULT_ROOM_SETTINGS: RoomSettings = {
   rounds: 4,
   baseScore: 1,
+  maxWinMultiplier: 8,
   liangDaoZimoBuyHorse: false,
 };
 
@@ -174,6 +177,7 @@ export type NetGameSnapshot = Pick<
   | "supplementContext"
   | "gangCount"
   | "baseScore"
+  | "maxWinMultiplier"
   | "liangDaoZimoBuyHorseEnabled"
   | "wall"
 >;

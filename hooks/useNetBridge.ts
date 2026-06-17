@@ -46,6 +46,7 @@ function extractSnapshot(state: ReturnType<typeof useGameStore.getState>): NetGa
     supplementContext: state.supplementContext,
     gangCount: state.gangCount,
     baseScore: state.baseScore,
+    maxWinMultiplier: state.maxWinMultiplier,
     liangDaoZimoBuyHorseEnabled: state.liangDaoZimoBuyHorseEnabled,
     wall: state.wall,
   };
@@ -175,6 +176,7 @@ export function useNetBridge() {
     // 先把房间设置写入引擎，再发牌（底分、亮倒自摸买马）。
     store.saveNextRoundSettings({
       baseScore: room.settings.baseScore,
+      maxWinMultiplier: room.settings.maxWinMultiplier === undefined ? 8 : room.settings.maxWinMultiplier,
       liangDaoZimoBuyHorseEnabled: room.settings.liangDaoZimoBuyHorse,
     });
     store.startNewRound();

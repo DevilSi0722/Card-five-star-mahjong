@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type MouseEvent, type PointerEvent } from "react";
 import { BadgeCheck, CircleDot, LogOut, MessageCircle, RotateCcw, SendHorizontal, Settings, Volume2, VolumeX, X } from "lucide-react";
-import type { Player, PlayerId } from "@/types/mahjong";
+import type { Player, PlayerId, WinMultiplierLimit } from "@/types/mahjong";
 import type { QuickChatMessage, RoomPlayer } from "@/types/multiplayer";
 import { WIND_LABEL, type EngineSeatId, type Wind } from "@/types/multiplayer";
 import { useGameStore } from "@/store/gameStore";
@@ -10,6 +10,7 @@ import { useRoomStore } from "@/store/roomStore";
 import { useUiStore } from "@/store/uiStore";
 import { useResponsiveGameLayout } from "@/hooks/useResponsiveGameLayout";
 import { analyzeWin, getAnGangKinds, getTingDiscardOptions } from "@/utils/mahjong/handAnalyzer";
+import { formatWinMultiplierLimit, WIN_MULTIPLIER_LIMIT_OPTIONS } from "@/utils/mahjong/winMultiplierLimit";
 import { ActionPanel } from "./ActionPanel";
 
 // 每个显示座位一套固定配色。多人模式昵称会变化，颜色必须跟座位走，不能跟名字匹配。
@@ -78,27 +79,6 @@ function SideNameTag({
       </div>
     </div>
   );
-}
-
-// 把一条日志拆成「玩家 + 事件正文」，无玩家前缀的视为系统事件
-function parseLog(log: string, players: Record<PlayerId, Player>): { player: (PlayerTone & { name: string }) | null; body: string } {
-  const player = SCORE_PANEL_PLAYER_ORDER
-    .map((id) => ({ ...playerTone(id), name: players[id].name }))
-    .sort((a, b) => b.name.length - a.name.length)
-    .find((candidate) => log.startsWith(candidate.name));
-  if (!player) return { player: null, body: log };
-  return { player, body: log.slice(player.name.length).trim() };
-}
-
-// 根据事件关键字给正文上色，区分不同动作
-function eventToneClass(body: string): string {
-  if (/胡|自摸|杠上开花/.test(body)) return "text-yellow-200 font-semibold";
-  if (/杠/.test(body)) return "text-fuchsia-200";
-  if (/碰/.test(body)) return "text-violet-200";
-  if (/亮倒/.test(body)) return "text-sky-200";
-  if (/流局/.test(body)) return "text-rose-200";
-  if (/打出/.test(body)) return "text-slate-100";
-  return "text-slate-300";
 }
 
 function scoreClass(score: number): string {
@@ -219,18 +199,22 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
   const { isMobileLandscape } = useResponsiveGameLayout();
   const baseScore = useGameStore((state) => state.baseScore);
   const nextBaseScore = useGameStore((state) => state.nextBaseScore);
+  const maxWinMultiplier = useGameStore((state) => state.maxWinMultiplier);
+  const nextMaxWinMultiplier = useGameStore((state) => state.nextMaxWinMultiplier);
   const liangDaoZimoBuyHorseEnabled = useGameStore((state) => state.liangDaoZimoBuyHorseEnabled);
   const saveNextRoundSettings = useGameStore((state) => state.saveNextRoundSettings);
   const netRole = useGameStore((state) => state.netRole);
   const room = useRoomStore((state) => state.room);
   const isMultiplayer = netRole !== "single";
   const [draftBaseScore, setDraftBaseScore] = useState(String(nextBaseScore));
+  const [draftMaxWinMultiplier, setDraftMaxWinMultiplier] = useState<WinMultiplierLimit>(nextMaxWinMultiplier);
   const [draftBuyHorseEnabled, setDraftBuyHorseEnabled] = useState(liangDaoZimoBuyHorseEnabled);
 
   useEffect(() => {
     setDraftBaseScore(String(nextBaseScore));
+    setDraftMaxWinMultiplier(nextMaxWinMultiplier);
     setDraftBuyHorseEnabled(liangDaoZimoBuyHorseEnabled);
-  }, [nextBaseScore, liangDaoZimoBuyHorseEnabled]);
+  }, [nextBaseScore, nextMaxWinMultiplier, liangDaoZimoBuyHorseEnabled]);
 
   function saveSettings() {
     const parsedBaseScore = Number.parseInt(draftBaseScore, 10);
@@ -240,6 +224,7 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
         : Number.isFinite(parsedBaseScore)
           ? parsedBaseScore
           : nextBaseScore,
+      maxWinMultiplier: isMultiplayer ? maxWinMultiplier : draftMaxWinMultiplier,
       liangDaoZimoBuyHorseEnabled: isMultiplayer ? liangDaoZimoBuyHorseEnabled : draftBuyHorseEnabled,
     });
     onClose();
@@ -283,6 +268,10 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
               <span className="font-semibold tabular-nums text-gold-soft">{baseScore}</span>
             </div>
             <div className="flex items-center justify-between text-xs text-slate-400">
+              <span>倍率封顶</span>
+              <span className="font-semibold text-gold-soft">{formatWinMultiplierLimit(maxWinMultiplier)}</span>
+            </div>
+            <div className="flex items-center justify-between text-xs text-slate-400">
               <span>买马</span>
               <span className={liangDaoZimoBuyHorseEnabled ? "font-semibold text-jade" : "text-slate-500"}>
                 {liangDaoZimoBuyHorseEnabled ? "开启" : "关闭"}
@@ -293,7 +282,7 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
           {isMultiplayer ? (
             <div className="grid content-start gap-3">
               <div className="rounded-lg border border-white/12 bg-slate-900/70 px-3 py-2.5 text-xs text-slate-400">
-                底分和亮倒自摸买马由房主创建房间时设置，局内不可修改。
+                底分、倍率封顶和亮倒自摸买马由房主创建房间时设置，局内不可修改。
               </div>
             </div>
           ) : (
@@ -311,6 +300,33 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
                   }`}
                 />
               </label>
+
+              <div className="grid gap-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-medium text-slate-300">倍率封顶</span>
+                  <span className="text-[10px] text-slate-500">本局立即生效</span>
+                </div>
+                <div className="grid grid-cols-5 gap-1.5">
+                  {WIN_MULTIPLIER_LIMIT_OPTIONS.map((limit) => {
+                    const active = draftMaxWinMultiplier === limit;
+                    return (
+                      <button
+                        key={limit ?? "unlimited"}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => setDraftMaxWinMultiplier(limit)}
+                        className={`h-9 rounded-lg border text-[11px] font-bold transition ${
+                          active
+                            ? "scale-[1.03] border-gold bg-gradient-to-b from-[#f7e6b8] via-gold to-gold-deep text-slate-900 shadow-[0_4px_14px_rgba(233,196,106,0.38)]"
+                            : "border-white/12 bg-slate-900/60 text-slate-300 hover:border-gold/40 hover:text-gold-soft"
+                        }`}
+                      >
+                        {formatWinMultiplierLimit(limit)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
 
               <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-white/12 bg-slate-900/70 px-3 py-2.5 text-sm text-slate-200 transition hover:border-white/20">
                 <span>本局亮倒自摸买马</span>
@@ -352,7 +368,6 @@ export function GameHUD() {
   const players = useGameStore((state) => state.players);
   const currentPlayerId = useGameStore((state) => state.currentPlayerId);
   const phase = useGameStore((state) => state.phase);
-  const logs = useGameStore((state) => state.logs);
   const resetRound = useGameStore((state) => state.resetRound);
   const netRole = useGameStore((state) => state.netRole);
   const netWinds = useGameStore((state) => state.netWinds);
@@ -368,7 +383,6 @@ export function GameHUD() {
   const [visibleQuickChat, setVisibleQuickChat] = useState<QuickChatMessage | null>(null);
   const lastQuickChatIdRef = useRef<string | null>(null);
   const lastHudControlPointerActionRef = useRef(0);
-  const logPanelRef = useRef<HTMLDivElement>(null);
 
   function handleExit() {
     if (netRole === "single") backToHome();
@@ -387,11 +401,6 @@ export function GameHUD() {
     visibleQuickChat && room
       ? quickChatSenderSeat(visibleQuickChat, room.players, players, netWinds)
       : null;
-
-  useEffect(() => {
-    const panel = logPanelRef.current;
-    if (panel) panel.scrollTop = panel.scrollHeight;
-  }, [logs]);
 
   useEffect(() => {
     const message = room?.quickChat;
@@ -551,36 +560,6 @@ export function GameHUD() {
           ) : null}
         </div>
       </div>
-
-      {!isMobileLandscape ? (
-        <div
-          ref={logPanelRef}
-          className="surface-panel pointer-events-auto fixed left-1/2 top-16 z-10 max-h-32 w-[calc(100vw-1.5rem)] -translate-x-1/2 space-y-1 overflow-auto rounded-none border-gold/40 p-2 text-xs hud-scrollbar sm:top-3 sm:w-[min(460px,46vw)]"
-        >
-          {logs.map((log, index) => {
-            const { player, body } = parseLog(log, players);
-            const isLatest = index === logs.length - 1;
-            return (
-              <div
-                key={`${log}-${index}`}
-                className={`flex items-center gap-2 rounded px-1.5 py-1 leading-5 ${isLatest ? "bg-white/8" : ""}`}
-              >
-                {player ? (
-                  <span className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-0.5 text-[11px] font-semibold ${player.chip}`}>
-                    <span className={`h-1.5 w-1.5 rounded-full ${player.dot}`} />
-                    {player.name}
-                  </span>
-                ) : (
-                  <span className="inline-flex shrink-0 items-center rounded-full border border-white/15 bg-white/8 px-1.5 py-0.5 text-[11px] font-medium text-slate-300">
-                    系统
-                  </span>
-                )}
-                <span className={eventToneClass(body)}>{body}</span>
-              </div>
-            );
-          })}
-        </div>
-      ) : null}
 
       <ActionPanel canSelfHu={canSelfHu} anGangKinds={anGangKinds} buGangMelds={buGangMelds} tingOptions={tingOptions} />
       {netRole !== "single" ? (
