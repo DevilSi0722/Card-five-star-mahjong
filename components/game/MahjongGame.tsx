@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useGameStore } from "@/store/gameStore";
 import { useAiTurn } from "@/hooks/useAiTurn";
 import { useNetBridge } from "@/hooks/useNetBridge";
 import { useSoundEffects } from "@/hooks/useSoundEffects";
-import { unlockAudio } from "@/lib/audio/soundEngine";
+import { playSound, unlockAudio } from "@/lib/audio/soundEngine";
 import { useResponsiveGameLayout } from "@/hooks/useResponsiveGameLayout";
 import { GameCanvas } from "./GameCanvas";
 import { GameHUD } from "./GameHUD";
@@ -28,6 +28,7 @@ export function MahjongGame() {
   const [showAnnouncement, setShowAnnouncement] = useState(false);
   const [winAnnouncementStep, setWinAnnouncementStep] = useState(0);
   const [activeActionAnnouncement, setActiveActionAnnouncement] = useState(actionAnnouncement);
+  const lastSettlementSoundKeyRef = useRef<string | null>(null);
   useAiTurn();
   useNetBridge();
   useSoundEffects();
@@ -65,6 +66,7 @@ export function MahjongGame() {
       setShowSettlement(false);
       setShowAnnouncement(false);
       setWinAnnouncementStep(0);
+      lastSettlementSoundKeyRef.current = null;
       return undefined;
     }
 
@@ -111,6 +113,14 @@ export function MahjongGame() {
       if (buyHorseTimer) window.clearTimeout(buyHorseTimer);
     };
   }, [roundResult]);
+
+  useEffect(() => {
+    if (!roundResult || !showSettlement) return;
+    const soundKey = `${roundResult.title}-${roundResult.winnerId ?? "draw"}-${roundResult.totalFan ?? 0}`;
+    if (lastSettlementSoundKeyRef.current === soundKey) return;
+    lastSettlementSoundKeyRef.current = soundKey;
+    playSound("settlement");
+  }, [roundResult, showSettlement]);
 
   useEffect(() => {
     if (!actionAnnouncement || roundResult) return;

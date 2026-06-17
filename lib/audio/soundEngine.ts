@@ -15,7 +15,8 @@ export type SoundName =
   | "liangdao" // 亮倒
   | "pass"     // 过
   | "liuju"    // 流局
-  | "deal";    // 新局发牌
+  | "deal"     // 新局发牌
+  | "settlement"; // 结算弹窗
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
@@ -121,6 +122,9 @@ const DICE_ROLL_SRCS = [
 ];
 const diceRollBuffers: (AudioBuffer | null)[] = [null, null, null];
 let diceRollBuffersPromise: Promise<void> | null = null;
+const SETTLEMENT_SRC = "/sounds/riichbet/riich_bets_1.mp3";
+let settlementBuffer: AudioBuffer | null = null;
+let settlementBufferPromise: Promise<void> | null = null;
 
 async function preloadDiscardBuffers(c: AudioContext): Promise<void> {
   await Promise.all(
@@ -244,6 +248,42 @@ function playDealFallback(c: AudioContext): void {
   tone(c, 260, "sine", 0.16, 0.001, 0.06, t);
 }
 
+function playSettlementFallback(c: AudioContext): void {
+  const t = now();
+  tone(c, 392, "sine", 0.28, 0.005, 0.16, t);
+  tone(c, 587, "sine", 0.24, 0.005, 0.2, t + 0.07);
+  tone(c, 784, "sine", 0.18, 0.005, 0.24, t + 0.14);
+}
+
+function playSettlement(c: AudioContext): void {
+  if (settlementBuffer) {
+    const src = c.createBufferSource();
+    src.buffer = settlementBuffer;
+    src.connect(master!);
+    src.start();
+    return;
+  }
+  void preloadSettlementBuffer(c).then(() => {
+    if (settlementBuffer) playSettlement(c);
+    else playSettlementFallback(c);
+  });
+}
+
+async function preloadSettlementBuffer(c: AudioContext): Promise<void> {
+  if (settlementBuffer) return;
+  if (!settlementBufferPromise) {
+    settlementBufferPromise = (async () => {
+      try {
+        const res = await fetch(SETTLEMENT_SRC);
+        settlementBuffer = await c.decodeAudioData(await res.arrayBuffer());
+      } catch {
+        // 静默失败，保留合成回退
+      }
+    })();
+  }
+  await settlementBufferPromise;
+}
+
 function playMeld(c: AudioContext): void {
   if (meldBuffer) {
     const src = c.createBufferSource();
@@ -308,6 +348,7 @@ export function playSound(name: SoundName): void {
     pass: playPass,
     liuju: playLiuju,
     deal: playDeal,
+    settlement: playSettlement,
   };
   const run = () => {
     try { fn[name](c); } catch { /* 忽略音频错误，不影响游戏逻辑 */ }
@@ -330,5 +371,7 @@ export function preloadSound(name: SoundName): void {
     void preloadDiscardBuffers(c);
   } else if (name === "peng" || name === "gang") {
     void preloadMeldBuffer(c);
+  } else if (name === "settlement") {
+    void preloadSettlementBuffer(c);
   }
 }

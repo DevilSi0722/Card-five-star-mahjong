@@ -139,9 +139,9 @@ export function SettlementModal({ result }: { result: ScoreResult }) {
   }
 
   return (
-    <div className={`absolute inset-0 z-30 flex items-center justify-center bg-black/45 ${isMobileLandscape ? "p-2" : "p-4"}`}>
+    <div className={`settlement-modal-backdrop absolute inset-0 z-30 flex items-center justify-center bg-black/45 ${isMobileLandscape ? "p-2" : "p-4"}`}>
       <div
-        className={`surface-modal w-full overflow-y-auto rounded-2xl hud-scrollbar ${
+        className={`settlement-modal-panel surface-modal w-full overflow-y-auto rounded-2xl hud-scrollbar ${
           isMobileLandscape ? "max-h-[calc(100dvh-1rem)] max-w-[min(700px,calc(100vw-1rem))] p-3" : "max-w-5xl p-5"
         }`}
       >

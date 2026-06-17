@@ -72,7 +72,7 @@ npm run dev
 启动后访问：
 
 ```text
-http://localhost:13002
+http://localhost:11450
 ```
 
 单人模式不需要额外配置。多人模式需要先配置 Firebase 环境变量，变量名可以参考 `.env.local.example`。
