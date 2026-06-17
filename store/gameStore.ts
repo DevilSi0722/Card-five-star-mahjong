@@ -378,6 +378,7 @@ function makeActionAnnouncement(playerId: PlayerId, text: string): ActionAnnounc
 
 const initialPlayers = createPlayers();
 const DISCARD_TO_DRAW_DELAY_MS = 420;
+const LIANGDAO_REVEAL_AFTER_DISCARD_DELAY_MS = 80;
 const DICE_ROLL_DURATION_MS = 2800;
 const INITIAL_DEAL_FIRST_STEP_DELAY_MS = 180;
 const INITIAL_DEAL_STEP_DELAY_MS = 360;
@@ -1136,21 +1137,63 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const waits = getWinningKinds(remaining, player.melds);
     if (waits.length === 0) return;
 
-    const players = { ...state.players };
-    players[playerId] = {
+    const lastDiscard = { playerId, tile };
+    const optimisticGuestAction = state.netRole === "guest" && optimisticGuestActionDepth > 0;
+    const discardedPlayers = { ...state.players };
+    discardedPlayers[playerId] = {
       ...player,
-      isLiangDao: true,
-      autoPlay: true,
-      waitingKinds: waits,
+      hand: sortTiles(remaining),
+      discards: [...player.discards, tile],
+      lastDrawnTileId: undefined,
     };
     set({
-      players,
-      logs: pushLog(state.logs, `${player.name} 亮倒，听 ${waits.map((kind) => TILE_KIND_LABEL[kind]).join("、")}`),
+      players: discardedPlayers,
+      lastDiscard,
+      pendingReactions: undefined,
+      reactionPasses: [],
+      pendingBuGang: undefined,
+      phase: "dealing",
+      selectedTileId: undefined,
+      canHumanLiangDao: false,
+      supplementContext: state.supplementContext,
+      logs: pushLog(state.logs, `${player.name} 打出 ${TILE_KIND_LABEL[tile.kind]}`),
       actionAnnouncement: undefined,
       actionNonce: state.actionNonce + 1,
     });
-    get().discardTile(playerId, discardTileId);
-    set({ actionAnnouncement: makeActionAnnouncement(playerId, "亮倒") });
+
+    window.setTimeout(() => {
+      const latest = get();
+      const latestPlayer = latest.players[playerId];
+      const stillSameDiscard =
+        latest.lastDiscard?.playerId === playerId &&
+        latest.lastDiscard.tile.id === tile.id &&
+        latestPlayer.discards.some((item) => item.id === tile.id) &&
+        !latestPlayer.hand.some((item) => item.id === tile.id);
+
+      if (!stillSameDiscard || latestPlayer.isLiangDao || latest.phase === "settled" || latest.phase === "draw") return;
+
+      const players = { ...latest.players };
+      players[playerId] = {
+        ...latestPlayer,
+        isLiangDao: true,
+        autoPlay: true,
+        waitingKinds: waits,
+      };
+
+      const options = buildReactionOptions(players, lastDiscard);
+      const hasOptions = options.length > 0;
+      set({
+        players,
+        pendingReactions: hasOptions ? { discard: lastDiscard, options } : undefined,
+        phase: hasOptions ? "responding" : "dealing",
+        reactionPasses: [],
+        logs: pushLog(latest.logs, `${player.name} 亮倒，听 ${waits.map((kind) => TILE_KIND_LABEL[kind]).join("、")}`),
+        actionAnnouncement: makeActionAnnouncement(playerId, "亮倒"),
+        actionNonce: latest.actionNonce + 1,
+      });
+
+      if (!hasOptions && !optimisticGuestAction) get().nextTurn(DISCARD_TO_DRAW_DELAY_MS);
+    }, LIANGDAO_REVEAL_AFTER_DISCARD_DELAY_MS);
   },
 
   claimHu: (playerId) => {
