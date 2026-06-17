@@ -22,6 +22,10 @@ type DragState = {
   dx: number;
   dy: number;
   active: boolean;
+  originLeft: number;
+  originTop: number;
+  width: number;
+  height: number;
 };
 
 export function HumanHandOverlay() {
@@ -214,7 +218,17 @@ export function HumanHandOverlay() {
     }
     event.currentTarget.setPointerCapture?.(event.pointerId);
     pointerStartRef.current = { tileId, x: event.clientX, y: event.clientY };
-    setDragState({ tileId, dx: 0, dy: 0, active: false });
+    const rect = event.currentTarget.getBoundingClientRect();
+    setDragState({
+      tileId,
+      dx: 0,
+      dy: 0,
+      active: false,
+      originLeft: rect.left,
+      originTop: rect.top,
+      width: rect.width,
+      height: rect.height,
+    });
     swipeDiscardedRef.current = false;
   }
 
@@ -225,7 +239,22 @@ export function HumanHandOverlay() {
     const dx = event.clientX - start.x;
     const dy = event.clientY - start.y;
     const active = Math.hypot(dx, dy) >= DRAG_START_THRESHOLD;
-    setDragState({ tileId, dx, dy, active });
+    setDragState((currentDrag) => {
+      if (!currentDrag || currentDrag.tileId !== tileId) {
+        const rect = event.currentTarget.getBoundingClientRect();
+        return {
+          tileId,
+          dx,
+          dy,
+          active,
+          originLeft: rect.left,
+          originTop: rect.top,
+          width: rect.width,
+          height: rect.height,
+        };
+      }
+      return { ...currentDrag, dx, dy, active };
+    });
     if (active) {
       selectTile(tileId);
       setHoveredTileId(tileId);
@@ -288,12 +317,6 @@ export function HumanHandOverlay() {
           const isDealingReveal = dealing && dealTileIds.has(tile.id);
           const tileDrag = dragState?.tileId === tile.id ? dragState : null;
           const draggingTile = Boolean(tileDrag?.active);
-          const dragStyle = tileDrag
-            ? {
-                transform: `translate3d(${tileDrag.dx}px, ${tileDrag.dy}px, 0) rotate(${Math.max(-8, Math.min(8, tileDrag.dx / 18))}deg) scale(${tileDrag.active ? 1.08 : 1})`,
-                zIndex: 60,
-              }
-            : undefined;
 
           return (
             <button
@@ -322,7 +345,7 @@ export function HumanHandOverlay() {
                 isDrawn ? DRAWN_TILE_GAP_CLASS : ""
               } ${
                 draggingTile
-                  ? "shadow-[0_20px_36px_rgba(56,189,248,0.28),0_0_22px_rgba(56,189,248,0.36)]"
+                  ? "opacity-0"
                 : selected
                   ? `${isMobileLandscape ? "-translate-y-2" : "-translate-y-3"} shadow-[0_14px_28px_rgba(250,204,21,0.26),0_0_18px_rgba(250,204,21,0.28)]`
                   : highlightLiangDaoChoice
@@ -333,7 +356,6 @@ export function HumanHandOverlay() {
                     ? "shadow-[0_12px_24px_rgba(239,68,68,0.22),0_0_14px_rgba(239,68,68,0.22)]"
                   : "shadow-panel"
               } ${interactive ? `pointer-events-auto cursor-pointer touch-none ${isMobileLandscape ? "" : "hover:-translate-y-4"}` : "pointer-events-auto cursor-default"}`}
-              style={dragStyle}
             >
               <div
                 ref={(element) => {
@@ -381,6 +403,53 @@ export function HumanHandOverlay() {
           );
         })}
       </div>
+      {dragState?.active ? (() => {
+        const tile = tiles.find((item) => item.id === dragState.tileId);
+        if (!tile) return null;
+        const textureSrc = getTileTextureSrc(tile.kind);
+        const label = TILE_KIND_LABEL[tile.kind];
+        return (
+          <div
+            className="pointer-events-none fixed z-50 rounded-lg shadow-[0_24px_42px_rgba(56,189,248,0.3),0_0_24px_rgba(56,189,248,0.38)]"
+            style={{
+              left: dragState.originLeft,
+              top: dragState.originTop,
+              width: dragState.width,
+              height: dragState.height,
+              transform: `translate3d(${dragState.dx}px, ${dragState.dy}px, 0) rotate(${Math.max(-8, Math.min(8, dragState.dx / 18))}deg) scale(1.08)`,
+              transformOrigin: "50% 50%",
+            }}
+            aria-hidden
+          >
+            <div className="relative h-full w-full overflow-visible">
+              <Image
+                src={frontTileFace}
+                alt=""
+                fill
+                sizes={isMobileLandscape ? "57px" : "94px"}
+                className="object-fill"
+                unoptimized
+                priority
+                aria-hidden
+              />
+              {textureSrc ? (
+                <Image
+                  src={textureSrc}
+                  alt={label}
+                  width={62}
+                  height={86}
+                  className={`absolute left-1/2 top-[53%] -translate-x-1/2 -translate-y-1/2 object-contain ${
+                    isMobileLandscape ? "h-[56px] w-[40px]" : "h-[84px] w-[60px] sm:h-[92px] sm:w-[66px]"
+                  }`}
+                  unoptimized
+                  priority
+                  loading="eager"
+                />
+              ) : null}
+            </div>
+          </div>
+        );
+      })() : null}
     </div>
   );
 }
