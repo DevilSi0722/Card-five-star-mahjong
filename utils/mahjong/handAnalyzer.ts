@@ -329,6 +329,46 @@ export function getRevealedTileIds(hand: TileInstance[], melds: Meld[] = []): Se
   return revealIds;
 }
 
+export function getLiangDaoHiddenTripletTileIds(hand: TileInstance[], melds: Meld[] = []): string[] {
+  if (hand.length % 3 !== 1) return [];
+  const counts = countKinds(hand);
+  const candidates = ALL_TILE_KINDS.filter((kind) => (counts.get(kind) ?? 0) >= 3);
+  if (candidates.length === 0) return [];
+
+  const allowedKinds = candidates.filter((candidate) => {
+    const waits = getWinningKinds(hand, melds);
+    if (waits.length === 0) return false;
+
+    for (const winKind of waits) {
+      const { suit, rank } = parseTileKind(winKind);
+      const virtualTile: TileInstance = { id: `virtual-${winKind}`, suit, rank, kind: winKind, copy: 0 };
+      const win = analyzeWin([...hand, virtualTile], winKind, melds);
+      const concealedDecompositions = win.allDecompositions ?? (win.decomposition ? [win.decomposition] : []);
+      const keepsIndependentTriplet = concealedDecompositions.length > 0 && concealedDecompositions.every((decomposition) => {
+        const concealedGroups = decomposition.groups.slice(melds.length);
+        const candidateGroups = concealedGroups.filter((group) => group.kinds.includes(candidate));
+        return (
+          candidateGroups.length === 1 &&
+          candidateGroups[0]?.type === "triplet" &&
+          candidateGroups[0].kind === candidate &&
+          !candidateGroups[0].kinds.includes(winKind)
+        );
+      });
+
+      if (!keepsIndependentTriplet) return false;
+    }
+
+    return true;
+  });
+
+  if (allowedKinds.length === 0) return [];
+  const hiddenIds: string[] = [];
+  for (const kind of allowedKinds) {
+    hiddenIds.push(...hand.filter((tile) => tile.kind === kind).slice(0, 3).map((tile) => tile.id));
+  }
+  return hiddenIds;
+}
+
 export function getAnGangKinds(tiles: TileInstance[]): TileKind[] {
   const counts = countKinds(tiles);
   return ALL_TILE_KINDS.filter((kind) => (counts.get(kind) ?? 0) === 4);

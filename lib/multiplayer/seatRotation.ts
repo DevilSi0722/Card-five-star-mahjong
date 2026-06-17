@@ -60,16 +60,29 @@ function mapMeld(meld: Meld, viewerSeat: EngineSeatId): Meld {
  * - 已亮倒玩家：手牌公开（游戏规则使然），保留真实牌面。
  * - 其余玩家：手牌替换为等量匿名占位牌，隐藏摸牌 id。
  */
-function rotatePlayer(player: Player, viewerSeat: EngineSeatId): Player {
+function rotatePlayer(player: Player, viewerSeat: EngineSeatId, revealAll = false): Player {
   const displaySeat = realToDisplaySeat(player.id, viewerSeat);
   const isSelf = displaySeat === "human";
-  const reveal = isSelf || player.isLiangDao;
+  const reveal = revealAll || isSelf || player.isLiangDao;
+  const hiddenLiangDaoIds = new Set(player.liangDaoHiddenTileIds ?? []);
+  const nextHiddenLiangDaoIds: string[] = [];
+  const hand = reveal
+    ? player.hand.map((tile, index) => {
+        if (!revealAll && !isSelf && hiddenLiangDaoIds.has(tile.id)) {
+          const hidden = hiddenTile(`hidden:${displaySeat}:liangdao:${index}`);
+          nextHiddenLiangDaoIds.push(hidden.id);
+          return hidden;
+        }
+        return tile;
+      })
+    : player.hand.map((_, index) => hiddenTile(`hidden:${displaySeat}:hand:${index}`));
   return {
     ...player,
     id: displaySeat,
     seat: SEAT_BY_DISPLAY[displaySeat],
-    hand: reveal ? player.hand : player.hand.map((_, index) => hiddenTile(`hidden:${displaySeat}:hand:${index}`)),
+    hand,
     melds: player.melds.map((meld) => mapMeld(meld, viewerSeat)),
+    liangDaoHiddenTileIds: !revealAll && !isSelf ? nextHiddenLiangDaoIds : player.liangDaoHiddenTileIds,
     lastDrawnTileId: isSelf ? player.lastDrawnTileId : undefined,
   };
 }
@@ -102,8 +115,9 @@ export function cropSnapshotForSeat(
   viewerSeat: EngineSeatId,
 ): NetGameSnapshot {
   const players = {} as NetGameSnapshot["players"];
+  const revealAll = state.phase === "settled" || state.phase === "draw";
   for (const player of Object.values(state.players)) {
-    const rotated = rotatePlayer(player, viewerSeat);
+    const rotated = rotatePlayer(player, viewerSeat, revealAll);
     players[rotated.id] = rotated;
   }
 

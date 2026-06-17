@@ -102,8 +102,7 @@ export function scoreWin(options: {
     uncappedTotalFan,
     options.maxWinMultiplier === undefined ? DEFAULT_WIN_MULTIPLIER_LIMIT : options.maxWinMultiplier,
   );
-  const nonLiangDaoMultiplier = multiplyFans(fans.filter((item) => item.type !== "liangdao"));
-  const isGrandSlam = nonLiangDaoMultiplier >= GRAND_SLAM_MULTIPLIER;
+  const isGrandSlam = uncappedTotalFan >= GRAND_SLAM_MULTIPLIER;
   const totalFan = multiplier;
   const baseScore = scoreUnit * multiplier;
   const ids = Object.keys(players) as PlayerId[];

@@ -40,12 +40,26 @@ function seatForPlayerId(playerId: PlayerId): Player["seat"] {
   return "bottom";
 }
 
-export function MeldArea3D({ player, compact = false }: { player: Player; compact?: boolean }) {
+export function MeldArea3D({
+  player,
+  compact = false,
+  revealAll = false,
+}: {
+  player: Player;
+  compact?: boolean;
+  revealAll?: boolean;
+}) {
   const base = meldBaseForSeat(player.seat, compact);
   const renderedTileKeysRef = useRef<Set<string> | null>(null);
+  const hiddenLiangDaoTiles = player.isLiangDao && !revealAll
+    ? player.hand.filter((tile) => player.liangDaoHiddenTileIds.includes(tile.id))
+    : [];
+  const hiddenLiangDaoGroups = Array.from({ length: Math.ceil(hiddenLiangDaoTiles.length / 3) }, (_, index) =>
+    hiddenLiangDaoTiles.slice(index * 3, index * 3 + 3),
+  ).filter((tiles) => tiles.length > 0);
   const currentTileKeys = player.melds.flatMap((meld) =>
     meld.tiles.map((tile) => `${meld.id}-${tile.id}`),
-  );
+  ).concat(hiddenLiangDaoTiles.map((tile) => `liangdao-hidden-${tile.id}`));
   const newTileKeys = renderedTileKeysRef.current
     ? currentTileKeys.filter((tileKey) => !renderedTileKeysRef.current?.has(tileKey))
     : [];
@@ -89,6 +103,24 @@ export function MeldArea3D({ player, compact = false }: { player: Player; compac
                   : undefined
               }
               flyFromRotation={handSourceRotation(sourceSeat)}
+            />
+          );
+        }),
+      )}
+      {hiddenLiangDaoGroups.map((tiles, groupIndex) =>
+        tiles.map((tile, tileIndex) => {
+          const tileKey = `liangdao-hidden-${tile.id}`;
+          const meldIndex = player.melds.length + groupIndex;
+          return (
+            <TileMesh
+              key={tileKey}
+              tile={tile}
+              faceUp={player.id === "human" && tileIndex === 1}
+              scale={player.id === "human" ? 0.68 : 0.58}
+              position={tilePosition(player.seat, base, meldIndex, tileIndex)}
+              rotation={rotationForSeat(player.seat)}
+              flyFrom={animatedTileKeys.has(tileKey) ? handSourcePosition(player.seat) : undefined}
+              flyFromRotation={handSourceRotation(player.seat)}
             />
           );
         }),

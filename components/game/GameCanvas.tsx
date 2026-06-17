@@ -204,9 +204,9 @@ export function GameCanvas() {
             </>
           )}
 
-          <MeldArea3D key="meld-human" player={players.human} compact={isMobileLandscape} />
-          <MeldArea3D key="meld-ai-left" player={players.ai_left} compact={isMobileLandscape} />
-          <MeldArea3D key="meld-ai-right" player={players.ai_right} compact={isMobileLandscape} />
+          <MeldArea3D key="meld-human" player={players.human} compact={isMobileLandscape} revealAll={revealAll} />
+          <MeldArea3D key="meld-ai-left" player={players.ai_left} compact={isMobileLandscape} revealAll={revealAll} />
+          <MeldArea3D key="meld-ai-right" player={players.ai_right} compact={isMobileLandscape} revealAll={revealAll} />
         </group>
       </Suspense>
     </Canvas>

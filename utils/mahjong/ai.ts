@@ -143,7 +143,6 @@ export function chooseGang(player: Player, options: { requireDrawnTile?: boolean
   const buGang = player.melds.find((meld: Meld) => {
     if (meld.type !== "peng") return false;
     const kind = meld.tiles[0].kind;
-    if (options.requireDrawnTile && drawnTile?.kind !== kind) return false;
     return player.hand.some((tile) => tile.kind === kind);
   });
   if (buGang) return { action: "bu_gang", meldId: buGang.id, reason: "碰后摸到第四张，补杠" };

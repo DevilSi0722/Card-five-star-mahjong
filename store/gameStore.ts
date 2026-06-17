@@ -23,6 +23,7 @@ import { BASE_SCORE, getNextPlayerId, getPlayersAfter, INITIAL_SCORE } from "@/u
 import {
   analyzeWin,
   getAnGangKinds,
+  getLiangDaoHiddenTripletTileIds,
   getTingDiscardOptions,
   getWinningKinds,
 } from "@/utils/mahjong/handAnalyzer";
@@ -114,6 +115,7 @@ function createPlayer(
     isLiangDao: false,
     autoPlay: false,
     waitingKinds: [],
+    liangDaoHiddenTileIds: [],
   };
 }
 
@@ -153,6 +155,13 @@ function isNonBasicWin(win: WinResult): boolean {
   );
 }
 
+function canGangWithLiangDaoHiddenTriplet(player: Player, kind: TileKind): boolean {
+  if (!player.isLiangDao) return false;
+  const hiddenIds = new Set(player.liangDaoHiddenTileIds);
+  const hiddenSameCount = player.hand.filter((tile) => tile.kind === kind && hiddenIds.has(tile.id)).length;
+  return hiddenSameCount >= 3;
+}
+
 function buildReactionOptions(
   players: Record<PlayerId, Player>,
   discard: LastDiscard,
@@ -167,7 +176,7 @@ function buildReactionOptions(
       // 仅当胡的是非基础胡，或打出者处于亮倒状态时，才允许点炮。
       const canHu = win.isWin && (isNonBasicWin(win) || discarder.isLiangDao);
       const canPeng = !player.isLiangDao && sameCount >= 2;
-      const canGang = !player.isLiangDao && sameCount >= 3;
+      const canGang = (!player.isLiangDao && sameCount >= 3) || canGangWithLiangDaoHiddenTriplet(player, discard.tile.kind);
       return { playerId, canHu, canPeng, canGang };
     })
     .filter((option) => option.canHu || option.canGang || option.canPeng);
@@ -309,6 +318,10 @@ function buildWinHandSnapshot(
     playerId,
     tiles: [...meldTiles, ...sortTiles(concealedTiles)],
   };
+}
+
+function liangDaoHiddenTileIds(hand: TileInstance[], melds: Meld[]): string[] {
+  return getLiangDaoHiddenTripletTileIds(hand, melds);
 }
 
 function normalizeRoundResult(
@@ -774,6 +787,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       discards: [...player.discards, tile],
       lastDrawnTileId: undefined,
       waitingKinds: waits,
+      liangDaoHiddenTileIds: player.liangDaoHiddenTileIds.filter((id) => remaining.some((item) => item.id === id)),
     };
 
     const lastDiscard = { playerId, tile };
@@ -802,6 +816,20 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const state = get();
     if (forwardIfGuest(state, { type: "pass" })) {
       applyOptimisticGuestAction(() => get().passReaction(playerId));
+      return;
+    }
+    if (!state.pendingReactions && state.phase === "playing" && state.currentPlayerId === playerId) {
+      const player = state.players[playerId];
+      const drawnTileId = player.lastDrawnTileId;
+      const optimisticGuestAction = state.netRole === "guest" && optimisticGuestActionDepth > 0;
+      set({
+        logs: pushLog(state.logs, `${player.name} 过`),
+        actionAnnouncement: undefined,
+        actionNonce: state.actionNonce + 1,
+      });
+      if (player.autoPlay && drawnTileId && !optimisticGuestAction) {
+        window.setTimeout(() => get().discardTile(playerId, drawnTileId), 0);
+      }
       return;
     }
     if (!state.pendingReactions) return;
@@ -880,6 +908,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const player = state.players[playerId];
     const claimed = takeTilesByKind(player.hand, kind, 3);
     if (claimed.length < 3) return;
+    if (player.isLiangDao && !canGangWithLiangDaoHiddenTriplet(player, kind)) return;
+    const claimedIds = new Set(claimed.map((tile) => tile.id));
 
     const wall = [...state.wall];
     const supplement = wall.pop();
@@ -904,6 +934,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         },
       ],
       lastDrawnTileId: supplement?.id,
+      liangDaoHiddenTileIds: player.liangDaoHiddenTileIds.filter((id) => !claimedIds.has(id)),
     };
 
     if (!supplement) {
@@ -1178,6 +1209,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         isLiangDao: true,
         autoPlay: true,
         waitingKinds: waits,
+        liangDaoHiddenTileIds: liangDaoHiddenTileIds(latestPlayer.hand, latestPlayer.melds),
       };
 
       const options = buildReactionOptions(players, lastDiscard);

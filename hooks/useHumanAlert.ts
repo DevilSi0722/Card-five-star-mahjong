@@ -48,9 +48,7 @@ export function useHumanAlert(): HumanAlert {
   const turnAnGangKinds = liangDaoDecisionTurn && drawn
     ? anGangKinds.filter((kind) => kind === drawn.kind)
     : anGangKinds;
-  const turnBuGangMelds = liangDaoDecisionTurn && drawn
-    ? buGangMelds.filter((meld) => meld.tiles[0].kind === drawn.kind)
-    : buGangMelds;
+  const turnBuGangMelds = buGangMelds;
   const tingOptions = playable ? getTingDiscardOptions(human.hand, human.melds) : [];
 
   if (humanReaction?.canHu || canSelfHu) return "hu";

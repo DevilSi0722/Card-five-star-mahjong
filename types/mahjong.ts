@@ -37,6 +37,7 @@ export interface Player {
   isLiangDao: boolean;
   autoPlay: boolean;
   waitingKinds: TileKind[];
+  liangDaoHiddenTileIds: string[];
   lastDrawnTileId?: string;
 }
 

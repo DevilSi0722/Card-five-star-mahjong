@@ -58,18 +58,23 @@ export function PlayerHand3D({
     player.hand.length,
     typeof visibleTileCount === "number" ? Math.max(0, visibleTileCount) : player.hand.length,
   );
-  const visibleHand = player.hand.slice(0, shownCount);
+  const shownHand = player.hand.slice(0, shownCount);
   const renderedTileIdsRef = useRef<Set<string> | null>(null);
+  const isHuman = player.id === "human";
+  // 结算/流局时所有玩家全亮牌
+  const revealAllTiles = Boolean(revealAll);
+  // 亮倒：手牌亮出平铺；扣住的暗刻移到副露区显示
+  const isLiangDao = player.isLiangDao && !revealAllTiles;
+  const liangDaoHiddenTileIds = useMemo(
+    () => new Set(player.liangDaoHiddenTileIds ?? []),
+    [player.liangDaoHiddenTileIds],
+  );
+  const visibleHand = isLiangDao ? shownHand.filter((tile) => !liangDaoHiddenTileIds.has(tile.id)) : shownHand;
   const currentTileIds = visibleHand.map((tile) => tile.id);
   const newTileIds = renderedTileIdsRef.current
     ? currentTileIds.filter((tileId) => !renderedTileIdsRef.current?.has(tileId))
     : [];
   const animatedTileIds = newTileIds.length > 0 && newTileIds.length <= 4 ? new Set(newTileIds) : new Set<string>();
-  const isHuman = player.id === "human";
-  // 结算/流局时所有玩家全亮牌
-  const revealAllTiles = Boolean(revealAll);
-  // 亮倒：全手牌亮出平铺
-  const isLiangDao = player.isLiangDao && !revealAllTiles;
 
   // 单张牌是否「亮出平铺」：结算全亮，或亮倒时全手牌亮出
   const isTileRevealed = () => revealAllTiles || isLiangDao;

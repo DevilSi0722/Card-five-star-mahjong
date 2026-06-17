@@ -118,9 +118,7 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
   const turnAnGangKinds = liangDaoDecisionTurn && drawnTile
     ? anGangKinds.filter((kind) => kind === drawnTile.kind)
     : anGangKinds;
-  const turnBuGangMelds = liangDaoDecisionTurn && drawnTile
-    ? buGangMelds.filter((meld) => meld.tiles[0].kind === drawnTile.kind)
-    : buGangMelds;
+  const turnBuGangMelds = buGangMelds;
   const showTurnGangActions = playable || (liangDaoDecisionTurn && !canClaimSelfHu);
 
   if (humanReaction?.canPeng) {
@@ -203,6 +201,11 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
     rightActions.unshift(
       <ActionButton compact={isMobileLandscape} key="zimo" tone="primary" label="自摸" onClick={() => claimHu("human")}>
         胡
+      </ActionButton>,
+    );
+    rightActions.push(
+      <ActionButton compact={isMobileLandscape} key="pass-self-hu" tone="danger" label="过" onClick={() => passReaction("human")}>
+        过
       </ActionButton>,
     );
   }

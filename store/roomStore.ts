@@ -138,7 +138,10 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
 
   setMode: (mode) => set({ mode }),
   setView: (view) => set({ view }),
-  startSingle: () => set({ mode: "single", singlePlaying: true }),
+  startSingle: () => {
+    useGameStore.getState().configureNet({ role: "single", seat: "human" });
+    set({ mode: "single", singlePlaying: true });
+  },
   backToHome: () => set({ mode: "single", singlePlaying: false, view: "home" }),
   setPlayerName: (name) => {
     const trimmed = name.slice(0, 12);
