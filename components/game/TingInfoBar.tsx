@@ -133,7 +133,7 @@ export function TingInfoBar() {
     <div
       className={`pointer-events-none fixed z-20 ${
         isMobileLandscape
-          ? "mobile-landscape-ting top-[max(3.25rem,env(safe-area-inset-top))] max-w-[min(260px,38vw)]"
+          ? "mobile-landscape-ting top-[max(0.35rem,env(safe-area-inset-top))] max-w-[min(320px,calc(100vw-7.5rem))]"
           : "right-5 top-[62%] max-w-[calc(100vw-1.5rem)] -translate-y-1/2"
       }`}
     >

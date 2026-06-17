@@ -11,6 +11,7 @@ import { BASE_SCORE } from "./rules";
 
 /** 杠分基础单位。规则给出的 1/2/4 分即以此为单位（设为 1 时与规则数值完全一致）。 */
 export const GANG_UNIT = 1;
+export const WIN_MULTIPLIER_CAP = 8;
 
 const FAN_META: Record<FanItem["type"], { name: string; fan: number }> = {
   base: { name: "基础胡", fan: 1 },
@@ -34,6 +35,14 @@ const FAN_META: Record<FanItem["type"], { name: string; fan: number }> = {
 
 function fan(type: FanItem["type"]): FanItem {
   return { type, ...FAN_META[type] };
+}
+
+export function multiplyFans(fans: FanItem[]): number {
+  return fans.reduce((product, item) => product * item.fan, 1);
+}
+
+export function capWinMultiplier(multiplier: number): number {
+  return Math.min(WIN_MULTIPLIER_CAP, multiplier);
 }
 
 export function calculateFans(
@@ -85,7 +94,10 @@ export function scoreWin(options: {
     isGangShangPao: options.isGangShangPao,
     isHaiDiLao: options.isHaiDiLao,
   });
-  const multiplier = fans.reduce((product, item) => product * item.fan, 1);
+  const uncappedTotalFan = multiplyFans(fans);
+  const multiplier = capWinMultiplier(uncappedTotalFan);
+  const nonLiangDaoMultiplier = multiplyFans(fans.filter((item) => item.type !== "liangdao"));
+  const isGrandSlam = nonLiangDaoMultiplier >= WIN_MULTIPLIER_CAP;
   const totalFan = multiplier;
   const baseScore = scoreUnit * multiplier;
   const ids = Object.keys(players) as PlayerId[];
@@ -123,6 +135,8 @@ export function scoreWin(options: {
     method,
     fans,
     totalFan,
+    uncappedTotalFan,
+    isGrandSlam,
     baseScore,
     multiplier,
     scoreChanges,

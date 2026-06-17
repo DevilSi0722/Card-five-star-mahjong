@@ -150,6 +150,8 @@ export interface ScoreResult {
   method?: WinMethod;
   fans: FanItem[];
   totalFan: number;
+  uncappedTotalFan?: number;
+  isGrandSlam?: boolean;
   baseScore: number;
   multiplier: number;
   scoreChanges: Record<PlayerId, number>;
@@ -177,6 +179,8 @@ export interface WinScoreDetail {
   method: WinMethod;
   fans: FanItem[];
   totalFan: number;
+  uncappedTotalFan?: number;
+  isGrandSlam?: boolean;
   baseScore: number;
   multiplier: number;
   title: string;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { ActionAnnouncement, AnnouncementBadge, FanItem, PlayerId, ScoreResult, WinMethod } from "@/types/mahjong";
+import type { ActionAnnouncement, AnnouncementBadge, FanItem, PlayerId, ScoreResult, WinMethod, WinScoreDetail } from "@/types/mahjong";
 
 /**
  * 胡牌文字特效：在赢家座位上弹出「自摸/胡」印章式文字，
@@ -28,6 +28,7 @@ export const ANNOUNCEMENT_STEP_MS = 1800;
 
 function badgeToneClass(text: string, tone: AnnouncementBadge["tone"]): string {
   if (tone === "loser") return "win-callig--loser";
+  if (text === "大满贯") return "win-callig--grand-slam";
   if (text === "碰") return "win-callig--peng";
   if (text.includes("杠")) return "win-callig--gang";
   if (text === "亮倒") return "win-callig--liangdao";
@@ -42,6 +43,7 @@ function badgeToneClass(text: string, tone: AnnouncementBadge["tone"]): string {
 
 function badgeGlowClass(text: string, tone: AnnouncementBadge["tone"]): string {
   if (tone === "loser") return "bg-rose-500/50";
+  if (text === "大满贯") return "bg-fuchsia-300/55";
   if (text === "碰") return "bg-emerald-400/45";
   if (text.includes("杠")) return "bg-violet-500/45";
   if (text === "亮倒") return "bg-sky-400/45";
@@ -60,6 +62,12 @@ function specialFanLabels(fans: FanItem[]): string[] {
     .map((fan) => (fan.name === "亮倒/明牌" ? "亮倒" : fan.name));
 }
 
+function resultStepLabels(detail: WinScoreDetail): string[] {
+  const labels = specialFanLabels(detail.fans);
+  if (detail.isGrandSlam) labels.push("大满贯");
+  return labels;
+}
+
 function getWinDetails(result: ScoreResult) {
   return (
     result.winDetails ??
@@ -71,6 +79,8 @@ function getWinDetails(result: ScoreResult) {
             method: result.method,
             fans: result.fans,
             totalFan: result.totalFan,
+            uncappedTotalFan: result.uncappedTotalFan,
+            isGrandSlam: result.isGrandSlam,
             baseScore: result.baseScore,
             multiplier: result.multiplier,
             title: result.title,
@@ -83,7 +93,7 @@ function getWinDetails(result: ScoreResult) {
 export function getWinAnnouncementStepCount(result: ScoreResult): number {
   const details = getWinDetails(result);
   if (details.length === 0) return 0;
-  return 1 + Math.max(0, ...details.map((detail) => specialFanLabels(detail.fans).length));
+  return 1 + Math.max(0, ...details.map((detail) => resultStepLabels(detail).length));
 }
 
 function buildBadges(result: ScoreResult, step: number): AnnouncementBadge[] {
@@ -106,7 +116,7 @@ function buildBadges(result: ScoreResult, step: number): AnnouncementBadge[] {
   }
 
   return details.flatMap((detail) => {
-    const label = specialFanLabels(detail.fans)[step - 1];
+    const label = resultStepLabels(detail)[step - 1];
     return label ? [{ playerId: detail.winnerId, text: label, tone: "winner" as const }] : [];
   });
 }

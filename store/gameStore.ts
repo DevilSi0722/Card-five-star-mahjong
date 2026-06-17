@@ -1440,6 +1440,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         method: scoreResult.method!,
         fans: scoreResult.fans,
         totalFan: scoreResult.totalFan,
+        uncappedTotalFan: scoreResult.uncappedTotalFan,
+        isGrandSlam: scoreResult.isGrandSlam,
         baseScore: scoreResult.baseScore,
         multiplier: scoreResult.multiplier,
         title: scoreResult.title,

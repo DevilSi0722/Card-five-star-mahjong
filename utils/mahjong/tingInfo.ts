@@ -1,6 +1,6 @@
 import type { Meld, Player, PlayerId, TileInstance, TileKind } from "@/types/mahjong";
 import { analyzeWin, getTingDiscardOptions } from "./handAnalyzer";
-import { calculateFans } from "./scoring";
+import { calculateFans, capWinMultiplier, multiplyFans } from "./scoring";
 import { ALL_TILE_KINDS, parseTileKind } from "./tiles";
 
 export { getRevealedTileIds } from "./handAnalyzer";
@@ -53,7 +53,7 @@ export function getWaitDetails(
     if (!win.isWin) continue;
 
     const fans = calculateFans(win, { isLiangDao: options.isLiangDao, method: "discard" });
-    const multiplier = fans.reduce((product, item) => product * item.fan, 1);
+    const multiplier = capWinMultiplier(multiplyFans(fans));
     const remaining = Math.max(0, 4 - (seen.get(kind) ?? 0));
     details.push({ kind, remaining, multiplier });
   }

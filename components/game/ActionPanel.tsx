@@ -13,25 +13,48 @@ interface ActionPanelProps {
   tingOptions: Array<{ discardTileId: string; discardKind: TileKind; waits: TileKind[] }>;
 }
 
+type ActionButtonVariant = "winner" | "peng" | "gang" | "liangdao";
+
 function ActionButton({
   label,
   children,
   onClick,
   tone = "default",
   compact = false,
+  variant = "winner",
 }: {
   label: string;
   children: React.ReactNode;
   onClick: () => void;
   tone?: "default" | "primary" | "danger";
   compact?: boolean;
+  variant?: ActionButtonVariant;
 }) {
+  const isPass = label === "过";
+  const isMobileProminent = compact && !isPass;
+  const prominentToneClass: Record<ActionButtonVariant, string> = {
+    winner:
+      "action-call-button action-call-button--winner border-gold/75 bg-gradient-to-b from-[#3a2d13]/95 via-[#161b20]/95 to-[#070b12]/95 text-gold-soft shadow-[0_16px_34px_rgba(0,0,0,0.48),0_0_20px_rgba(233,196,106,0.34),inset_0_1px_0_rgba(255,255,255,0.18)] hover:border-gold hover:text-gold",
+    peng:
+      "action-call-button action-call-button--peng border-emerald-200/70 bg-gradient-to-b from-[#12362b]/95 via-[#0d261f]/95 to-[#06100d]/95 text-emerald-100 shadow-[0_16px_34px_rgba(0,0,0,0.48),0_0_20px_rgba(45,212,140,0.34),inset_0_1px_0_rgba(255,255,255,0.18)] hover:border-emerald-100 hover:text-emerald-50",
+    gang:
+      "action-call-button action-call-button--gang border-violet-200/70 bg-gradient-to-b from-[#2b1b4b]/95 via-[#1d1432]/95 to-[#0b0714]/95 text-violet-100 shadow-[0_16px_34px_rgba(0,0,0,0.48),0_0_20px_rgba(139,92,246,0.36),inset_0_1px_0_rgba(255,255,255,0.18)] hover:border-violet-100 hover:text-violet-50",
+    liangdao:
+      "action-call-button action-call-button--liangdao border-sky-200/70 bg-gradient-to-b from-[#0b3147]/95 via-[#0a2233]/95 to-[#04101a]/95 text-sky-100 shadow-[0_16px_34px_rgba(0,0,0,0.48),0_0_20px_rgba(56,189,248,0.34),inset_0_1px_0_rgba(255,255,255,0.18)] hover:border-sky-100 hover:text-sky-50",
+  };
   const toneClass =
-    tone === "primary"
-      ? "border-gold/70 bg-gradient-to-b from-slate-900/90 to-slate-950/90 text-gold-soft shadow-[0_10px_26px_rgba(233,196,106,0.4),0_0_16px_rgba(233,196,106,0.35)] hover:border-gold hover:text-gold"
-      : tone === "danger"
-        ? "border-rose-300/50 bg-gradient-to-b from-rose-400/35 to-rose-600/35 text-rose-50 hover:brightness-110"
-        : "border-white/20 bg-gradient-to-b from-slate-800/85 to-slate-950/85 text-slate-50 hover:border-white/35 hover:from-slate-700/85";
+    isMobileProminent
+      ? prominentToneClass[variant]
+      : tone === "primary"
+        ? "border-gold/70 bg-gradient-to-b from-slate-900/90 to-slate-950/90 text-gold-soft shadow-[0_10px_26px_rgba(233,196,106,0.4),0_0_16px_rgba(233,196,106,0.35)] hover:border-gold hover:text-gold"
+        : tone === "danger"
+          ? "border-rose-300/50 bg-gradient-to-b from-rose-400/35 to-rose-600/35 text-rose-50 hover:brightness-110"
+          : "border-white/20 bg-gradient-to-b from-slate-800/85 to-slate-950/85 text-slate-50 hover:border-white/35 hover:from-slate-700/85";
+  const sizeClass = compact
+    ? isPass
+      ? "h-11 w-11 text-xl"
+      : "h-[68px] w-[68px] text-[2.35rem]"
+    : "h-16 w-16 text-2xl sm:h-[72px] sm:w-[72px] sm:text-3xl";
 
   return (
     <button
@@ -41,8 +64,8 @@ function ActionButton({
       aria-label={label}
       title={label}
       className={`group flex shrink-0 flex-col items-center justify-center rounded-full border-2 font-bold leading-none shadow-panel backdrop-blur-md transition active:scale-90 ${
-        compact ? "h-11 w-11 text-xl" : "h-16 w-16 text-2xl sm:h-[72px] sm:w-[72px] sm:text-3xl"
-      } ${toneClass}`}
+        sizeClass
+      } ${isMobileProminent ? "tracking-normal" : ""} ${toneClass}`}
     >
       {children}
     </button>
@@ -97,7 +120,7 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
 
   if (humanReaction?.canPeng) {
     rightActions.push(
-      <ActionButton compact={isMobileLandscape} key="peng" label="碰" onClick={() => claimPeng("human")}>
+      <ActionButton compact={isMobileLandscape} key="peng" label="碰" variant="peng" onClick={() => claimPeng("human")}>
         碰
       </ActionButton>,
     );
@@ -105,7 +128,7 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
 
   if (humanReaction?.canGang) {
     rightActions.push(
-      <ActionButton compact={isMobileLandscape} key="ming-gang" label="杠" onClick={() => claimMingGang("human")}>
+      <ActionButton compact={isMobileLandscape} key="ming-gang" label="杠" variant="gang" onClick={() => claimMingGang("human")}>
         杠
       </ActionButton>,
     );
@@ -119,6 +142,7 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
           label={`暗杠 ${TILE_KIND_LABEL[kind]}`}
           onClick={() => claimAnGang("human", kind)}
           compact={isMobileLandscape}
+          variant="gang"
         >
           杠
         </ActionButton>,
@@ -132,6 +156,7 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
           label={`补杠 ${TILE_KIND_LABEL[meld.tiles[0].kind]}`}
           onClick={() => claimBuGang("human", meld.id)}
           compact={isMobileLandscape}
+          variant="gang"
         >
           杠
         </ActionButton>,
@@ -185,6 +210,7 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
         label="亮倒"
         onClick={() => setLiangDaoArmed(!liangDaoArmed)}
         compact={isMobileLandscape}
+        variant="liangdao"
       >
         亮
       </ActionButton>,
@@ -196,7 +222,7 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
       <div
         className={`pointer-events-auto fixed z-40 flex items-center justify-center ${
           isMobileLandscape
-            ? "mobile-landscape-actions top-1/2 max-h-[calc(100dvh-1rem)] -translate-y-1/2 flex-col gap-2 overflow-y-auto"
+            ? "mobile-landscape-actions max-w-[min(520px,calc(100vw-12rem))] flex-row flex-wrap gap-3 overflow-visible"
             : "bottom-[168px] left-1/2 max-w-[calc(100vw-1.5rem)] -translate-x-1/2 flex-row flex-wrap gap-3 sm:bottom-[188px]"
         }`}
       >
