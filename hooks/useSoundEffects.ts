@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useGameStore } from "@/store/gameStore";
 import { useUiStore } from "@/store/uiStore";
-import { playSound, setMuted } from "@/lib/audio/soundEngine";
+import { playSound, preloadSound, setMuted } from "@/lib/audio/soundEngine";
 
 /**
  * 监听 gameStore 的日志变化，将最新一条日志映射为对应音效。
@@ -22,6 +22,14 @@ export function useSoundEffects(): void {
 
   useEffect(() => {
     setMuted(!soundEnabled);
+  }, [soundEnabled]);
+
+  useEffect(() => {
+    if (!soundEnabled) return;
+    preloadSound("diceRoll");
+    preloadSound("discard");
+    preloadSound("deal");
+    preloadSound("peng");
   }, [soundEnabled]);
 
   useEffect(() => {

@@ -109,6 +109,7 @@ const DISCARD_SRCS = [
   "/sounds/tiles/mahjong_tile_4.mp3",
 ];
 const discardBuffers: (AudioBuffer | null)[] = [null, null, null, null];
+let discardBuffersPromise: Promise<void> | null = null;
 const DEAL_SRC = "/sounds/tiles/mahjong_tile_4.mp3";
 let dealBuffer: AudioBuffer | null = null;
 let dealBufferPromise: Promise<void> | null = null;
@@ -126,29 +127,52 @@ const SETTLEMENT_SRC = "/sounds/riichbet/riich_bets_1.mp3";
 let settlementBuffer: AudioBuffer | null = null;
 let settlementBufferPromise: Promise<void> | null = null;
 
+function randomLoadedBuffer(buffers: (AudioBuffer | null)[]): AudioBuffer | null {
+  const loaded = buffers.filter((buffer): buffer is AudioBuffer => Boolean(buffer));
+  if (loaded.length === 0) return null;
+  return loaded[Math.floor(Math.random() * loaded.length)];
+}
+
+function playBuffer(c: AudioContext, buffer: AudioBuffer): void {
+  const src = c.createBufferSource();
+  src.buffer = buffer;
+  src.connect(master!);
+  src.start();
+}
+
 async function preloadDiscardBuffers(c: AudioContext): Promise<void> {
-  await Promise.all(
-    DISCARD_SRCS.map(async (src, i) => {
-      if (discardBuffers[i]) return;
-      try {
-        const res = await fetch(src);
-        discardBuffers[i] = await c.decodeAudioData(await res.arrayBuffer());
-      } catch { /* 静默失败，回退合成音 */ }
-    })
-  );
+  if (discardBuffers.some(Boolean)) return;
+  if (!discardBuffersPromise) {
+    discardBuffersPromise = Promise.all(
+      DISCARD_SRCS.map(async (src, i) => {
+        if (discardBuffers[i]) return;
+        try {
+          const res = await fetch(src);
+          discardBuffers[i] = await c.decodeAudioData(await res.arrayBuffer());
+        } catch { /* 静默失败，回退合成音 */ }
+      })
+    ).then(() => undefined);
+  }
+  await discardBuffersPromise;
 }
 
 function playDiscard(c: AudioContext): void {
-  const buf = discardBuffers[Math.floor(Math.random() * discardBuffers.length)];
+  const buf = randomLoadedBuffer(discardBuffers);
   if (buf) {
-    const src = c.createBufferSource();
-    src.buffer = buf;
-    src.connect(master!);
-    src.start();
+    playBuffer(c, buf);
     return;
   }
-  // 尚未加载完毕时回退合成音，并触发一次预加载
-  void preloadDiscardBuffers(c);
+  void preloadDiscardBuffers(c).then(() => {
+    const loaded = randomLoadedBuffer(discardBuffers);
+    if (loaded) {
+      playBuffer(c, loaded);
+      return;
+    }
+    playDiscardFallback(c);
+  });
+}
+
+function playDiscardFallback(c: AudioContext): void {
   const t = now();
   crack(c, 0.9, 1800, 0.07, t);
   tone(c, 220, "sine", 0.25, 0.001, 0.08, t);
@@ -169,16 +193,19 @@ function playGang(c: AudioContext): void {
 }
 
 function playDiceRoll(c: AudioContext): void {
-  const buf = diceRollBuffers[Math.floor(Math.random() * diceRollBuffers.length)];
+  const buf = randomLoadedBuffer(diceRollBuffers);
   if (buf) {
-    const src = c.createBufferSource();
-    src.buffer = buf;
-    src.connect(master!);
-    src.start();
+    playBuffer(c, buf);
     return;
   }
-  void preloadDiceRollBuffers(c);
-  playPass(c);
+  void preloadDiceRollBuffers(c).then(() => {
+    const loaded = randomLoadedBuffer(diceRollBuffers);
+    if (loaded) {
+      playBuffer(c, loaded);
+      return;
+    }
+    playPass(c);
+  });
 }
 
 function playWin(c: AudioContext): void {
@@ -215,10 +242,7 @@ function playLiuju(c: AudioContext): void {
 
 function playDeal(c: AudioContext): void {
   if (dealBuffer) {
-    const src = c.createBufferSource();
-    src.buffer = dealBuffer;
-    src.connect(master!);
-    src.start();
+    playBuffer(c, dealBuffer);
     return;
   }
   void preloadDealBuffer(c).then(() => {
@@ -257,10 +281,7 @@ function playSettlementFallback(c: AudioContext): void {
 
 function playSettlement(c: AudioContext): void {
   if (settlementBuffer) {
-    const src = c.createBufferSource();
-    src.buffer = settlementBuffer;
-    src.connect(master!);
-    src.start();
+    playBuffer(c, settlementBuffer);
     return;
   }
   void preloadSettlementBuffer(c).then(() => {
@@ -286,10 +307,7 @@ async function preloadSettlementBuffer(c: AudioContext): Promise<void> {
 
 function playMeld(c: AudioContext): void {
   if (meldBuffer) {
-    const src = c.createBufferSource();
-    src.buffer = meldBuffer;
-    src.connect(master!);
-    src.start();
+    playBuffer(c, meldBuffer);
     return;
   }
   void preloadMeldBuffer(c).then(() => {
