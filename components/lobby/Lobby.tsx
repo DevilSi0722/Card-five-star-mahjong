@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowLeft, Settings, User, Users, X } from "lucide-react";
+import { ArrowLeft, LogIn, Plus, Settings, User, Users, X } from "lucide-react";
 import { useRoomStore } from "@/store/roomStore";
 import { useUiStore } from "@/store/uiStore";
 import { useResponsiveGameLayout } from "@/hooks/useResponsiveGameLayout";
@@ -127,10 +127,12 @@ export function Lobby({ onStartSingle }: { onStartSingle: () => void }) {
 
   if (view === "room") return <RoomWaiting />;
 
-  // 横屏按视图给不同宽度：home 两按钮并排用中等宽度；create/join 需要左右双栏，给足宽度避免表单被压窄
+  // 横屏按视图给不同宽度：home/多人选择页保持紧凑；create/join 需要左右双栏，给足宽度避免表单被压窄
   const landscapeMaxW =
     view === "home"
       ? "max-w-[min(480px,calc(100vw-1rem))]"
+      : view === "multiplayer"
+        ? "max-w-[min(560px,calc(100vw-1rem))]"
       : "max-w-[min(680px,calc(100vw-1rem))]";
 
   return (
@@ -186,7 +188,7 @@ export function Lobby({ onStartSingle }: { onStartSingle: () => void }) {
               onClick={() => {
                 if (!configured) return;
                 clearError();
-                setView("create");
+                setView("multiplayer");
               }}
               disabled={!configured}
               className="surface-panel flex items-center gap-3 rounded-xl px-4 py-3.5 text-left transition hover:border-gold/40 disabled:cursor-not-allowed disabled:opacity-50"
@@ -204,37 +206,72 @@ export function Lobby({ onStartSingle }: { onStartSingle: () => void }) {
           </div>
         ) : null}
 
+        {view === "multiplayer" ? (
+          <div className={`${isMobileLandscape ? "mt-3 grid gap-2" : "mt-5 grid gap-4"}`}>
+            <NameField />
+            <div className={`grid gap-3 ${isMobileLandscape ? "grid-cols-2" : "grid-cols-1"}`}>
+              <button
+                type="button"
+                onClick={() => {
+                  clearError();
+                  setView("create");
+                }}
+                className={`surface-panel flex items-center gap-3 rounded-xl text-left transition hover:border-gold/40 ${
+                  isMobileLandscape ? "px-3 py-2.5" : "px-4 py-3.5"
+                }`}
+              >
+                <span className={`grid shrink-0 place-items-center rounded-lg bg-gold/15 ${isMobileLandscape ? "h-9 w-9" : "h-10 w-10"}`}>
+                  <Plus className={`${isMobileLandscape ? "h-4 w-4" : "h-5 w-5"} text-gold`} />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-bone">创建房间</span>
+                  <span className="block truncate text-xs text-slate-400">设置规则，邀请好友加入</span>
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  clearError();
+                  setView("join");
+                }}
+                className={`surface-panel flex items-center gap-3 rounded-xl text-left transition hover:border-jade/40 ${
+                  isMobileLandscape ? "px-3 py-2.5" : "px-4 py-3.5"
+                }`}
+              >
+                <span className={`grid shrink-0 place-items-center rounded-lg bg-jade/15 ${isMobileLandscape ? "h-9 w-9" : "h-10 w-10"}`}>
+                  <LogIn className={`${isMobileLandscape ? "h-4 w-4" : "h-5 w-5"} text-jade`} />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-bone">加入房间</span>
+                  <span className="block truncate text-xs text-slate-400">输入房间号快速入座</span>
+                </span>
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                clearError();
+                setView("home");
+              }}
+              className="inline-flex items-center justify-center gap-1.5 text-xs text-slate-400 transition hover:text-slate-200"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              返回
+            </button>
+          </div>
+        ) : null}
+
         {view === "create" || view === "join" ? (
           (() => {
-            const tabs = (
-              <div className="grid grid-cols-2 gap-2 rounded-lg bg-white/5 p-1">
-                <button
-                  type="button"
-                  onClick={() => setView("create")}
-                  className={`h-9 rounded-md text-xs font-semibold transition ${
-                    view === "create" ? "bg-gold/20 text-gold-soft" : "text-slate-400 hover:text-slate-200"
-                  }`}
-                >
-                  创建房间
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setView("join")}
-                  className={`h-9 rounded-md text-xs font-semibold transition ${
-                    view === "join" ? "bg-gold/20 text-gold-soft" : "text-slate-400 hover:text-slate-200"
-                  }`}
-                >
-                  加入房间
-                </button>
-              </div>
-            );
             const form = view === "create" ? <CreateRoomForm compact={isMobileLandscape} /> : <JoinRoomForm compact={isMobileLandscape} />;
+            const title = view === "create" ? "创建房间" : "加入房间";
             const back = (
               <button
                 type="button"
                 onClick={() => {
                   clearError();
-                  setView("home");
+                  setView("multiplayer");
                 }}
                 className="inline-flex items-center justify-center gap-1.5 text-xs text-slate-400 transition hover:text-slate-200"
               >
@@ -246,17 +283,19 @@ export function Lobby({ onStartSingle }: { onStartSingle: () => void }) {
             // 横屏：顶部横条「昵称 + 标签页」并排，表单占满整宽，返回在底；竖屏：单列堆叠
             return isMobileLandscape ? (
               <div className="mt-2 grid gap-2">
-                <div className="grid grid-cols-[1fr_1fr] items-end gap-2">
+                <div className="grid grid-cols-[1fr_auto] items-end gap-3">
                   <NameField />
-                  {tabs}
+                  <div className="flex h-10 items-center rounded-lg border border-white/10 bg-white/5 px-3 text-sm font-semibold text-gold-soft">
+                    {title}
+                  </div>
                 </div>
                 {form}
                 <div className="flex justify-center">{back}</div>
               </div>
             ) : (
               <div className="mt-6 grid gap-4">
+                <div className="text-center text-base font-semibold text-gold-soft">{title}</div>
                 <NameField />
-                {tabs}
                 {form}
                 {back}
               </div>

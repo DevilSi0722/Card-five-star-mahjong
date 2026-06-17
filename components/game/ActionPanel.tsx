@@ -22,6 +22,7 @@ function ActionButton({
   tone = "default",
   compact = false,
   variant = "winner",
+  pressed = false,
 }: {
   label: string;
   children: React.ReactNode;
@@ -29,6 +30,7 @@ function ActionButton({
   tone?: "default" | "primary" | "danger";
   compact?: boolean;
   variant?: ActionButtonVariant;
+  pressed?: boolean;
 }) {
   const isPass = label === "过";
   const isProminent = !isPass;
@@ -64,10 +66,11 @@ function ActionButton({
       onPointerDown={(event) => event.stopPropagation()}
       onClick={onClick}
       aria-label={label}
+      aria-pressed={pressed}
       title={label}
       className={`group flex shrink-0 flex-col items-center justify-center rounded-full border-2 font-bold leading-none shadow-panel backdrop-blur-md transition active:scale-90 ${
         sizeClass
-      } ${isProminent ? "tracking-normal" : ""} ${toneClass}`}
+      } ${isProminent ? "tracking-normal" : ""} ${pressed ? "action-call-button--pressed" : ""} ${toneClass}`}
     >
       {children}
     </button>
@@ -213,6 +216,7 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
         onClick={() => setLiangDaoArmed(!liangDaoArmed)}
         compact={isMobileLandscape}
         variant="liangdao"
+        pressed={liangDaoArmed}
       >
         亮
       </ActionButton>,

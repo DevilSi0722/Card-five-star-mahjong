@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import frontTileFace from "@/png/optimized/front.webp";
 import { useGameStore } from "@/store/gameStore";
 import { useUiStore } from "@/store/uiStore";
@@ -13,8 +13,16 @@ import { ALL_TILE_TEXTURE_SRCS, getTileTextureSrc } from "@/utils/mahjong/tileTe
 const DRAWN_TILE_GAP_CLASS = "ml-3 sm:ml-5";
 const DOUBLE_TAP_MS = 320;
 const HAND_REORDER_ANIMATION_MS = 220;
-const SWIPE_DISCARD_MIN_DY = 28;
-const SWIPE_DISCARD_MAX_DX = 32;
+const DRAG_DISCARD_MIN_DY = 34;
+const DRAG_START_THRESHOLD = 5;
+const TABLE_DROP_TOP_RATIO = 0.72;
+
+type DragState = {
+  tileId: string;
+  dx: number;
+  dy: number;
+  active: boolean;
+};
 
 export function HumanHandOverlay() {
   const { isMobileLandscape } = useResponsiveGameLayout();
@@ -36,6 +44,7 @@ export function HumanHandOverlay() {
   const lastClickRef = useRef<{ tileId: string; time: number } | null>(null);
   const pointerStartRef = useRef<{ tileId: string; x: number; y: number } | null>(null);
   const swipeDiscardedRef = useRef(false);
+  const [dragState, setDragState] = useState<DragState | null>(null);
   const tileElementRefs = useRef(new Map<string, HTMLButtonElement>());
   const tileContentRefs = useRef(new Map<string, HTMLDivElement>());
   const previousTileRects = useRef(new Map<string, DOMRect>());
@@ -45,6 +54,7 @@ export function HumanHandOverlay() {
   function clearTouchResidue(tileId?: string) {
     selectTile(undefined);
     setHoveredTileId(undefined);
+    setDragState(null);
     if (tileId) {
       tileElementRefs.current.get(tileId)?.blur();
     }
@@ -204,7 +214,22 @@ export function HumanHandOverlay() {
     }
     event.currentTarget.setPointerCapture?.(event.pointerId);
     pointerStartRef.current = { tileId, x: event.clientX, y: event.clientY };
+    setDragState({ tileId, dx: 0, dy: 0, active: false });
     swipeDiscardedRef.current = false;
+  }
+
+  function handleTilePointerMove(event: React.PointerEvent<HTMLButtonElement>, tileId: string) {
+    const start = pointerStartRef.current;
+    if (!start || start.tileId !== tileId || !interactive || !isMobileLandscape) return;
+    event.stopPropagation();
+    const dx = event.clientX - start.x;
+    const dy = event.clientY - start.y;
+    const active = Math.hypot(dx, dy) >= DRAG_START_THRESHOLD;
+    setDragState({ tileId, dx, dy, active });
+    if (active) {
+      selectTile(tileId);
+      setHoveredTileId(tileId);
+    }
   }
 
   function handleTilePointerUp(
@@ -216,10 +241,13 @@ export function HumanHandOverlay() {
     event.currentTarget.releasePointerCapture?.(event.pointerId);
     const start = pointerStartRef.current;
     pointerStartRef.current = null;
+    setDragState(null);
     if (!start || start.tileId !== tileId || !interactive || !isMobileLandscape) return;
-    const dx = event.clientX - start.x;
     const dy = event.clientY - start.y;
-    if (dy <= -SWIPE_DISCARD_MIN_DY && Math.abs(dx) <= SWIPE_DISCARD_MAX_DX) {
+    const draggedIntoTable =
+      dy <= -DRAG_DISCARD_MIN_DY &&
+      event.clientY <= window.innerHeight * TABLE_DROP_TOP_RATIO;
+    if (draggedIntoTable) {
       swipeDiscardedRef.current = true;
       lastClickRef.current = null;
       selectTile(tileId);
@@ -234,6 +262,7 @@ export function HumanHandOverlay() {
   function handleTilePointerCancel(event: React.PointerEvent<HTMLButtonElement>) {
     event.currentTarget.releasePointerCapture?.(event.pointerId);
     pointerStartRef.current = null;
+    setDragState(null);
   }
 
   return (
@@ -257,6 +286,14 @@ export function HumanHandOverlay() {
           const canLiangDaoWithTile = liangDaoDiscardTileIds.has(tile.id);
           const highlightLiangDaoChoice = liangDaoArmed && canLiangDaoWithTile;
           const isDealingReveal = dealing && dealTileIds.has(tile.id);
+          const tileDrag = dragState?.tileId === tile.id ? dragState : null;
+          const draggingTile = Boolean(tileDrag?.active);
+          const dragStyle = tileDrag
+            ? {
+                transform: `translate3d(${tileDrag.dx}px, ${tileDrag.dy}px, 0) rotate(${Math.max(-8, Math.min(8, tileDrag.dx / 18))}deg) scale(${tileDrag.active ? 1.08 : 1})`,
+                zIndex: 60,
+              }
+            : undefined;
 
           return (
             <button
@@ -269,6 +306,7 @@ export function HumanHandOverlay() {
               title={label}
               aria-label={label}
               onPointerDown={(event) => handleTilePointerDown(event, tile.id)}
+              onPointerMove={(event) => handleTilePointerMove(event, tile.id)}
               onPointerUp={(event) => handleTilePointerUp(event, tile.id, canLiangDaoWithTile)}
               onPointerCancel={handleTilePointerCancel}
               onClick={() => handleTileClick(tile.id, canLiangDaoWithTile)}
@@ -283,7 +321,9 @@ export function HumanHandOverlay() {
               } ${isDrawn || isDealingReveal ? "human-hand-tile--enter" : ""} ${
                 isDrawn ? DRAWN_TILE_GAP_CLASS : ""
               } ${
-                selected
+                draggingTile
+                  ? "shadow-[0_20px_36px_rgba(56,189,248,0.28),0_0_22px_rgba(56,189,248,0.36)]"
+                : selected
                   ? `${isMobileLandscape ? "-translate-y-2" : "-translate-y-3"} shadow-[0_14px_28px_rgba(250,204,21,0.26),0_0_18px_rgba(250,204,21,0.28)]`
                   : highlightLiangDaoChoice
                     ? "shadow-[0_12px_24px_rgba(56,189,248,0.26),0_0_16px_rgba(56,189,248,0.32)]"
@@ -292,7 +332,8 @@ export function HumanHandOverlay() {
                   : dangerous
                     ? "shadow-[0_12px_24px_rgba(239,68,68,0.22),0_0_14px_rgba(239,68,68,0.22)]"
                   : "shadow-panel"
-              } ${interactive ? `pointer-events-auto cursor-pointer ${isMobileLandscape ? "" : "hover:-translate-y-4"}` : "pointer-events-auto cursor-default"}`}
+              } ${interactive ? `pointer-events-auto cursor-pointer touch-none ${isMobileLandscape ? "" : "hover:-translate-y-4"}` : "pointer-events-auto cursor-default"}`}
+              style={dragStyle}
             >
               <div
                 ref={(element) => {

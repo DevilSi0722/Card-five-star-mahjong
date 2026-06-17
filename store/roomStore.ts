@@ -80,7 +80,7 @@ function isRoomOccupiedError(err: unknown): boolean {
   return err instanceof Error && err.message.includes("房间号已被占用");
 }
 
-type LobbyView = "home" | "create" | "join" | "room";
+type LobbyView = "home" | "multiplayer" | "create" | "join" | "room";
 
 interface RoomStore {
   mode: GameMode;

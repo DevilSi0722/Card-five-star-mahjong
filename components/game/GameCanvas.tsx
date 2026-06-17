@@ -17,6 +17,12 @@ import { TurnIndicator3D } from "@/components/three/TurnIndicator3D";
 import { DiceRoll3D } from "@/components/three/DiceRoll3D";
 import { ALL_TILE_TEXTURE_SRCS } from "@/utils/mahjong/tileTextures";
 import { useResponsiveGameLayout } from "@/hooks/useResponsiveGameLayout";
+import {
+  physicsSpawnOffsetZ,
+  physicsTableOffsetZ,
+  tableGroupPosition,
+  tableGroupScale,
+} from "@/components/three/tableSceneLayout";
 
 // 启动即预加载全部牌面贴图，避免游戏中途首次加载触发 Suspense 导致画面闪黑
 useTexture.preload(ALL_TILE_TEXTURE_SRCS);
@@ -119,6 +125,10 @@ export function GameCanvas() {
       dealRevealCounts.ai_left < players.ai_left.hand.length ||
       dealRevealCounts.ai_right < players.ai_right.hand.length);
   const turnIndicatorActive = phase !== "settled" && phase !== "draw" && !initialDealInProgress && !rollingDice;
+  const tablePosition = tableGroupPosition(isMobileLandscape);
+  const tableScale = tableGroupScale(isMobileLandscape);
+  const physicsOffsetZ = physicsTableOffsetZ(isMobileLandscape);
+  const physicsSpawnOffset = physicsSpawnOffsetZ(isMobileLandscape);
 
   return (
     <Canvas
@@ -139,8 +149,8 @@ export function GameCanvas() {
       <Suspense fallback={<LoadingTableFallback />}>
         <TileTextureWarmup />
         <group
-          position={isMobileLandscape ? [0, 0, -0.86] : [0, 0, -0.18]}
-          scale={isMobileLandscape ? [1.25, 1.25, 1.25] : [1.16, 1.16, 1.16]}
+          position={tablePosition}
+          scale={tableScale}
         >
           <MahjongTable tableclothId={tableclothId} />
           <DiceRoll3D active={rollingDice} />
@@ -191,6 +201,8 @@ export function GameCanvas() {
               key="discard-physics"
               players={[players.human, players.ai_left, players.ai_right]}
               mobileLandscape={isMobileLandscape}
+              tableOffsetZ={physicsOffsetZ}
+              spawnOffsetZ={physicsSpawnOffset}
             />
           ) : (
             <>
@@ -200,9 +212,9 @@ export function GameCanvas() {
             </>
           )}
 
-          <MeldArea3D key="meld-human" player={players.human} />
-          <MeldArea3D key="meld-ai-left" player={players.ai_left} />
-          <MeldArea3D key="meld-ai-right" player={players.ai_right} />
+          <MeldArea3D key="meld-human" player={players.human} compact={isMobileLandscape} />
+          <MeldArea3D key="meld-ai-left" player={players.ai_left} compact={isMobileLandscape} />
+          <MeldArea3D key="meld-ai-right" player={players.ai_right} compact={isMobileLandscape} />
         </group>
       </Suspense>
     </Canvas>

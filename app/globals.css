@@ -222,6 +222,23 @@ body.mobile-game-locked {
     linear-gradient(180deg, rgba(255, 255, 255, 0.11), transparent 46%);
 }
 
+.action-call-button--pressed {
+  transform: translateY(3px) scale(0.94);
+  filter: saturate(1.2) brightness(1.12);
+  box-shadow:
+    0 8px 18px rgba(0, 0, 0, 0.54),
+    0 0 24px var(--action-call-glow),
+    inset 0 4px 14px rgba(0, 0, 0, 0.44),
+    inset 0 0 0 2px var(--action-call-inset-border);
+}
+
+.action-call-button--pressed::before {
+  inset: 8px;
+  background:
+    radial-gradient(circle at 50% 34%, var(--action-call-sheen), transparent 52%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 52%);
+}
+
 .quick-chat-bubble {
   animation-duration: 5s;
   animation-fill-mode: both;

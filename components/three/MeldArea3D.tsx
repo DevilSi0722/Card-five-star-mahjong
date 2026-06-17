@@ -3,12 +3,7 @@
 import { useEffect, useRef } from "react";
 import type { Player, PlayerId } from "@/types/mahjong";
 import { TileMesh } from "./TileMesh";
-
-function baseForSeat(seat: Player["seat"]): [number, number, number] {
-  if (seat === "bottom") return [-2.15, 0.18, 1.52];
-  if (seat === "left") return [-3.32, 0.18, -1.95];
-  return [3.32, 0.18, -1.95];
-}
+import { discardSourcePosition, handSourcePosition, handSourceRotation, meldBaseForSeat } from "./tableSceneLayout";
 
 function tilePosition(
   seat: Player["seat"],
@@ -45,26 +40,8 @@ function seatForPlayerId(playerId: PlayerId): Player["seat"] {
   return "bottom";
 }
 
-function handSourcePosition(seat: Player["seat"]): [number, number, number] {
-  if (seat === "bottom") return [0, 0.42, 2.22];
-  if (seat === "left") return [-2.75, 0.48, 0];
-  return [2.75, 0.48, 0];
-}
-
-function discardSourcePosition(seat: Player["seat"]): [number, number, number] {
-  if (seat === "bottom") return [0, 0.5, 0.92];
-  if (seat === "left") return [-1.18, 0.5, -0.2];
-  return [1.18, 0.5, 0.2];
-}
-
-function sourceRotationForSeat(seat: Player["seat"]): [number, number, number] {
-  if (seat === "left") return [0, Math.PI / 2, 0];
-  if (seat === "right") return [0, -Math.PI / 2, 0];
-  return [0, 0, 0];
-}
-
-export function MeldArea3D({ player }: { player: Player }) {
-  const base = baseForSeat(player.seat);
+export function MeldArea3D({ player, compact = false }: { player: Player; compact?: boolean }) {
+  const base = meldBaseForSeat(player.seat, compact);
   const renderedTileKeysRef = useRef<Set<string> | null>(null);
   const currentTileKeys = player.melds.flatMap((meld) =>
     meld.tiles.map((tile) => `${meld.id}-${tile.id}`),
@@ -111,7 +88,7 @@ export function MeldArea3D({ player }: { player: Player }) {
                     : handSourcePosition(sourceSeat)
                   : undefined
               }
-              flyFromRotation={sourceRotationForSeat(sourceSeat)}
+              flyFromRotation={handSourceRotation(sourceSeat)}
             />
           );
         }),

@@ -5,41 +5,21 @@ import type { Player } from "@/types/mahjong";
 import { getTingDiscardTileIds } from "@/utils/mahjong/tingInfo";
 import { useUiStore } from "@/store/uiStore";
 import { TileKindPreview3D, TileMesh } from "./TileMesh";
-
-function handTransform(seat: Player["seat"], compact: boolean) {
-  const bottom = compact
-    ? { center: [0, 0.24, 2.1] as const, step: [0.32, 0, 0] as const }
-    : { center: [0, 0.24, 2.05] as const, step: [0.36, 0, 0] as const };
-  const side = compact
-    ? { center: [-2.56, 0.24, 0] as const, step: [0, 0, 0.29] as const }
-    : { center: [-2.75, 0.24, 0] as const, step: [0, 0, 0.34] as const };
-  const right = compact
-    ? { center: [2.56, 0.24, 0] as const, step: [0, 0, -0.29] as const }
-    : { center: [2.75, 0.24, 0] as const, step: [0, 0, -0.34] as const };
-
-  if (seat === "bottom") return { ...bottom, rotation: [0, 0, 0] as [number, number, number] };
-  if (seat === "left") return { ...side, rotation: [0, Math.PI / 2, 0] as [number, number, number] };
-  return { ...right, rotation: [0, -Math.PI / 2, 0] as [number, number, number] };
-}
-
-function lyingRotationForSeat(seat: Player["seat"]): [number, number, number] {
-  if (seat === "left") return [0, -Math.PI / 2, 0];
-  if (seat === "right") return [0, Math.PI / 2, 0];
-  return [0, 0, 0];
-}
-
-function wallSourcePosition(seat: Player["seat"]): [number, number, number] {
-  if (seat === "left") return [-1.7, 0.55, -1.15];
-  if (seat === "right") return [1.7, 0.55, 1.15];
-  return [0, 0.55, 1.15];
-}
+import {
+  lyingRotationForSeat,
+  playerHandTransform,
+  revealedHandOffset,
+  standingHandOffset,
+  wallSourcePosition,
+  type HandTransform,
+} from "./tableSceneLayout";
 
 // 新摸牌与已有手牌之间额外留出的间隔（以一个牌位的比例表示）
 const DRAWN_TILE_GAP = 0.55;
 
 function waitingPreviewPosition(
   seat: Player["seat"],
-  transform: ReturnType<typeof handTransform>,
+  transform: HandTransform,
   index: number,
   count: number,
   scale: number,
@@ -73,7 +53,7 @@ export function PlayerHand3D({
   onTileDoubleClick?: (tileId: string) => void;
   showWaitingPreview?: boolean;
 }) {
-  const transform = handTransform(player.seat, compact);
+  const transform = playerHandTransform(player.seat, compact);
   const shownCount = Math.min(
     player.hand.length,
     typeof visibleTileCount === "number" ? Math.max(0, visibleTileCount) : player.hand.length,
@@ -143,6 +123,8 @@ export function PlayerHand3D({
         const delta = (slot - centerSlot) * scale;
         // 该牌是否平铺亮出（结算全亮 / 亮倒全亮）
         const lying = isTileRevealed();
+        const revealedOffset = lying ? revealedHandOffset(player.seat, compact) : ([0, 0, 0] as const);
+        const standingOffset = !lying ? standingHandOffset(player.seat, compact) : ([0, 0, 0] as const);
         // 平铺亮出的牌一定正面；其余牌：人类看自己手牌为正面，AI 暗置
         const faceUp = lying || isHuman;
         const tileRotation = lying ? lyingRotationForSeat(player.seat) : transform.rotation;
@@ -159,9 +141,9 @@ export function PlayerHand3D({
             hoverable={isHuman && !lying}
             tingHint={tingTileIds.has(tile.id)}
             position={[
-              transform.center[0] + transform.step[0] * delta,
-              transform.center[1],
-              transform.center[2] + transform.step[2] * delta,
+              transform.center[0] + transform.step[0] * delta + revealedOffset[0] + standingOffset[0],
+              transform.center[1] + revealedOffset[1] + standingOffset[1],
+              transform.center[2] + transform.step[2] * delta + revealedOffset[2] + standingOffset[2],
             ]}
             rotation={tileRotation}
             flyFrom={animatedTileIds.has(tile.id) ? wallSourcePosition(player.seat) : undefined}

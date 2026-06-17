@@ -18,12 +18,12 @@ const TILE_HALF_HEIGHT = TILE_THICKNESS * TILE_SCALE * 0.5;
 const TABLE_Y = 0.19;
 const BODY_Y = TABLE_Y + TILE_HALF_HEIGHT + 0.025;
 // 桌面可活动边界。调小会让牌更早撞墙停在中心附近；调大会允许牌滑得更远。
-const TABLE_HALF_WIDTH = 2.82;
-const TABLE_HALF_LENGTH = 2.06;
+const TABLE_HALF_WIDTH = 3.12;
+const TABLE_HALF_LENGTH = 2.32;
 // 四周隐形挡墙厚度。主要防止牌滑出桌面，通常不需要频繁调整。
 const WALL_THICKNESS = 0.12;
 // 出牌出生点离桌边的安全距离。必须大于牌的半长/半宽，避免刚体一生成就卡进挡墙。
-const SPAWN_EDGE_PADDING = Math.max(TILE_HALF_WIDTH, TILE_HALF_LENGTH) + 0.16;
+const SPAWN_EDGE_PADDING = Math.max(TILE_HALF_WIDTH, TILE_HALF_LENGTH) + 0.38;
 // 桌面摩擦力：现实麻将桌的主要摩擦来源。越大，牌贴桌面滑动时越快减速。
 const TABLE_FRICTION = 50.95;
 // 连续碰撞检测子步。手机低帧率、牌速高、牌堆密时，调大可减少穿模，但会增加性能开销。
@@ -45,17 +45,24 @@ type DiscardTile = {
 const renderedDiscardTileIds = new Set<string>();
 let renderedDiscardTileIdsInitialized = false;
 
-function handSourcePosition(seat: Player["seat"], sequence: number, mobileLandscape: boolean): [number, number, number] {
+function handSourcePosition(
+  seat: Player["seat"],
+  sequence: number,
+  mobileLandscape: boolean,
+  tableOffsetZ: number,
+  spawnOffsetZ: number,
+): [number, number, number] {
   // 出牌初始位置。只调 X/Z 会改变牌从哪个桌边推出；Y 保持 BODY_Y，避免牌从空中掉落。
   // 这里的坐标必须在四周挡墙内侧，否则手机低帧率或多人游戏重渲染时容易把牌解算到桌边卡住。
   // 出生点也做轻微分散，避免某张牌异常停在出牌口时，后续牌全部叠在同一位置被堵住。
   const sourceDrift = ((sequence % 5) - 2) * 0.18;
+  const spawnZ = tableOffsetZ + spawnOffsetZ;
   if (seat === "bottom") {
     const mobileInset = mobileLandscape ? 0.38 : 0;
-    return [sourceDrift, BODY_Y, TABLE_HALF_LENGTH - SPAWN_EDGE_PADDING - mobileInset];
+    return [sourceDrift, BODY_Y, TABLE_HALF_LENGTH - SPAWN_EDGE_PADDING - mobileInset + spawnZ];
   }
-  if (seat === "left") return [-TABLE_HALF_WIDTH + SPAWN_EDGE_PADDING, BODY_Y, sourceDrift];
-  return [TABLE_HALF_WIDTH - SPAWN_EDGE_PADDING, BODY_Y, -sourceDrift];
+  if (seat === "left") return [-TABLE_HALF_WIDTH + SPAWN_EDGE_PADDING, BODY_Y, sourceDrift + spawnZ];
+  return [TABLE_HALF_WIDTH - SPAWN_EDGE_PADDING, BODY_Y, -sourceDrift + spawnZ];
 }
 
 function launchVelocity(seat: Player["seat"], sequence: number, mobileLandscape: boolean): [number, number, number] {
@@ -78,9 +85,23 @@ function startRotation(seat: Player["seat"], sequence: number): [number, number,
   return [0, scatter, 0];
 }
 
-function PhysicsDiscardTile({ item, fresh, mobileLandscape }: { item: DiscardTile; fresh: boolean; mobileLandscape: boolean }) {
+function PhysicsDiscardTile({
+  item,
+  fresh,
+  mobileLandscape,
+  tableOffsetZ,
+  spawnOffsetZ,
+}: {
+  item: DiscardTile;
+  fresh: boolean;
+  mobileLandscape: boolean;
+  tableOffsetZ: number;
+  spawnOffsetZ: number;
+}) {
   const bodyRef = useRef<RapierRigidBody>(null);
-  const initialPositionRef = useRef(handSourcePosition(item.seat, item.sequence, mobileLandscape));
+  const initialPositionRef = useRef(
+    handSourcePosition(item.seat, item.sequence, mobileLandscape, tableOffsetZ, spawnOffsetZ),
+  );
   const start = initialPositionRef.current;
   const rotation = startRotation(item.seat, item.sequence);
 
@@ -138,25 +159,47 @@ function PhysicsDiscardTile({ item, fresh, mobileLandscape }: { item: DiscardTil
   );
 }
 
-function TableColliders() {
+function TableColliders({ tableOffsetZ }: { tableOffsetZ: number }) {
   return (
     <>
       {/* 桌面碰撞平面。Y 坐标和厚度会影响牌是否贴桌面滑动。 */}
       <CuboidCollider
-        position={[0, TABLE_Y - 0.035, 0]}
+        position={[0, TABLE_Y - 0.035, tableOffsetZ]}
         args={[TABLE_HALF_WIDTH, 0.035, TABLE_HALF_LENGTH]}
         friction={TABLE_FRICTION}
       />
       {/* 四周隐形挡墙。主要影响牌是否会滑出桌面，以及撞墙后是否回弹到中心。 */}
-      <CuboidCollider position={[0, BODY_Y, -TABLE_HALF_LENGTH - WALL_THICKNESS]} args={[TABLE_HALF_WIDTH, 0.18, WALL_THICKNESS]} />
-      <CuboidCollider position={[0, BODY_Y, TABLE_HALF_LENGTH + WALL_THICKNESS]} args={[TABLE_HALF_WIDTH, 0.18, WALL_THICKNESS]} />
-      <CuboidCollider position={[-TABLE_HALF_WIDTH - WALL_THICKNESS, BODY_Y, 0]} args={[WALL_THICKNESS, 0.18, TABLE_HALF_LENGTH]} />
-      <CuboidCollider position={[TABLE_HALF_WIDTH + WALL_THICKNESS, BODY_Y, 0]} args={[WALL_THICKNESS, 0.18, TABLE_HALF_LENGTH]} />
+      <CuboidCollider
+        position={[0, BODY_Y, -TABLE_HALF_LENGTH - WALL_THICKNESS + tableOffsetZ]}
+        args={[TABLE_HALF_WIDTH, 0.18, WALL_THICKNESS]}
+      />
+      <CuboidCollider
+        position={[0, BODY_Y, TABLE_HALF_LENGTH + WALL_THICKNESS + tableOffsetZ]}
+        args={[TABLE_HALF_WIDTH, 0.18, WALL_THICKNESS]}
+      />
+      <CuboidCollider
+        position={[-TABLE_HALF_WIDTH - WALL_THICKNESS, BODY_Y, tableOffsetZ]}
+        args={[WALL_THICKNESS, 0.18, TABLE_HALF_LENGTH]}
+      />
+      <CuboidCollider
+        position={[TABLE_HALF_WIDTH + WALL_THICKNESS, BODY_Y, tableOffsetZ]}
+        args={[WALL_THICKNESS, 0.18, TABLE_HALF_LENGTH]}
+      />
     </>
   );
 }
 
-export function PhysicsDiscardArea3D({ players, mobileLandscape = false }: { players: Player[]; mobileLandscape?: boolean }) {
+export function PhysicsDiscardArea3D({
+  players,
+  mobileLandscape = false,
+  tableOffsetZ = 0,
+  spawnOffsetZ = 0,
+}: {
+  players: Player[];
+  mobileLandscape?: boolean;
+  tableOffsetZ?: number;
+  spawnOffsetZ?: number;
+}) {
   const discards = useMemo(
     () =>
       players.flatMap((player) =>
@@ -191,13 +234,15 @@ export function PhysicsDiscardArea3D({ players, mobileLandscape = false }: { pla
       maxCcdSubsteps={MAX_CCD_SUBSTEPS}
       paused={discards.length === 0}
     >
-      <TableColliders />
+      <TableColliders tableOffsetZ={tableOffsetZ} />
       {discards.map((item) => (
         <PhysicsDiscardTile
           key={`${item.playerId}-${item.tile.id}`}
           item={item}
           fresh={freshTileIds.has(item.tile.id)}
           mobileLandscape={mobileLandscape}
+          tableOffsetZ={tableOffsetZ}
+          spawnOffsetZ={spawnOffsetZ}
         />
       ))}
     </Physics>
