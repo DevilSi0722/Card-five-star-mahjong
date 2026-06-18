@@ -260,9 +260,14 @@ function scoreDealerDraw(
 
 function appendDealerDrawScoreNotes(
   notes: Record<PlayerId, string[]>,
-  result: ScoreResult,
+  dealerId: PlayerId,
+  baseScore: number,
 ): Record<PlayerId, string[]> {
-  return appendScoreNotes(notes, result.scoreChanges, "赔庄", "赔庄");
+  return {
+    human: [...notes.human, dealerId === "human" ? `赔庄+${baseScore * 2}` : `赔庄-${baseScore}`],
+    ai_left: [...notes.ai_left, dealerId === "ai_left" ? `赔庄+${baseScore * 2}` : `赔庄-${baseScore}`],
+    ai_right: [...notes.ai_right, dealerId === "ai_right" ? `赔庄+${baseScore * 2}` : `赔庄-${baseScore}`],
+  };
 }
 
 function fanNoteName(name: string): string {
@@ -716,7 +721,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const result = scoreDealerDraw(state.players, state.dealerId, state.baseScore, state.roundStartScores);
       set({
         players: applyRoundResult(state.players, result),
-        roundScoreNotes: appendDealerDrawScoreNotes(state.roundScoreNotes, result),
+        roundScoreNotes: appendDealerDrawScoreNotes(state.roundScoreNotes, state.dealerId, state.baseScore),
         phase: "draw",
         roundResult: result,
         logs: pushLog(state.logs, "牌墙摸空，流局"),
@@ -963,7 +968,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const result = scoreDealerDraw(players, state.dealerId, state.baseScore, state.roundStartScores);
       set({
         players: applyRoundResult(players, result),
-        roundScoreNotes: appendDealerDrawScoreNotes(state.roundScoreNotes, result),
+        roundScoreNotes: appendDealerDrawScoreNotes(state.roundScoreNotes, state.dealerId, state.baseScore),
         wall,
         phase: "draw",
         roundResult: result,
@@ -1044,7 +1049,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       set({
         wall,
         players: applyRoundResult(players, result),
-        roundScoreNotes: appendDealerDrawScoreNotes(state.roundScoreNotes, result),
+        roundScoreNotes: appendDealerDrawScoreNotes(state.roundScoreNotes, state.dealerId, state.baseScore),
         phase: "draw",
         roundResult: result,
         actionAnnouncement: undefined,
@@ -1139,7 +1144,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       set({
         wall,
         players: applyRoundResult(players, result),
-        roundScoreNotes: appendDealerDrawScoreNotes(state.roundScoreNotes, result),
+        roundScoreNotes: appendDealerDrawScoreNotes(state.roundScoreNotes, state.dealerId, state.baseScore),
         phase: "draw",
         roundResult: result,
         pendingBuGang: undefined,
@@ -1312,7 +1317,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         set({
           wall,
           players: applyRoundResult(players, result),
-          roundScoreNotes: appendDealerDrawScoreNotes(state.roundScoreNotes, result),
+          roundScoreNotes: appendDealerDrawScoreNotes(state.roundScoreNotes, state.dealerId, state.baseScore),
           pendingReactions: undefined,
           pendingBuGang: undefined,
           reactionPasses: [],
@@ -1581,7 +1586,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const result = scoreDealerDraw(state.players, state.dealerId, state.baseScore, state.roundStartScores);
     set({
       players: applyRoundResult(state.players, result),
-      roundScoreNotes: appendDealerDrawScoreNotes(state.roundScoreNotes, result),
+      roundScoreNotes: appendDealerDrawScoreNotes(state.roundScoreNotes, state.dealerId, state.baseScore),
       phase: "draw",
       roundResult: result,
       pendingReactions: undefined,
