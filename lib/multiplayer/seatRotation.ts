@@ -200,6 +200,7 @@ function rotateRoundResult(
     ...result,
     winnerId: mapPlayerId(result.winnerId, viewerSeat),
     loserId: mapPlayerId(result.loserId, viewerSeat),
+    nextDealerId: mapPlayerId(result.nextDealerId, viewerSeat),
     scoreChanges: remapScoreRecord(result.scoreChanges, viewerSeat),
     totalScores: remapScoreRecord(result.totalScores, viewerSeat),
     winDetails: result.winDetails?.map((detail) => ({

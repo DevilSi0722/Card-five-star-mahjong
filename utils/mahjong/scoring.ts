@@ -150,15 +150,32 @@ export function scoreWin(options: {
   };
 }
 
-export function scoreDraw(players: Record<PlayerId, Player>): ScoreResult {
+export function scoreDraw(
+  players: Record<PlayerId, Player>,
+  options?: { dealerId?: PlayerId; baseScore?: number },
+): ScoreResult {
   const ids = Object.keys(players) as PlayerId[];
+  const dealerId = options?.dealerId;
+  const baseScore = options?.baseScore ?? BASE_SCORE;
+  const scoreChanges = Object.fromEntries(ids.map((id) => [id, 0])) as Record<PlayerId, number>;
+
+  if (dealerId && ids.includes(dealerId)) {
+    for (const id of ids) {
+      if (id === dealerId) continue;
+      scoreChanges[id] -= baseScore;
+      scoreChanges[dealerId] += baseScore;
+    }
+  }
+
   return {
     fans: [],
     totalFan: 0,
     baseScore: 0,
     multiplier: 0,
-    scoreChanges: Object.fromEntries(ids.map((id) => [id, 0])) as Record<PlayerId, number>,
-    totalScores: Object.fromEntries(ids.map((id) => [id, players[id].score])) as Record<PlayerId, number>,
+    scoreChanges,
+    totalScores: Object.fromEntries(
+      ids.map((id) => [id, players[id].score + scoreChanges[id]]),
+    ) as Record<PlayerId, number>,
     title: "流局",
   };
 }

@@ -150,6 +150,7 @@ export interface WinResult {
 export interface ScoreResult {
   winnerId?: PlayerId;
   loserId?: PlayerId;
+  nextDealerId?: PlayerId;
   method?: WinMethod;
   fans: FanItem[];
   totalFan: number;

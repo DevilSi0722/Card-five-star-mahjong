@@ -249,6 +249,22 @@ function appendScoreNote(notes: string[], change: number, positiveLabel: string,
   return notes;
 }
 
+function scoreDealerDraw(
+  players: Record<PlayerId, Player>,
+  dealerId: PlayerId,
+  baseScore: number,
+  roundStartScores: Record<PlayerId, number>,
+): ScoreResult {
+  return normalizeRoundResult(scoreDraw(players, { dealerId, baseScore }), roundStartScores);
+}
+
+function appendDealerDrawScoreNotes(
+  notes: Record<PlayerId, string[]>,
+  result: ScoreResult,
+): Record<PlayerId, string[]> {
+  return appendScoreNotes(notes, result.scoreChanges, "赔庄", "赔庄");
+}
+
 function fanNoteName(name: string): string {
   return name === "亮倒/明牌" ? "亮倒" : name;
 }
@@ -336,6 +352,10 @@ function normalizeRoundResult(
       ai_right: result.totalScores.ai_right - roundStartScores.ai_right,
     },
   };
+}
+
+function nextDealerFromResult(result: ScoreResult | undefined, fallback: PlayerId): PlayerId {
+  return result?.nextDealerId ?? result?.winnerId ?? fallback;
 }
 
 function updateHumanLiangDaoHint(player: Player): boolean {
@@ -632,7 +652,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const nextLiangDaoZimoBuyHorseEnabled = get().nextLiangDaoZimoBuyHorseEnabled;
     const nextBaseScore = get().nextBaseScore;
     const nextMaxWinMultiplier = get().nextMaxWinMultiplier;
-    const dealerId = state.roundResult?.winnerId ?? state.dealerId ?? "human";
+    const dealerId = nextDealerFromResult(state.roundResult, state.dealerId ?? "human");
     const previous = state.players;
     const players = createPlayers(previous, dealerId);
     INITIAL_DEAL_COUNTS.human = dealerId === "human" ? [4, 8, 12, 14] : [4, 8, 12, 13];
@@ -693,8 +713,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (state.phase === "rolling" || state.phase === "settled" || state.phase === "draw") return;
     const wall = [...state.wall];
     if (wall.length === 0) {
-      const result = normalizeRoundResult(scoreDraw(state.players), state.roundStartScores);
+      const result = scoreDealerDraw(state.players, state.dealerId, state.baseScore, state.roundStartScores);
       set({
+        players: applyRoundResult(state.players, result),
+        roundScoreNotes: appendDealerDrawScoreNotes(state.roundScoreNotes, result),
         phase: "draw",
         roundResult: result,
         logs: pushLog(state.logs, "牌墙摸空，流局"),
@@ -938,9 +960,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     };
 
     if (!supplement) {
-      const result = normalizeRoundResult(scoreDraw(players), state.roundStartScores);
+      const result = scoreDealerDraw(players, state.dealerId, state.baseScore, state.roundStartScores);
       set({
         players: applyRoundResult(players, result),
+        roundScoreNotes: appendDealerDrawScoreNotes(state.roundScoreNotes, result),
         wall,
         phase: "draw",
         roundResult: result,
@@ -1017,10 +1040,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
       lastDrawnTileId: supplement?.id,
     };
     if (!supplement) {
-      const result = normalizeRoundResult(scoreDraw(players), state.roundStartScores);
+      const result = scoreDealerDraw(players, state.dealerId, state.baseScore, state.roundStartScores);
       set({
         wall,
         players: applyRoundResult(players, result),
+        roundScoreNotes: appendDealerDrawScoreNotes(state.roundScoreNotes, result),
         phase: "draw",
         roundResult: result,
         actionAnnouncement: undefined,
@@ -1111,10 +1135,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
       lastDrawnTileId: supplement?.id,
     };
     if (!supplement) {
-      const result = normalizeRoundResult(scoreDraw(players), state.roundStartScores);
+      const result = scoreDealerDraw(players, state.dealerId, state.baseScore, state.roundStartScores);
       set({
         wall,
         players: applyRoundResult(players, result),
+        roundScoreNotes: appendDealerDrawScoreNotes(state.roundScoreNotes, result),
         phase: "draw",
         roundResult: result,
         pendingBuGang: undefined,
@@ -1283,10 +1308,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
         lastDrawnTileId: supplement?.id,
       };
       if (!supplement) {
-        const result = normalizeRoundResult(scoreDraw(players), state.roundStartScores);
+        const result = scoreDealerDraw(players, state.dealerId, state.baseScore, state.roundStartScores);
         set({
           wall,
           players: applyRoundResult(players, result),
+          roundScoreNotes: appendDealerDrawScoreNotes(state.roundScoreNotes, result),
           pendingReactions: undefined,
           pendingBuGang: undefined,
           reactionPasses: [],
@@ -1517,6 +1543,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const titlePrefix = method === "qianggang" ? "多人抢杠胡" : "一炮双响";
     const result: ScoreResult = normalizeRoundResult({
       ...first,
+      nextDealerId: method === "discard" ? loserId : first.winnerId,
       scoreChanges,
       totalScores,
       title: `${titlePrefix}：${winnerNames}`,
@@ -1551,8 +1578,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   settleNoSafeDiscard: (playerId) => {
     const state = get();
-    const result = normalizeRoundResult(scoreDraw(state.players), state.roundStartScores);
+    const result = scoreDealerDraw(state.players, state.dealerId, state.baseScore, state.roundStartScores);
     set({
+      players: applyRoundResult(state.players, result),
+      roundScoreNotes: appendDealerDrawScoreNotes(state.roundScoreNotes, result),
       phase: "draw",
       roundResult: result,
       pendingReactions: undefined,
