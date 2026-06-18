@@ -85,14 +85,15 @@ export function PlayerHand3D({
   const hasDrawn = drawnId ? visibleHand.some((tile) => tile.id === drawnId) : false;
 
   const setHoveredTileId = useUiStore((state) => state.setHoveredTileId);
+  const hardcoreModeEnabled = useUiStore((state) => state.hardcoreModeEnabled);
 
   // 仅人类、轮到自己出牌、未亮倒时，计算「打出即可听牌」的牌，供显示黄色提示圆点
   const tingTileIds = useMemo(
     () =>
-      isHuman && current && !player.isLiangDao
+      isHuman && current && !player.isLiangDao && !hardcoreModeEnabled
         ? getTingDiscardTileIds(player.hand, player.melds)
         : new Set<string>(),
-    [isHuman, current, player.isLiangDao, player.hand, player.melds],
+    [hardcoreModeEnabled, isHuman, current, player.isLiangDao, player.hand, player.melds],
   );
 
   useEffect(() => {

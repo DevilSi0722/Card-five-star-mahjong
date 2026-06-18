@@ -205,6 +205,8 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
   const saveNextRoundSettings = useGameStore((state) => state.saveNextRoundSettings);
   const netRole = useGameStore((state) => state.netRole);
   const room = useRoomStore((state) => state.room);
+  const hardcoreModeEnabled = useUiStore((state) => state.hardcoreModeEnabled);
+  const setHardcoreModeEnabled = useUiStore((state) => state.setHardcoreModeEnabled);
   const isMultiplayer = netRole !== "single";
   const [draftBaseScore, setDraftBaseScore] = useState(String(nextBaseScore));
   const [draftMaxWinMultiplier, setDraftMaxWinMultiplier] = useState<WinMultiplierLimit>(nextMaxWinMultiplier);
@@ -335,6 +337,19 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
                   checked={draftBuyHorseEnabled}
                   onChange={(event) => setDraftBuyHorseEnabled(event.target.checked)}
                   className="h-4 w-4 accent-jade"
+                />
+              </label>
+
+              <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-white/12 bg-slate-900/70 px-3 py-2.5 text-sm text-slate-200 transition hover:border-white/20">
+                <span className="grid gap-0.5">
+                  <span>硬核模式</span>
+                  <span className="text-[10px] font-normal text-slate-500">隐藏听牌辅助提示</span>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={hardcoreModeEnabled}
+                  onChange={(event) => setHardcoreModeEnabled(event.target.checked)}
+                  className="h-4 w-4 accent-gold"
                 />
               </label>
             </div>

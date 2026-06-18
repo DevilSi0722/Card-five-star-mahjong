@@ -45,6 +45,7 @@ export function HumanHandOverlay() {
   const setHoveredTileId = useUiStore((state) => state.setHoveredTileId);
   const liangDaoArmed = useUiStore((state) => state.liangDaoArmed);
   const setLiangDaoArmed = useUiStore((state) => state.setLiangDaoArmed);
+  const hardcoreModeEnabled = useUiStore((state) => state.hardcoreModeEnabled);
   const lastClickRef = useRef<{ tileId: string; time: number } | null>(null);
   const pointerStartRef = useRef<{ tileId: string; x: number; y: number } | null>(null);
   const swipeDiscardedRef = useRef(false);
@@ -110,11 +111,12 @@ export function HumanHandOverlay() {
     [aiLeft, aiRight],
   );
 
-  const tingTileIds = useMemo(
+  const tingDiscardTileIds = useMemo(
     () => (interactive ? getTingDiscardTileIds(human.hand, human.melds) : new Set<string>()),
     [human.hand, human.melds, interactive],
   );
-  const liangDaoDiscardTileIds = tingTileIds;
+  const visibleTingTileIds = hardcoreModeEnabled ? new Set<string>() : tingDiscardTileIds;
+  const liangDaoDiscardTileIds = tingDiscardTileIds;
   const remainingReactionOptions =
     phase === "responding" && pendingReactions
       ? pendingReactions.options.filter((option) => !reactionPasses.includes(option.playerId))
@@ -313,7 +315,7 @@ export function HumanHandOverlay() {
           const dangerous = exposedWaitKinds.has(tile.kind);
           const canPengTile = tile.kind === canPengKind;
           const canLiangDaoWithTile = liangDaoDiscardTileIds.has(tile.id);
-          const highlightLiangDaoChoice = liangDaoArmed && canLiangDaoWithTile;
+          const highlightLiangDaoChoice = !hardcoreModeEnabled && liangDaoArmed && canLiangDaoWithTile;
           const isDealingReveal = dealing && dealTileIds.has(tile.id);
           const tileDrag = dragState?.tileId === tile.id ? dragState : null;
           const draggingTile = Boolean(tileDrag?.active);
@@ -395,7 +397,7 @@ export function HumanHandOverlay() {
                     loading="eager"
                   />
                 ) : null}
-                {tingTileIds.has(tile.id) ? (
+                {visibleTingTileIds.has(tile.id) ? (
                   <span className="absolute left-1/2 top-1.5 h-2.5 w-2.5 -translate-x-1/2 rounded-full bg-yellow-400 shadow-[0_0_12px_rgba(250,204,21,0.9)]" />
                 ) : null}
               </div>

@@ -5,6 +5,7 @@ import { create } from "zustand";
 const DISCARD_PHYSICS_KEY = "kwx:discardPhysicsEnabled";
 const TABLECLOTH_KEY = "kwx:tableclothId";
 const SOUND_ENABLED_KEY = "kwx:soundEnabled";
+const HARDCORE_MODE_KEY = "kwx:hardcoreModeEnabled";
 
 const TABLECLOTH_IDS = ["table", "table2", "table3", "table4"] as const;
 
@@ -19,6 +20,11 @@ function loadSoundEnabled(): boolean {
   if (typeof window === "undefined") return true;
   // 默认开启音效；仅当用户明确关闭过才记为关闭。
   return window.localStorage.getItem(SOUND_ENABLED_KEY) !== "0";
+}
+
+function loadHardcoreModeEnabled(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.localStorage.getItem(HARDCORE_MODE_KEY) === "1";
 }
 
 function isTableclothId(value: string | null): value is TableclothId {
@@ -42,11 +48,14 @@ interface UiStore {
   tableclothId: TableclothId;
   // 音效开关。只影响本机，不同步到多人房间。
   soundEnabled: boolean;
+  // 单人硬核模式：隐藏听牌辅助提示。只影响本机单人对局显示。
+  hardcoreModeEnabled: boolean;
   setHoveredTileId: (id?: string) => void;
   setLiangDaoArmed: (armed: boolean) => void;
   setDiscardPhysicsEnabled: (enabled: boolean) => void;
   setTableclothId: (id: TableclothId) => void;
   setSoundEnabled: (enabled: boolean) => void;
+  setHardcoreModeEnabled: (enabled: boolean) => void;
 }
 
 export const useUiStore = create<UiStore>((set) => ({
@@ -55,6 +64,7 @@ export const useUiStore = create<UiStore>((set) => ({
   discardPhysicsEnabled: loadDiscardPhysicsEnabled(),
   tableclothId: loadTableclothId(),
   soundEnabled: loadSoundEnabled(),
+  hardcoreModeEnabled: loadHardcoreModeEnabled(),
   setHoveredTileId: (id) => set((state) => (state.hoveredTileId === id ? state : { hoveredTileId: id })),
   setLiangDaoArmed: (armed) =>
     set((state) => (state.liangDaoArmed === armed ? state : { liangDaoArmed: armed })),
@@ -75,5 +85,11 @@ export const useUiStore = create<UiStore>((set) => ({
       window.localStorage.setItem(SOUND_ENABLED_KEY, enabled ? "1" : "0");
     }
     set((state) => (state.soundEnabled === enabled ? state : { soundEnabled: enabled }));
+  },
+  setHardcoreModeEnabled: (enabled) => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(HARDCORE_MODE_KEY, enabled ? "1" : "0");
+    }
+    set((state) => (state.hardcoreModeEnabled === enabled ? state : { hardcoreModeEnabled: enabled }));
   },
 }));

@@ -72,15 +72,19 @@ export function TingInfoBar() {
   const players = useGameStore((state) => state.players);
   const phase = useGameStore((state) => state.phase);
   const maxWinMultiplier = useGameStore((state) => state.maxWinMultiplier);
+  const netRole = useGameStore((state) => state.netRole);
   const hoveredTileId = useUiStore((state) => state.hoveredTileId);
+  const hardcoreModeEnabled = useUiStore((state) => state.hardcoreModeEnabled);
 
   const human = players.human;
+  const hideTingInfo = netRole === "single" && hardcoreModeEnabled;
 
   // 计算要展示的听牌信息：
   // 1) 已亮倒：常驻展示当前所听（以现有手牌为准）
   // 2) 未亮倒但当前已上听：常驻展示当前所听
   // 3) 悬浮某张可听牌：展示「打出这张后」所听
   const info = useMemo<{ title: string; waits: WaitDetail[] } | null>(() => {
+    if (hideTingInfo) return null;
     if (phase === "rolling" || phase === "settled" || phase === "draw") return null;
 
     // 已亮倒：直接用当前手牌（亮倒后手牌即为听牌状态的 3n+1 张）
@@ -127,7 +131,7 @@ export function TingInfoBar() {
     }
 
     return null;
-  }, [phase, human.isLiangDao, human.hand, human.lastDrawnTileId, human.melds, hoveredTileId, maxWinMultiplier, players]);
+  }, [hideTingInfo, phase, human.isLiangDao, human.hand, human.lastDrawnTileId, human.melds, hoveredTileId, maxWinMultiplier, players]);
 
   if (!info) return null;
 
