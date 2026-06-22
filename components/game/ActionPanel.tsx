@@ -23,6 +23,7 @@ function ActionButton({
   compact = false,
   variant = "winner",
   pressed = false,
+  disabled = false,
 }: {
   label: string;
   children: React.ReactNode;
@@ -31,6 +32,7 @@ function ActionButton({
   compact?: boolean;
   variant?: ActionButtonVariant;
   pressed?: boolean;
+  disabled?: boolean;
 }) {
   const isPass = label === "过";
   const isProminent = !isPass;
@@ -65,12 +67,13 @@ function ActionButton({
       type="button"
       onPointerDown={(event) => event.stopPropagation()}
       onClick={onClick}
+      disabled={disabled}
       aria-label={label}
       aria-pressed={pressed}
       title={label}
       className={`group flex shrink-0 flex-col items-center justify-center rounded-full border-2 font-bold leading-none shadow-panel backdrop-blur-md transition active:scale-90 ${
         sizeClass
-      } ${isProminent ? "tracking-normal" : ""} ${pressed ? "action-call-button--pressed" : ""} ${toneClass}`}
+      } ${isProminent ? "tracking-normal" : ""} ${pressed ? "action-call-button--pressed" : ""} ${disabled ? "cursor-wait opacity-60 active:scale-100" : ""} ${toneClass}`}
     >
       {children}
     </button>
@@ -81,6 +84,8 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
   const { isMobileLandscape } = useResponsiveGameLayout();
   const phase = useGameStore((state) => state.phase);
   const currentPlayerId = useGameStore((state) => state.currentPlayerId);
+  const netRole = useGameStore((state) => state.netRole);
+  const netPendingAction = useGameStore((state) => state.netPendingAction);
   const pendingReactions = useGameStore((state) => state.pendingReactions);
   const reactionPasses = useGameStore((state) => state.reactionPasses);
   const players = useGameStore((state) => state.players);
@@ -95,6 +100,7 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
   const setLiangDaoArmed = useUiStore((state) => state.setLiangDaoArmed);
 
   const human = players.human;
+  const waitingForHost = netRole === "guest" && Boolean(netPendingAction);
   const isHumanTurn = phase === "playing" && currentPlayerId === "human";
   const playable = isHumanTurn && !human.autoPlay;
   const liangDaoDecisionTurn = isHumanTurn && human.isLiangDao;
@@ -123,7 +129,7 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
 
   if (humanReaction?.canPeng) {
     rightActions.push(
-      <ActionButton compact={isMobileLandscape} key="peng" label="碰" variant="peng" onClick={() => claimPeng("human")}>
+      <ActionButton compact={isMobileLandscape} disabled={waitingForHost} key="peng" label="碰" variant="peng" onClick={() => claimPeng("human")}>
         碰
       </ActionButton>,
     );
@@ -131,7 +137,7 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
 
   if (humanReaction?.canGang) {
     rightActions.push(
-      <ActionButton compact={isMobileLandscape} key="ming-gang" label="杠" variant="gang" onClick={() => claimMingGang("human")}>
+      <ActionButton compact={isMobileLandscape} disabled={waitingForHost} key="ming-gang" label="杠" variant="gang" onClick={() => claimMingGang("human")}>
         杠
       </ActionButton>,
     );
@@ -146,6 +152,7 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
           onClick={() => claimAnGang("human", kind)}
           compact={isMobileLandscape}
           variant="gang"
+          disabled={waitingForHost}
         >
           杠
         </ActionButton>,
@@ -160,6 +167,7 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
           onClick={() => claimBuGang("human", meld.id)}
           compact={isMobileLandscape}
           variant="gang"
+          disabled={waitingForHost}
         >
           杠
         </ActionButton>,
@@ -174,6 +182,7 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
           tone="danger"
           label="过"
           onClick={() => discardTile("human", drawnTile.id)}
+          disabled={waitingForHost}
         >
           过
         </ActionButton>,
@@ -183,7 +192,7 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
 
   if (humanReaction?.canHu) {
     rightActions.unshift(
-      <ActionButton compact={isMobileLandscape} key="hu" tone="primary" label="胡" onClick={() => claimHu("human")}>
+      <ActionButton compact={isMobileLandscape} disabled={waitingForHost} key="hu" tone="primary" label="胡" onClick={() => claimHu("human")}>
         胡
       </ActionButton>,
     );
@@ -191,7 +200,7 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
 
   if (humanReaction) {
     rightActions.push(
-      <ActionButton compact={isMobileLandscape} key="pass" tone="danger" label="过" onClick={() => passReaction("human")}>
+      <ActionButton compact={isMobileLandscape} disabled={waitingForHost} key="pass" tone="danger" label="过" onClick={() => passReaction("human")}>
         过
       </ActionButton>,
     );
@@ -199,12 +208,12 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
 
   if (canClaimSelfHu) {
     rightActions.unshift(
-      <ActionButton compact={isMobileLandscape} key="zimo" tone="primary" label="自摸" onClick={() => claimHu("human")}>
+      <ActionButton compact={isMobileLandscape} disabled={waitingForHost} key="zimo" tone="primary" label="自摸" onClick={() => claimHu("human")}>
         胡
       </ActionButton>,
     );
     rightActions.push(
-      <ActionButton compact={isMobileLandscape} key="pass-self-hu" tone="danger" label="过" onClick={() => passReaction("human")}>
+      <ActionButton compact={isMobileLandscape} disabled={waitingForHost} key="pass-self-hu" tone="danger" label="过" onClick={() => passReaction("human")}>
         过
       </ActionButton>,
     );
@@ -220,6 +229,7 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
         compact={isMobileLandscape}
         variant="liangdao"
         pressed={liangDaoArmed}
+        disabled={waitingForHost}
       >
         亮
       </ActionButton>,

@@ -23,6 +23,7 @@ import type {
 const ENGINE_SEATS: EngineSeatId[] = ["human", "ai_right", "ai_left"];
 const WAITING_HEARTBEAT_MS = 30_000;
 const PLAYING_HEARTBEAT_MS = 60_000;
+const HOST_VIEW_PUBLISH_DEBOUNCE_MS = 80;
 
 /** 从完整 store 状态抽出可发布的快照子集。 */
 function extractSnapshot(state: ReturnType<typeof useGameStore.getState>): NetGameSnapshot {
@@ -96,6 +97,8 @@ export function useNetBridge() {
   const revRef = useRef(0);
   const lastViewRevRef = useRef(-1);
   const lastPublishSigRef = useRef("");
+  const scheduledPublishSigRef = useRef("");
+  const publishTimerRef = useRef<number | null>(null);
   const consumedActionSeqRef = useRef<Partial<Record<EngineSeatId, number>>>({});
   // host 已发牌到的局号，避免同一局重复发牌。
   const dealtRoundRef = useRef(0);
@@ -214,7 +217,7 @@ export function useNetBridge() {
   useEffect(() => {
     if (!isHost || !code || !realWinds || roomStatus !== "playing" || currentRound < 1) return;
     if (mySeat && restoredViewKey !== `${code}:${mySeat}:${currentRound}`) return;
-    const publish = () => {
+    const publishNow = () => {
       const state = useGameStore.getState();
       // 重连恢复完成前不能把 configureNet 后的空初始状态覆盖到 Firestore。
       if (state.phase === "ready" && state.wall.length === 0) return;
@@ -222,6 +225,7 @@ export function useNetBridge() {
       const signature = `${state.actionNonce}|${state.phase}|${state.roundResult ? "r" : "-"}|${state.actionAnnouncement?.id ?? "-"}`;
       if (signature === lastPublishSigRef.current) return;
       lastPublishSigRef.current = signature;
+      scheduledPublishSigRef.current = "";
 
       const snapshot = extractSnapshot(state);
       revRef.current += 1;
@@ -237,9 +241,28 @@ export function useNetBridge() {
         });
       }
     };
+    const publish = () => {
+      const state = useGameStore.getState();
+      if (state.phase === "ready" && state.wall.length === 0) return;
+      const signature = `${state.actionNonce}|${state.phase}|${state.roundResult ? "r" : "-"}|${state.actionAnnouncement?.id ?? "-"}`;
+      if (signature === lastPublishSigRef.current || signature === scheduledPublishSigRef.current) return;
+      scheduledPublishSigRef.current = signature;
+      if (publishTimerRef.current !== null) window.clearTimeout(publishTimerRef.current);
+      publishTimerRef.current = window.setTimeout(() => {
+        publishTimerRef.current = null;
+        publishNow();
+      }, HOST_VIEW_PUBLISH_DEBOUNCE_MS);
+    };
     publish();
     const unsub = useGameStore.subscribe(publish);
-    return () => unsub();
+    return () => {
+      unsub();
+      if (publishTimerRef.current !== null) {
+        window.clearTimeout(publishTimerRef.current);
+        publishTimerRef.current = null;
+      }
+      scheduledPublishSigRef.current = "";
+    };
   }, [isHost, code, realWinds, guestViewSeats, roomStatus, currentRound, mySeat, restoredViewKey]);
 
   // guest：订阅本座位视图，渲染到本地 store（含风位）。

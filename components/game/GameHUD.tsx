@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type MouseEvent, type PointerEvent } from "react";
 import { BadgeCheck, CircleDot, LogOut, MessageCircle, RotateCcw, SendHorizontal, Settings, Volume2, VolumeX, X } from "lucide-react";
 import type { Player, PlayerId, WinMultiplierLimit } from "@/types/mahjong";
-import type { QuickChatMessage, RoomPlayer } from "@/types/multiplayer";
+import type { NetActionType, QuickChatMessage, RoomPlayer } from "@/types/multiplayer";
 import { WIND_LABEL, type EngineSeatId, type Wind } from "@/types/multiplayer";
 import { useGameStore } from "@/store/gameStore";
 import { useRoomStore } from "@/store/roomStore";
@@ -85,6 +85,20 @@ function scoreClass(score: number): string {
   if (score > 0) return "text-emerald-200";
   if (score < 0) return "text-rose-300";
   return "text-slate-300";
+}
+
+function netActionLabel(type: NetActionType): string {
+  const labels: Record<NetActionType, string> = {
+    discard: "出牌",
+    peng: "碰",
+    ming_gang: "明杠",
+    an_gang: "暗杠",
+    bu_gang: "补杠",
+    liang_dao: "亮倒",
+    hu: "胡牌",
+    pass: "过",
+  };
+  return labels[type];
 }
 
 function quickChatSenderSeat(
@@ -386,6 +400,7 @@ export function GameHUD() {
   const resetRound = useGameStore((state) => state.resetRound);
   const netRole = useGameStore((state) => state.netRole);
   const netWinds = useGameStore((state) => state.netWinds);
+  const netPendingAction = useGameStore((state) => state.netPendingAction);
   const leaveRoom = useRoomStore((state) => state.leave);
   const backToHome = useRoomStore((state) => state.backToHome);
   const room = useRoomStore((state) => state.room);
@@ -540,6 +555,14 @@ export function GameHUD() {
         </div>
 
         <div className={`pointer-events-auto grid gap-2 ${isMobileLandscape ? "w-[104px]" : "min-w-[168px]"}`}>
+          {netRole === "guest" && netPendingAction ? (
+            <div className={`surface-panel flex items-center justify-between rounded-xl border-jade/35 text-jade-soft ${
+              isMobileLandscape ? "gap-1 px-2 py-1 text-[9px]" : "gap-2 px-3 py-1.5 text-[11px]"
+            }`}>
+              <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-jade" />
+              <span className="min-w-0 truncate">同步中：{netActionLabel(netPendingAction.type)}</span>
+            </div>
+          ) : null}
           <div
             className={`surface-panel grid rounded-xl ${
               isMobileLandscape ? "gap-0.5 px-1 py-1.5 text-[10px]" : "gap-1 px-3 py-2.5 text-xs"

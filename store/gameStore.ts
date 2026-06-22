@@ -32,6 +32,7 @@ import { getForbiddenDiscards } from "@/utils/mahjong/ai";
 import type {
   EngineSeatId,
   GuestActionInput,
+  NetActionType,
   NetGameSnapshot,
   NetRole,
   Wind,
@@ -48,6 +49,8 @@ interface GameStore extends GameState {
   netRoster?: Partial<Record<EngineSeatId, { name: string; isAi: boolean }>>;
   /** guest 发起动作时的转发回调，由对局桥接层注入；host/single 为 undefined。 */
   netForward?: (action: GuestActionInput) => void;
+  /** guest 本地动作已发出、正在等待房主权威快照确认。 */
+  netPendingAction?: { type: NetActionType; createdAt: number };
   /** 配置联机角色与转发回调。 */
   configureNet: (config: { role: NetRole; seat: EngineSeatId; forward?: (action: GuestActionInput) => void }) => void;
   /** 单独校正本客户端的引擎座位（访客在三人就座、座位推导出来后调用）。 */
@@ -521,13 +524,19 @@ function applyOptimisticGuestAction(action: () => void) {
   }
 }
 
+function markNetPendingAction(type: NetActionType) {
+  useGameStore.setState({ netPendingAction: { type, createdAt: Date.now() } });
+}
+
 function forwardIfGuest(
   state: { netRole: NetRole; netSeat: EngineSeatId; netForward?: (action: GuestActionInput) => void },
   action: Omit<GuestActionInput, "seat">,
 ): boolean {
   if (state.netRole !== "guest") return false;
   if (optimisticGuestActionDepth > 0) return false;
-  state.netForward?.({ ...action, seat: state.netSeat });
+  if (!state.netForward) return true;
+  state.netForward({ ...action, seat: state.netSeat });
+  markNetPendingAction(action.type);
   return true;
 }
 
@@ -555,6 +564,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   netRole: "single",
   netSeat: "human",
   netForward: undefined,
+  netPendingAction: undefined,
   netRoster: undefined,
   netWinds: undefined,
 
@@ -564,6 +574,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       netRole: role,
       netSeat: seat,
       netForward: forward,
+      netPendingAction: undefined,
       netRoster: undefined,
       netWinds: undefined,
       wall: [],
@@ -621,6 +632,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       maxWinMultiplier: snapshot.maxWinMultiplier === undefined ? 8 : snapshot.maxWinMultiplier,
       liangDaoZimoBuyHorseEnabled: snapshot.liangDaoZimoBuyHorseEnabled ?? false,
       canHumanLiangDao: updateHumanLiangDaoHint(snapshot.players.human),
+      netPendingAction: undefined,
     });
   },
 
@@ -765,6 +777,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (state.netRole === "guest" && optimisticGuestActionDepth === 0) {
       if (!state.netForward) return;
       state.netForward({ type: "discard", tileId, seat: state.netSeat });
+      markNetPendingAction("discard");
       const players = { ...state.players };
       players[playerId] = {
         ...player,
