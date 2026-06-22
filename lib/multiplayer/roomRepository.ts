@@ -80,13 +80,30 @@ export async function joinRoom(code: string, player: Omit<RoomPlayer, "wind">): 
     if (!snap.exists()) throw new Error("房间不存在");
     const room = snap.data() as Room;
 
-    // 同一 clientId 重连：沿用原风位。
-    const already = room.players.find((p) => p.clientId === player.clientId);
+    // 同一 clientId 或同昵称真人重连：沿用原风位，并把座位迁移到当前设备的 clientId。
+    const reconnectName = player.name.trim();
+    const already =
+      room.players.find((p) => p.clientId === player.clientId) ??
+      (reconnectName
+        ? room.players.find((p) => !p.isAi && p.name.trim() === reconnectName)
+        : undefined);
     if (already) {
+      const now = Date.now();
       const players = room.players.map((p) =>
-        p.clientId === player.clientId ? { ...p, lastSeen: Date.now(), name: player.name } : p,
+        p.clientId === already.clientId
+          ? { ...p, clientId: player.clientId, lastSeen: now, name: player.name }
+          : p,
       );
-      tx.update(ref, { players, updatedAt: Date.now() });
+      const patch: Record<string, unknown> = { players, updatedAt: now };
+      if (already.isHost || room.hostClientId === already.clientId) {
+        patch.hostClientId = player.clientId;
+      }
+      if (room.readyClients) {
+        patch.readyClients = Array.from(
+          new Set(room.readyClients.map((clientId) => (clientId === already.clientId ? player.clientId : clientId))),
+        );
+      }
+      tx.update(ref, patch);
       return already.wind;
     }
 
