@@ -39,6 +39,7 @@ export function HumanHandOverlay() {
   const aiRight = useGameStore((state) => state.players.ai_right);
   const pendingReactions = useGameStore((state) => state.pendingReactions);
   const reactionPasses = useGameStore((state) => state.reactionPasses);
+  const netRole = useGameStore((state) => state.netRole);
   const selectTile = useGameStore((state) => state.selectTile);
   const discardTile = useGameStore((state) => state.discardTile);
   const declareLiangDao = useGameStore((state) => state.declareLiangDao);
@@ -115,7 +116,8 @@ export function HumanHandOverlay() {
     () => (interactive ? getTingDiscardTileIds(human.hand, human.melds) : new Set<string>()),
     [human.hand, human.melds, interactive],
   );
-  const visibleTingTileIds = hardcoreModeEnabled ? new Set<string>() : tingDiscardTileIds;
+  const hideTingAssist = netRole === "single" && hardcoreModeEnabled;
+  const visibleTingTileIds = hideTingAssist ? new Set<string>() : tingDiscardTileIds;
   const liangDaoDiscardTileIds = tingDiscardTileIds;
   const remainingReactionOptions =
     phase === "responding" && pendingReactions
@@ -315,7 +317,7 @@ export function HumanHandOverlay() {
           const dangerous = exposedWaitKinds.has(tile.kind);
           const canPengTile = tile.kind === canPengKind;
           const canLiangDaoWithTile = liangDaoDiscardTileIds.has(tile.id);
-          const highlightLiangDaoChoice = !hardcoreModeEnabled && liangDaoArmed && canLiangDaoWithTile;
+          const highlightLiangDaoChoice = !hideTingAssist && liangDaoArmed && canLiangDaoWithTile;
           const isDealingReveal = dealing && dealTileIds.has(tile.id);
           const tileDrag = dragState?.tileId === tile.id ? dragState : null;
           const draggingTile = Boolean(tileDrag?.active);

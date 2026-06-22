@@ -119,7 +119,7 @@ export function GameCanvas() {
     (dealRevealCounts.human < players.human.hand.length ||
       dealRevealCounts.ai_left < players.ai_left.hand.length ||
       dealRevealCounts.ai_right < players.ai_right.hand.length);
-  const turnIndicatorActive = phase !== "settled" && phase !== "draw" && !initialDealInProgress && !rollingDice;
+  const turnIndicatorActive = phase === "playing" && !initialDealInProgress && !rollingDice;
   const tableLayout = getTableSceneLayout(isMobileLandscape);
 
   return (
@@ -151,6 +151,7 @@ export function GameCanvas() {
             players={players}
             currentPlayerId={currentPlayerId}
             active={turnIndicatorActive}
+            compact={isMobileLandscape}
           />
 
           {showHumanTableHand ? (
