@@ -163,8 +163,8 @@ function QuickChatPanel({
     <div
       className={`pointer-events-auto fixed z-40 ${
         compact
-          ? "bottom-[6.05rem] left-[max(0.5rem,env(safe-area-inset-left))] w-[min(330px,44vw)]"
-          : "bottom-[9.1rem] left-4 w-[min(360px,calc(100vw-2rem))] sm:left-6"
+          ? "bottom-[9.35rem] left-[max(0.5rem,env(safe-area-inset-left))] w-[min(330px,44vw)]"
+          : "bottom-[12.1rem] left-4 w-[min(360px,calc(100vw-2rem))] sm:left-6"
       }`}
     >
       <div className={`surface-modal rounded-2xl ${compact ? "p-2" : "p-3"}`}>
@@ -397,6 +397,7 @@ export function GameHUD() {
   const [quickChatOpen, setQuickChatOpen] = useState(false);
   const [visibleQuickChat, setVisibleQuickChat] = useState<QuickChatMessage | null>(null);
   const lastQuickChatIdRef = useRef<string | null>(null);
+  const quickChatHideTimerRef = useRef<number | null>(null);
   const lastHudControlPointerActionRef = useRef(0);
 
   function handleExit() {
@@ -422,11 +423,19 @@ export function GameHUD() {
     if (!message || lastQuickChatIdRef.current === message.id) return undefined;
     lastQuickChatIdRef.current = message.id;
     setVisibleQuickChat(message);
-    const timer = window.setTimeout(() => {
+    if (quickChatHideTimerRef.current !== null) window.clearTimeout(quickChatHideTimerRef.current);
+    quickChatHideTimerRef.current = window.setTimeout(() => {
+      quickChatHideTimerRef.current = null;
       setVisibleQuickChat((current) => (current?.id === message.id ? null : current));
     }, QUICK_CHAT_VISIBLE_MS);
-    return () => window.clearTimeout(timer);
+    return undefined;
   }, [room?.quickChat]);
+
+  useEffect(() => {
+    return () => {
+      if (quickChatHideTimerRef.current !== null) window.clearTimeout(quickChatHideTimerRef.current);
+    };
+  }, []);
 
   function handleSendQuickChat(message: string) {
     setQuickChatOpen(false);
@@ -579,6 +588,14 @@ export function GameHUD() {
       <ActionPanel canSelfHu={canSelfHu} anGangKinds={anGangKinds} buGangMelds={buGangMelds} tingOptions={tingOptions} />
       {netRole !== "single" ? (
         <>
+          {quickChatOpen ? (
+            <button
+              type="button"
+              className="pointer-events-auto fixed inset-0 z-[35] cursor-default bg-transparent"
+              aria-label="关闭快捷聊天"
+              onClick={() => setQuickChatOpen(false)}
+            />
+          ) : null}
           <button
             type="button"
             onClick={(event) => {
@@ -587,7 +604,7 @@ export function GameHUD() {
             }}
             className={`surface-panel pointer-events-auto fixed z-30 inline-flex items-center justify-center rounded-xl text-slate-100 transition hover:border-jade/45 hover:text-jade-soft ${
               isMobileLandscape
-                ? "bottom-[4.05rem] left-[max(0.6rem,env(safe-area-inset-left))] h-9 w-9"
+                ? "bottom-[6.75rem] left-[max(0.6rem,env(safe-area-inset-left))] h-9 w-9"
                 : "bottom-[8.7rem] left-4 h-11 w-11 sm:left-6"
             } ${quickChatOpen ? "border-jade/45 text-jade-soft" : ""}`}
             aria-label="快捷聊天"
@@ -598,6 +615,7 @@ export function GameHUD() {
           {quickChatOpen ? <QuickChatPanel compact={isMobileLandscape} onSend={handleSendQuickChat} /> : null}
           {visibleQuickChat && visibleQuickChatSeat ? (
             <QuickChatBubble
+              key={visibleQuickChat.id}
               message={visibleQuickChat}
               seat={visibleQuickChatSeat}
               compact={isMobileLandscape}
