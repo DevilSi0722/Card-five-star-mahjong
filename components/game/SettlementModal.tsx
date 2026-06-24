@@ -8,6 +8,7 @@ import type { PlayerId, ScoreResult, TileInstance } from "@/types/mahjong";
 import { useGameStore } from "@/store/gameStore";
 import { useRoomStore } from "@/store/roomStore";
 import { useResponsiveGameLayout } from "@/hooks/useResponsiveGameLayout";
+import { formatRoomRoundLimit } from "@/types/multiplayer";
 import { TILE_KIND_LABEL, sortTiles } from "@/utils/mahjong/tiles";
 import { getTileTextureSrc } from "@/utils/mahjong/tileTextures";
 
@@ -125,8 +126,8 @@ export function SettlementModal({ result }: { result: ScoreResult }) {
   const readySet = new Set(room?.readyClients ?? []);
   const iAmReady = readySet.has(myClientId);
   const readyCount = humans.filter((p) => readySet.has(p.clientId)).length;
-  // 是否已是设定局数的最后一局：最后一局结束后不再提供「准备」，只能退出。
-  const isLastRound = Boolean(room && room.currentRound >= room.settings.rounds);
+  // 是否已是设定局数的最后一局：无限制房间始终允许继续准备下一局。
+  const isLastRound = Boolean(room && room.settings.rounds !== null && room.currentRound >= room.settings.rounds);
   const isHost = Boolean(room && room.hostClientId === myClientId);
 
   function requestExit() {
@@ -221,7 +222,7 @@ export function SettlementModal({ result }: { result: ScoreResult }) {
           isLastRound ? (
             <div className={isMobileLandscape ? "mt-2" : "mt-5"}>
               <div className={`text-center text-gold-soft ${isMobileLandscape ? "mb-1.5 text-[11px]" : "mb-2.5 text-xs"}`}>
-                已打满 {room?.settings.rounds} 局，本局为最后一局
+                已打满 {room ? formatRoomRoundLimit(room.settings.rounds) : ""}，本局为最后一局
               </div>
               <button
                 type="button"
@@ -239,7 +240,10 @@ export function SettlementModal({ result }: { result: ScoreResult }) {
               <button
                 type="button"
                 disabled={iAmReady}
-                onClick={() => void markReady()}
+                onClick={() => {
+                  if (!room) return;
+                  void markReady(room.currentRound);
+                }}
                 className={`inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition ${
                   iAmReady
                     ? "border border-jade/40 bg-jade/15 text-jade-soft"

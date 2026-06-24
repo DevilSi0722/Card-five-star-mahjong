@@ -163,12 +163,13 @@ export async function updateRoomProgress(
 }
 
 /** 本局结算后，某真人玩家点「准备」（事务内幂等加入 readyClients）。 */
-export async function markReady(code: string, clientId: string): Promise<void> {
+export async function markReady(code: string, clientId: string, round: number): Promise<void> {
   await runTransaction(getDb(), async (tx) => {
     const ref = roomRef(code);
     const snap = await tx.get(ref);
     if (!snap.exists()) return;
     const room = snap.data() as Room;
+    if (room.status !== "playing" || room.currentRound !== round) return;
     const ready = new Set(room.readyClients ?? []);
     if (ready.has(clientId)) return;
     ready.add(clientId);

@@ -28,9 +28,18 @@ export const WIND_LABEL: Record<Wind, string> = {
 export const WIND_DISPLAY_ORDER: Wind[] = ["east", "south", "west", "north"];
 
 /** 房间设置（房主可配置）。 */
+export type RoomRoundLimit = number | null;
+
+export const ROOM_ROUND_OPTIONS: RoomRoundLimit[] = [1, 4, 8, 16, null];
+
+export function formatRoomRoundLimit(rounds: RoomRoundLimit, compact = false): string {
+  if (rounds === null) return compact ? "无限" : "无限制";
+  return `${rounds} 局`;
+}
+
 export interface RoomSettings {
-  /** 总局数。 */
-  rounds: number;
+  /** 总局数；null 表示无限制。 */
+  rounds: RoomRoundLimit;
   /** 底分。 */
   baseScore: number;
   /** 胡牌最大倍率；null 表示无限制。 */

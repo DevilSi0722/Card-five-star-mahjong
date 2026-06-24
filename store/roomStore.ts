@@ -113,7 +113,7 @@ interface RoomStore {
   chooseWind: (wind: Wind) => Promise<void>;
   startGame: () => Promise<void>;
   /** 本局结算后点「准备」，等待全员就绪。 */
-  markReady: () => Promise<void>;
+  markReady: (round: number) => Promise<void>;
   /** 多人局内发送一条快捷聊天。 */
   sendQuickChat: (text: string) => Promise<void>;
   leave: () => Promise<void>;
@@ -316,10 +316,10 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
     }
   },
 
-  markReady: async () => {
+  markReady: async (round) => {
     const { room, clientId } = get();
     if (!room) return;
-    await markReadyRepo(room.code, clientId).catch(() => undefined);
+    await markReadyRepo(room.code, clientId, round).catch(() => undefined);
   },
 
   sendQuickChat: async (text) => {

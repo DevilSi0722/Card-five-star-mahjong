@@ -2,10 +2,8 @@
 
 import { useState } from "react";
 import { useRoomStore } from "@/store/roomStore";
-import { DEFAULT_ROOM_SETTINGS, type RoomSettings } from "@/types/multiplayer";
+import { DEFAULT_ROOM_SETTINGS, formatRoomRoundLimit, ROOM_ROUND_OPTIONS, type RoomSettings } from "@/types/multiplayer";
 import { formatWinMultiplierLimit, WIN_MULTIPLIER_LIMIT_OPTIONS } from "@/utils/mahjong/winMultiplierLimit";
-
-const ROUND_OPTIONS = [1, 4, 8, 16];
 
 export function CreateRoomForm({ compact = false }: { compact?: boolean }) {
   const createNewRoom = useRoomStore((s) => s.createNewRoom);
@@ -20,7 +18,7 @@ export function CreateRoomForm({ compact = false }: { compact?: boolean }) {
 
   const fieldGapClass = compact ? "gap-1" : "gap-1.5";
   const labelClass = compact ? "text-[10px] font-medium leading-none text-slate-300" : "text-xs font-medium text-slate-300";
-  const optionButtonClass = compact ? "h-7 rounded-md text-[10px]" : "h-9 rounded-lg text-xs";
+  const optionButtonClass = compact ? "h-7 rounded-md text-[9px]" : "h-9 rounded-lg text-xs";
   const multiplierButtonClass = compact ? "h-7 rounded-md text-[10px]" : "h-9 rounded-lg text-[11px]";
   const inputHeightClass = compact ? "h-7" : "h-10";
 
@@ -30,12 +28,12 @@ export function CreateRoomForm({ compact = false }: { compact?: boolean }) {
       <div className={compact ? "grid grid-cols-[1.2fr_0.58fr_1fr] items-start gap-x-2 gap-y-2" : "contents"}>
         <div className={`grid ${fieldGapClass}`}>
           <span className={labelClass}>总局数</span>
-          <div className={`grid grid-cols-4 ${compact ? "gap-1" : "gap-2"}`}>
-            {ROUND_OPTIONS.map((r) => {
+          <div className={`grid grid-cols-5 ${compact ? "gap-1" : "gap-1.5"}`}>
+            {ROOM_ROUND_OPTIONS.map((r) => {
               const active = settings.rounds === r;
               return (
                 <button
-                  key={r}
+                  key={r ?? "unlimited"}
                   type="button"
                   aria-pressed={active}
                   onClick={() => patch({ rounds: r })}
@@ -45,7 +43,7 @@ export function CreateRoomForm({ compact = false }: { compact?: boolean }) {
                       : "border-white/12 bg-slate-900/60 text-slate-300 hover:border-gold/40 hover:text-gold-soft"
                   }`}
                 >
-                  {r} 局
+                  {formatRoomRoundLimit(r, compact)}
                 </button>
               );
             })}

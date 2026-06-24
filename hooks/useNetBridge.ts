@@ -186,10 +186,10 @@ export function useNetBridge() {
   }, [isHost, roomStatus, room, currentRound, code, mySeat, restoredViewKey]);
 
   // host：本局结算后，所有真人玩家点「准备」则自动开下一局（递增局号 + 清空准备名单）。
-  // 已打满设定局数（currentRound >= settings.rounds）时不再开新局。
+  // 已打满设定局数时不再开新局；无限制房间没有末局判断。
   useEffect(() => {
     if (!isHost || !code || !room || roomStatus !== "playing") return;
-    if (currentRound >= room.settings.rounds) return;
+    if (room.settings.rounds !== null && currentRound >= room.settings.rounds) return;
     const store = useGameStore.getState();
     const settled = store.phase === "settled" || store.phase === "draw";
     if (!settled) return;
