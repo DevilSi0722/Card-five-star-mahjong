@@ -7,7 +7,7 @@ const TABLECLOTH_KEY = "kwx:tableclothId";
 const SOUND_ENABLED_KEY = "kwx:soundEnabled";
 const HARDCORE_MODE_KEY = "kwx:hardcoreModeEnabled";
 
-const TABLECLOTH_IDS = ["table", "table2", "table3", "table4"] as const;
+const TABLECLOTH_IDS = ["table", "table2", "table3", "table4", "table5", "table6"] as const;
 
 export type TableclothId = (typeof TABLECLOTH_IDS)[number];
 

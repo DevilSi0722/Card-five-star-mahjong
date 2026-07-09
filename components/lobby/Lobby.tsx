@@ -39,7 +39,7 @@ function LobbySettingsModal({ onClose }: { onClose: () => void }) {
   return (
     <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm ${isMobileLandscape ? "p-2" : "p-4"}`}>
       <div
-        className={`surface-modal w-full overflow-y-auto rounded-2xl text-sm text-slate-100 hud-scrollbar ${
+        className={`surface-modal w-full overflow-x-hidden overflow-y-auto rounded-2xl text-sm text-slate-100 hud-scrollbar ${
           isMobileLandscape ? "max-h-[calc(100dvh-1rem)] max-w-[min(420px,calc(100vw-1rem))] p-3" : "max-w-sm p-5"
         }`}
       >
@@ -60,31 +60,33 @@ function LobbySettingsModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className={`${isMobileLandscape ? "mt-3" : "mt-4"} grid gap-3`}>
-          <div className="rounded-xl border border-white/12 bg-slate-900/70 p-3">
+          <div className="overflow-hidden rounded-xl border border-white/12 bg-slate-900/70 p-3">
             <div className="mb-2 text-sm font-semibold text-bone">桌布</div>
-            <div className={`grid gap-2 ${isMobileLandscape ? "grid-cols-4" : "grid-cols-2"}`}>
-              {TABLECLOTH_OPTIONS.map((option) => {
-                const selected = option.id === tableclothId;
-                return (
-                  <button
-                    key={option.id}
-                    type="button"
-                    onClick={() => setTableclothId(option.id)}
-                    className={`overflow-hidden rounded-xl border bg-slate-950/70 text-left transition ${
-                      selected ? "border-gold/70 shadow-[0_0_18px_rgba(233,196,106,0.2)]" : "border-white/12 hover:border-white/25"
-                    }`}
-                    aria-pressed={selected}
-                  >
-                    <span
-                      className="block h-14 bg-cover bg-center"
-                      style={{ backgroundImage: `url(${option.texture.src})` }}
-                    />
-                    <span className={`block truncate px-2 py-1.5 text-xs font-semibold ${selected ? "text-gold-soft" : "text-slate-300"}`}>
-                      {option.name}
-                    </span>
-                  </button>
-                );
-              })}
+            <div className={isMobileLandscape ? "max-w-full overflow-x-auto overflow-y-hidden pb-1 hud-scrollbar [touch-action:pan-x]" : ""}>
+              <div className={isMobileLandscape ? "flex w-max gap-2" : "grid grid-cols-2 gap-2"}>
+                {TABLECLOTH_OPTIONS.map((option) => {
+                  const selected = option.id === tableclothId;
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => setTableclothId(option.id)}
+                      className={`overflow-hidden rounded-xl border bg-slate-950/70 text-left transition ${isMobileLandscape ? "w-[82px] shrink-0" : ""} ${
+                        selected ? "border-gold/70 shadow-[0_0_18px_rgba(233,196,106,0.2)]" : "border-white/12 hover:border-white/25"
+                      }`}
+                      aria-pressed={selected}
+                    >
+                      <span
+                        className="block h-14 bg-cover bg-center"
+                        style={{ backgroundImage: `url(${option.texture.src})` }}
+                      />
+                      <span className={`block truncate px-2 py-1.5 text-xs font-semibold ${selected ? "text-gold-soft" : "text-slate-300"}`}>
+                        {option.name}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
