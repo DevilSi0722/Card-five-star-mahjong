@@ -138,7 +138,7 @@ export function MahjongGame() {
 
   return (
     <main
-      className={`game-shell relative overflow-hidden bg-[#071014] ${
+      className={`game-room-shell game-shell relative overflow-hidden bg-[#071014] ${
         isMobileLandscape ? "game-shell--mobile-landscape" : ""
       }`}
       style={{

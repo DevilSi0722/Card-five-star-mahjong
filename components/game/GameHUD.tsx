@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useRef, useState, type MouseEvent, type PointerEvent } from "react";
 import { BadgeCheck, CircleDot, LogOut, MessageCircle, RotateCcw, SendHorizontal, Settings, Volume2, VolumeX, X } from "lucide-react";
 import type { Player, PlayerId, WinMultiplierLimit } from "@/types/mahjong";
@@ -23,6 +24,11 @@ const PLAYER_TONES: Record<PlayerId, PlayerTone> = {
 };
 
 const SCORE_PANEL_PLAYER_ORDER: EngineSeatId[] = ["human", "ai_right", "ai_left"];
+const PLAYER_AVATAR_SRC: Record<PlayerId, string> = {
+  human: "/generated/avatars/human-jade-guardian-1k.png",
+  ai_left: "/generated/avatars/ai-left-scholar-1k.png",
+  ai_right: "/generated/avatars/ai-right-strategist-1k.png",
+};
 const QUICK_CHAT_MESSAGES = [
   "快点快点，茶都凉了",
   "这牌也太会折磨人了",
@@ -61,21 +67,32 @@ function SideNameTag({
       } ${compact ? "px-1" : "px-2"}`}
     >
       <div
-        className={`surface-panel flex flex-col gap-0.5 rounded-xl ${
-          compact ? "px-2 py-1 text-[10px]" : "px-3 py-1.5 text-xs"
+        className={`surface-panel flex items-center rounded-xl ${
+          compact ? "gap-1.5 px-1.5 py-1 text-[10px]" : "gap-2 px-2 py-1.5 text-xs"
         } ${isCurrent ? "ring-1 ring-inset ring-gold/40" : ""}`}
       >
-        <div className="flex items-center gap-1.5">
-          <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${isCurrent ? "bg-gold" : tone.dot}`} />
-          {player.isLiangDao ? <BadgeCheck className={`${compact ? "h-3 w-3" : "h-3.5 w-3.5"} text-gold`} /> : null}
-          <span className={`max-w-[72px] truncate font-semibold ${isCurrent ? "text-gold-soft" : tone.text}`}>
-            {player.name}
-          </span>
-          <span className={`font-semibold tabular-nums ${scoreClass(player.score)}`}>
-            {player.score > 0 ? `+${player.score}` : player.score}
-          </span>
+        <Image
+          src={PLAYER_AVATAR_SRC[player.id]}
+          alt=""
+          width={1024}
+          height={1024}
+          className={`${compact ? "h-7 w-7" : "h-9 w-9"} shrink-0 rounded-full border border-gold/35 object-cover shadow-[0_0_16px_rgba(233,196,106,0.14)]`}
+        />
+        <div className="grid min-w-0 gap-0.5">
+          <div className="flex items-center gap-1.5">
+            <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${isCurrent ? "bg-gold" : tone.dot}`} />
+            {player.isLiangDao ? <BadgeCheck className={`${compact ? "h-3 w-3" : "h-3.5 w-3.5"} text-gold`} /> : null}
+            <span className={`max-w-[72px] truncate font-semibold ${isCurrent ? "text-gold-soft" : tone.text}`}>
+              {player.name}
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            {wind ? <span className="text-[10px] font-medium text-gold-soft/80">{WIND_LABEL[wind]}风</span> : <span />}
+            <span className={`font-semibold tabular-nums ${scoreClass(player.score)}`}>
+              {player.score > 0 ? `+${player.score}` : player.score}
+            </span>
+          </div>
         </div>
-        {wind ? <span className="text-[10px] font-medium text-gold-soft/80">{WIND_LABEL[wind]}风</span> : null}
       </div>
     </div>
   );
@@ -581,7 +598,13 @@ export function GameHUD() {
                   } ${isCurrent ? "bg-gold/12 ring-1 ring-inset ring-gold/30" : ""}`}
                 >
                   <span className={`flex min-w-0 items-center gap-1.5 ${isCurrent ? "text-bone" : tone.text}`}>
-                    <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${tone.dot}`} />
+                    <Image
+                      src={PLAYER_AVATAR_SRC[player.id]}
+                      alt=""
+                      width={1024}
+                      height={1024}
+                      className={`${isMobileLandscape ? "h-4 w-4" : "h-5 w-5"} shrink-0 rounded-full border border-gold/25 object-cover`}
+                    />
                     {player.isLiangDao ? <BadgeCheck className={`${isMobileLandscape ? "h-3 w-3" : "h-3.5 w-3.5"} text-gold`} /> : null}
                     <span className="min-w-0 truncate">{player.name}</span>
                     {wind ? <span className="shrink-0 text-gold-soft/70">·{WIND_LABEL[wind]}</span> : null}

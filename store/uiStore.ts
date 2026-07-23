@@ -4,12 +4,15 @@ import { create } from "zustand";
 
 const DISCARD_PHYSICS_KEY = "kwx:discardPhysicsEnabled";
 const TABLECLOTH_KEY = "kwx:tableclothId";
+const TILE_BACK_KEY = "kwx:tileBackId";
 const SOUND_ENABLED_KEY = "kwx:soundEnabled";
 const HARDCORE_MODE_KEY = "kwx:hardcoreModeEnabled";
 
 const TABLECLOTH_IDS = ["table", "table2", "table3", "table4", "table5", "table6"] as const;
+const TILE_BACK_IDS = ["ink-cloud", "jade-phoenix", "cinnabar-bell", "black-gold-thunder"] as const;
 
 export type TableclothId = (typeof TABLECLOTH_IDS)[number];
+export type TileBackId = (typeof TILE_BACK_IDS)[number];
 
 function loadDiscardPhysicsEnabled(): boolean {
   if (typeof window === "undefined") return false;
@@ -37,6 +40,16 @@ function loadTableclothId(): TableclothId {
   return isTableclothId(value) ? value : "table";
 }
 
+function isTileBackId(value: string | null): value is TileBackId {
+  return TILE_BACK_IDS.some((id) => id === value);
+}
+
+function loadTileBackId(): TileBackId {
+  if (typeof window === "undefined") return "ink-cloud";
+  const value = window.localStorage.getItem(TILE_BACK_KEY);
+  return isTileBackId(value) ? value : "ink-cloud";
+}
+
 interface UiStore {
   // 当前鼠标悬浮的手牌 id（仅人类手牌），用于驱动底部听牌信息栏
   hoveredTileId?: string;
@@ -46,6 +59,8 @@ interface UiStore {
   discardPhysicsEnabled: boolean;
   // 本机桌布显示设置。只影响自己的画面，不同步到多人房间。
   tableclothId: TableclothId;
+  // 本机牌背显示设置。只影响自己的画面，不同步到多人房间。
+  tileBackId: TileBackId;
   // 音效开关。只影响本机，不同步到多人房间。
   soundEnabled: boolean;
   // 单人硬核模式：隐藏听牌辅助提示。只影响本机单人对局显示。
@@ -54,6 +69,7 @@ interface UiStore {
   setLiangDaoArmed: (armed: boolean) => void;
   setDiscardPhysicsEnabled: (enabled: boolean) => void;
   setTableclothId: (id: TableclothId) => void;
+  setTileBackId: (id: TileBackId) => void;
   setSoundEnabled: (enabled: boolean) => void;
   setHardcoreModeEnabled: (enabled: boolean) => void;
 }
@@ -63,6 +79,7 @@ export const useUiStore = create<UiStore>((set) => ({
   liangDaoArmed: false,
   discardPhysicsEnabled: loadDiscardPhysicsEnabled(),
   tableclothId: loadTableclothId(),
+  tileBackId: loadTileBackId(),
   soundEnabled: loadSoundEnabled(),
   hardcoreModeEnabled: loadHardcoreModeEnabled(),
   setHoveredTileId: (id) => set((state) => (state.hoveredTileId === id ? state : { hoveredTileId: id })),
@@ -79,6 +96,12 @@ export const useUiStore = create<UiStore>((set) => ({
       window.localStorage.setItem(TABLECLOTH_KEY, id);
     }
     set((state) => (state.tableclothId === id ? state : { tableclothId: id }));
+  },
+  setTileBackId: (id) => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(TILE_BACK_KEY, id);
+    }
+    set((state) => (state.tileBackId === id ? state : { tileBackId: id }));
   },
   setSoundEnabled: (enabled) => {
     if (typeof window !== "undefined") {

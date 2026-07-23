@@ -97,6 +97,39 @@ body.mobile-game-locked {
   width: 100vw;
 }
 
+.lobby-shell {
+  isolation: isolate;
+}
+
+.lobby-art {
+  background-image: url("/generated/concepts/lobby-jingchu-2k.png");
+  background-position: center;
+  background-size: cover;
+  filter: saturate(0.92) contrast(1.04);
+  transform: scale(1.015);
+}
+
+.lobby-panel {
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(38, 146, 128, 0.11), transparent 58%),
+    linear-gradient(180deg, rgba(13, 24, 32, 0.88), rgba(7, 13, 22, 0.94));
+}
+
+.game-room-shell {
+  background-image:
+    radial-gradient(75% 70% at 50% 58%, rgba(7, 16, 20, 0.08), rgba(7, 16, 20, 0.48) 66%, rgba(7, 16, 20, 0.82) 100%),
+    url("/generated/ui/game-room-backdrop-2k.png");
+  background-position: center;
+  background-size: cover;
+}
+
+@media (orientation: portrait) {
+  .lobby-art {
+    background-image: url("/generated/ui/lobby-bg-mobile-2k.png");
+    background-position: center;
+  }
+}
+
 @supports (height: 100dvh) {
   .game-shell {
     height: 100dvh;

@@ -1,11 +1,13 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import { ArrowLeft, LogIn, Plus, Settings, User, Users, X } from "lucide-react";
 import { useRoomStore } from "@/store/roomStore";
 import { useUiStore } from "@/store/uiStore";
 import { useResponsiveGameLayout } from "@/hooks/useResponsiveGameLayout";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
+import { TILE_BACK_OPTIONS } from "@/utils/tileBacks";
 import { TABLECLOTH_OPTIONS } from "@/utils/tablecloths";
 import { CreateRoomForm } from "./CreateRoomForm";
 import { JoinRoomForm } from "./JoinRoomForm";
@@ -35,12 +37,16 @@ function LobbySettingsModal({ onClose }: { onClose: () => void }) {
   const setDiscardPhysicsEnabled = useUiStore((s) => s.setDiscardPhysicsEnabled);
   const tableclothId = useUiStore((s) => s.tableclothId);
   const setTableclothId = useUiStore((s) => s.setTableclothId);
+  const tileBackId = useUiStore((s) => s.tileBackId);
+  const setTileBackId = useUiStore((s) => s.setTileBackId);
 
   return (
     <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm ${isMobileLandscape ? "p-2" : "p-4"}`}>
       <div
         className={`surface-modal w-full overflow-x-hidden overflow-y-auto rounded-2xl text-sm text-slate-100 hud-scrollbar ${
-          isMobileLandscape ? "max-h-[calc(100dvh-1rem)] max-w-[min(420px,calc(100vw-1rem))] p-3" : "max-w-sm p-5"
+          isMobileLandscape
+            ? "max-h-[calc(100dvh-1rem)] max-w-[min(720px,calc(100vw-1rem))] p-3"
+            : "max-h-[calc(100dvh-2rem)] max-w-md p-5"
         }`}
       >
         <div className="flex items-center justify-between gap-3">
@@ -59,7 +65,7 @@ function LobbySettingsModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        <div className={`${isMobileLandscape ? "mt-3" : "mt-4"} grid gap-3`}>
+        <div className={`${isMobileLandscape ? "mt-3 grid grid-cols-2 gap-2" : "mt-4 grid gap-3"}`}>
           <div className="overflow-hidden rounded-xl border border-white/12 bg-slate-900/70 p-3">
             <div className="mb-2 text-sm font-semibold text-bone">桌布</div>
             <div className={isMobileLandscape ? "max-w-full overflow-x-auto overflow-y-hidden pb-1 hud-scrollbar [touch-action:pan-x]" : ""}>
@@ -71,13 +77,13 @@ function LobbySettingsModal({ onClose }: { onClose: () => void }) {
                       key={option.id}
                       type="button"
                       onClick={() => setTableclothId(option.id)}
-                      className={`overflow-hidden rounded-xl border bg-slate-950/70 text-left transition ${isMobileLandscape ? "w-[82px] shrink-0" : ""} ${
+                      className={`overflow-hidden rounded-xl border bg-slate-950/70 text-left transition ${isMobileLandscape ? "w-[76px] shrink-0" : ""} ${
                         selected ? "border-gold/70 shadow-[0_0_18px_rgba(233,196,106,0.2)]" : "border-white/12 hover:border-white/25"
                       }`}
                       aria-pressed={selected}
                     >
                       <span
-                        className="block h-14 bg-cover bg-center"
+                        className={`block bg-cover bg-center ${isMobileLandscape ? "h-12" : "h-14"}`}
                         style={{ backgroundImage: `url(${option.texture.src})` }}
                       />
                       <span className={`block truncate px-2 py-1.5 text-xs font-semibold ${selected ? "text-gold-soft" : "text-slate-300"}`}>
@@ -90,7 +96,37 @@ function LobbySettingsModal({ onClose }: { onClose: () => void }) {
             </div>
           </div>
 
-          <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-white/12 bg-slate-900/70 px-3 py-3 text-sm text-slate-200 transition hover:border-white/20">
+          <div className="overflow-hidden rounded-xl border border-white/12 bg-slate-900/70 p-3">
+            <div className="mb-2 text-sm font-semibold text-bone">牌背</div>
+            <div className={isMobileLandscape ? "max-w-full overflow-x-auto overflow-y-hidden pb-1 hud-scrollbar [touch-action:pan-x]" : ""}>
+              <div className={isMobileLandscape ? "flex w-max gap-2" : "grid grid-cols-2 gap-2"}>
+                {TILE_BACK_OPTIONS.map((option) => {
+                  const selected = option.id === tileBackId;
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => setTileBackId(option.id)}
+                      className={`overflow-hidden rounded-xl border bg-slate-950/70 text-left transition ${isMobileLandscape ? "w-[76px] shrink-0" : ""} ${
+                        selected ? "border-gold/70 shadow-[0_0_18px_rgba(233,196,106,0.2)]" : "border-white/12 hover:border-white/25"
+                      }`}
+                      aria-pressed={selected}
+                    >
+                      <span
+                        className={`block bg-contain bg-center bg-no-repeat ${isMobileLandscape ? "h-12" : "h-14"}`}
+                        style={{ backgroundImage: `url(${option.src})`, backgroundColor: option.edgeColor }}
+                      />
+                      <span className={`block truncate px-2 py-1.5 text-xs font-semibold ${selected ? "text-gold-soft" : "text-slate-300"}`}>
+                        {option.name}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <label className={`flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-white/12 bg-slate-900/70 px-3 py-3 text-sm text-slate-200 transition hover:border-white/20 ${isMobileLandscape ? "col-span-2" : ""}`}>
             <span className="grid gap-0.5">
               <span className="font-semibold text-bone">物理碰撞弃牌</span>
               <span className="text-xs text-slate-400">进入单人或多人对局后生效</span>
@@ -138,8 +174,9 @@ export function Lobby({ onStartSingle }: { onStartSingle: () => void }) {
       : "max-w-[min(680px,calc(100vw-1rem))]";
 
   return (
-    <main className={`relative flex min-h-[100dvh] w-full items-center justify-center overflow-y-auto bg-[#071014] ${isMobileLandscape ? "p-2" : "p-4"}`}>
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(80%_60%_at_50%_0%,rgba(233,196,106,0.08),transparent_60%)]" />
+    <main className={`lobby-shell relative flex min-h-[100dvh] w-full items-center justify-center overflow-y-auto bg-[#071014] ${isMobileLandscape ? "p-2" : "p-4"}`}>
+      <div className="lobby-art pointer-events-none absolute inset-0" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(70%_55%_at_50%_42%,rgba(7,16,20,0.06),rgba(7,16,20,0.78)_72%,rgba(7,16,20,0.94)_100%)]" />
       {view === "home" ? (
         <button
           type="button"
@@ -153,15 +190,38 @@ export function Lobby({ onStartSingle }: { onStartSingle: () => void }) {
           <Settings className={isMobileLandscape ? "h-4 w-4" : "h-5 w-5"} />
         </button>
       ) : null}
-      <div className={`surface-modal relative w-full overflow-y-auto rounded-2xl hud-scrollbar ${
-        isMobileLandscape ? `max-h-[calc(100dvh-1rem)] ${landscapeMaxW} p-3` : "max-w-sm p-6"
+      <div className={`lobby-panel surface-modal relative w-full overflow-y-auto rounded-2xl hud-scrollbar ${
+        isMobileLandscape ? `max-h-[calc(100dvh-1rem)] ${landscapeMaxW} p-3` : "max-w-md p-6"
       }`}>
-        <div className="text-center">
-          <div className={`brand-title font-bold ${isMobileLandscape ? "text-xl" : "text-3xl"}`}>卡五星麻将</div>
-          {isMobileLandscape && view !== "home" ? null : (
-            <div className="mt-1 text-xs tracking-[0.3em] text-slate-400">3D 在线对战</div>
-          )}
-        </div>
+        {view === "home" ? (
+          <div className="mx-auto text-center">
+            <div className={`relative mx-auto ${isMobileLandscape ? "h-28 w-28" : "h-52 w-52"}`}>
+              <Image
+                src="/generated/ui/brand-crest-base-1k-transparent.png"
+                alt=""
+                width={1024}
+                height={1024}
+                priority
+                className="absolute inset-0 h-full w-full object-contain drop-shadow-[0_18px_35px_rgba(0,0,0,0.62)]"
+              />
+              <div
+                className={`brand-title absolute left-1/2 top-1/2 z-10 w-[78%] -translate-x-1/2 -translate-y-1/2 whitespace-nowrap text-center font-bold leading-none drop-shadow-[0_3px_8px_rgba(0,0,0,0.9)] ${
+                  isMobileLandscape ? "text-sm" : "text-2xl"
+                }`}
+              >
+                卡五星麻将
+              </div>
+            </div>
+            <div className={`${isMobileLandscape ? "mt-1 text-[10px]" : "mt-2 text-xs"} text-slate-400`}>
+              3D 在线对战
+            </div>
+          </div>
+        ) : (
+          <div className="text-center">
+            <div className={`brand-title font-bold ${isMobileLandscape ? "text-xl" : "text-3xl"}`}>卡五星麻将</div>
+            {isMobileLandscape ? null : <div className="mt-1 text-xs text-slate-400">3D 在线对战</div>}
+          </div>
+        )}
 
         {error ? (
           <div className={`rounded-lg border border-rose-300/30 bg-rose-400/12 px-3 py-2 text-xs text-rose-200 ${isMobileLandscape ? "mt-3" : "mt-4"}`}>
@@ -170,7 +230,7 @@ export function Lobby({ onStartSingle }: { onStartSingle: () => void }) {
         ) : null}
 
         {view === "home" ? (
-          <div className={`grid gap-3 ${isMobileLandscape ? "mt-4 grid-cols-2" : "mt-6"}`}>
+          <div className={`grid gap-3 ${isMobileLandscape ? "mt-3 grid-cols-2" : "mt-5 grid-cols-1 sm:grid-cols-2"}`}>
             <button
               type="button"
               onClick={onStartSingle}

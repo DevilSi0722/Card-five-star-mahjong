@@ -4,8 +4,12 @@ import { Suspense, useMemo, useState } from "react";
 import { useTexture } from "@react-three/drei";
 import { animated, useSpring } from "@react-spring/three";
 import { ExtrudeGeometry, Shape, SRGBColorSpace } from "three";
+import { useUiStore } from "@/store/uiStore";
 import type { TileInstance, TileKind } from "@/types/mahjong";
+import { getTileBackOption, TILE_BACK_OPTIONS } from "@/utils/tileBacks";
 import { getTileTextureSrc } from "@/utils/mahjong/tileTextures";
+
+TILE_BACK_OPTIONS.forEach((option) => useTexture.preload(option.src));
 
 interface TileMeshProps {
   tile?: TileInstance;
@@ -28,7 +32,6 @@ interface TileMeshProps {
 }
 
 const FACE_BACKGROUND = "#f5f1df";
-const TILE_BACK_COLOR = "#182446";
 // 牌的基础尺寸（导出供物理碰撞盒派生，确保可见厚度与碰撞盒永远一致）。
 // 调厚度只改这里，PhysicsDiscardArea3D 的碰撞盒半高会自动跟随，不会穿模。
 export const TILE_WIDTH = 0.34;
@@ -71,6 +74,15 @@ function TileBody({
   selected: boolean;
   faceUp: boolean;
 }) {
+  const tileBackId = useUiStore((state) => state.tileBackId);
+  const tileBack = getTileBackOption(tileBackId);
+  const sourceBackTexture = useTexture(tileBack.src);
+  const backTexture = useMemo(() => {
+    sourceBackTexture.colorSpace = SRGBColorSpace;
+    sourceBackTexture.anisotropy = 16;
+    sourceBackTexture.needsUpdate = true;
+    return sourceBackTexture;
+  }, [sourceBackTexture]);
   const bodyGeometry = useMemo(() => {
     const shape = createRoundedRectangleShape(TILE_WIDTH, TILE_LENGTH, TILE_CORNER_RADIUS);
     const roundedGeometry = new ExtrudeGeometry(shape, {
@@ -100,16 +112,31 @@ function TileBody({
   }, [faceUp, standing]);
 
   return (
-    <mesh castShadow receiveShadow geometry={bodyGeometry}>
-      <meshStandardMaterial
-        attach="material-0"
-        color={FACE_BACKGROUND}
-        emissive={selected ? "#facc15" : "#000000"}
-        emissiveIntensity={selected ? 0.45 : 0}
-        roughness={0.55}
-      />
-      <meshStandardMaterial attach="material-1" color={TILE_BACK_COLOR} roughness={0.48} />
-    </mesh>
+    <group>
+      <mesh castShadow receiveShadow geometry={bodyGeometry}>
+        <meshStandardMaterial
+          attach="material-0"
+          color={FACE_BACKGROUND}
+          emissive={selected ? "#facc15" : "#000000"}
+          emissiveIntensity={selected ? 0.45 : 0}
+          roughness={0.55}
+        />
+        <meshStandardMaterial attach="material-1" color={tileBack.edgeColor} roughness={0.48} />
+      </mesh>
+      {!faceUp ? (
+        standing ? (
+          <mesh position={[0, 0, TILE_RENDERED_HALF_THICKNESS + TILE_SURFACE_OFFSET]}>
+            <planeGeometry args={STANDING_FACE_SIZE} />
+            <meshBasicMaterial map={backTexture} toneMapped={false} />
+          </mesh>
+        ) : (
+          <mesh position={[0, TILE_RENDERED_HALF_THICKNESS + TILE_SURFACE_OFFSET, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={LYING_FACE_SIZE} />
+            <meshBasicMaterial map={backTexture} toneMapped={false} />
+          </mesh>
+        )
+      ) : null}
+    </group>
   );
 }
 

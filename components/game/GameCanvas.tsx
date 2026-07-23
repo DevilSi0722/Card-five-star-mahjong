@@ -131,10 +131,9 @@ export function GameCanvas() {
         fov: isMobileLandscape ? 39 : 40,
       }}
       className="absolute inset-0"
-      gl={{ antialias: true }}
+      gl={{ antialias: true, alpha: true }}
     >
       <FixedCamera mobileLandscape={isMobileLandscape} />
-      <color attach="background" args={["#081418"]} />
       <ambientLight intensity={0.85} />
       <directionalLight position={[3, 7, 4]} intensity={1.8} castShadow />
       <hemisphereLight args={["#d8f6ff", "#19362f", 0.45]} />
