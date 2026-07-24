@@ -1,11 +1,21 @@
 "use client";
 
-import { Crown, Bot, User, LogOut, Copy, Check, Plus } from "lucide-react";
+import Image from "next/image";
+import { Crown, LogOut, Copy, Check, Plus } from "lucide-react";
 import { useState } from "react";
 import { useRoomStore } from "@/store/roomStore";
 import { useResponsiveGameLayout } from "@/hooks/useResponsiveGameLayout";
 import { formatRoomRoundLimit, WIND_DISPLAY_ORDER, WIND_LABEL, type RoomPlayer, type Wind } from "@/types/multiplayer";
 import { formatWinMultiplierLimit } from "@/utils/mahjong/winMultiplierLimit";
+
+const WIND_AVATAR_SRC: Record<Wind, string> = {
+  east: "/generated/avatars/human-jade-guardian-1k.png",
+  south: "/generated/avatars/ai-left-scholar-1k.png",
+  west: "/generated/avatars/ai-right-strategist-1k.png",
+  north: "/generated/avatars/north-jade-strategist-2k.png",
+};
+
+const AI_AVATAR_SRC = "/generated/avatars/ai-right-strategist-1k.png";
 
 function WindSeat({
   wind,
@@ -23,51 +33,55 @@ function WindSeat({
   compact?: boolean;
 }) {
   const interactive = !player && canTake;
+  const avatarSrc = player?.isAi ? AI_AVATAR_SRC : WIND_AVATAR_SRC[wind];
+  const status = player ? (isMe ? "你已入座" : player.isAi ? "电脑补位" : "已入座") : interactive ? "点击入座" : "空位";
+
   return (
     <button
       type="button"
       disabled={!interactive}
       onClick={onTake}
-      className={`flex flex-1 flex-col items-center rounded-xl border px-1 transition ${
-        compact ? "gap-1 py-2" : "gap-1.5 py-3"
+      aria-label={`${WIND_LABEL[wind]}风${status}`}
+      className={`relative flex min-w-0 flex-1 flex-col items-center rounded-xl border transition ${
+        compact ? "min-h-[106px] gap-1.5 px-1.5 py-2" : "min-h-[150px] gap-2.5 px-3 py-3"
       } ${
         player
           ? isMe
-            ? "border-gold/50 bg-gold/12"
-            : "border-white/10 bg-white/5"
+            ? "border-gold/65 bg-gold/12 shadow-[0_0_22px_rgba(233,196,106,0.15)]"
+            : "border-white/14 bg-slate-950/35"
           : interactive
-            ? "cursor-pointer border-dashed border-white/15 bg-transparent hover:border-jade/50 hover:bg-white/5"
-            : "border-dashed border-white/10 bg-transparent"
+            ? "cursor-pointer border-dashed border-jade/35 bg-slate-950/20 hover:border-jade/70 hover:bg-jade/10"
+            : "border-dashed border-white/10 bg-slate-950/10"
       } ${interactive ? "pointer-events-auto" : ""}`}
     >
-      <span className={`text-lg font-bold ${player ? "text-gold-soft" : "text-slate-500"}`}>
-        {WIND_LABEL[wind]}
+      <span className={`absolute left-2 top-1.5 font-serif text-sm font-bold ${player ? "text-gold-soft" : "text-slate-500"}`}>
+        {WIND_LABEL[wind]}风
       </span>
-      <span
-        className={`grid h-8 w-8 place-items-center rounded-lg ${
-          player?.isAi ? "bg-sky-400/15" : player ? "bg-jade/15" : "bg-white/5"
-        }`}
-      >
-        {player?.isAi ? (
-          <Bot className="h-4 w-4 text-sky-300" />
-        ) : player ? (
-          <User className="h-4 w-4 text-jade" />
-        ) : interactive ? (
-          <Plus className="h-4 w-4 text-slate-500" />
-        ) : (
-          <User className="h-4 w-4 text-slate-600" />
-        )}
-      </span>
-      <span className="flex items-center gap-1 text-center text-[11px] font-semibold text-bone">
-        {player ? (
-          <>
-            <span className="max-w-[56px] truncate">{player.name}</span>
-            {player.isHost ? <Crown className="h-3 w-3 shrink-0 text-gold" /> : null}
-          </>
-        ) : (
-          <span className="text-slate-500">{interactive ? "点击入座" : "空位"}</span>
-        )}
-      </span>
+      {player ? (
+        <>
+          <Image
+            src={avatarSrc}
+            alt=""
+            width={1024}
+            height={1024}
+            className={`${compact ? "mt-4 h-11 w-11" : "mt-5 h-16 w-16"} rounded-full border border-gold/35 object-cover shadow-[0_0_18px_rgba(233,196,106,0.16)]`}
+          />
+          <span className={`flex min-w-0 items-center gap-1 font-semibold text-bone ${compact ? "text-[11px]" : "text-sm"}`}>
+            <span className="max-w-[72px] truncate">{player.name}</span>
+            {player.isHost ? <Crown className="h-3.5 w-3.5 shrink-0 text-gold" /> : null}
+          </span>
+          <span className={`${compact ? "text-[9px]" : "text-[11px]"} ${isMe ? "text-gold-soft" : "text-slate-400"}`}>{status}</span>
+        </>
+      ) : (
+        <>
+          <span className={`mt-auto grid place-items-center rounded-full border ${interactive ? "border-jade/30 bg-jade/10 text-jade" : "border-white/10 bg-white/5 text-slate-600"} ${
+            compact ? "h-9 w-9" : "h-12 w-12"
+          }`}>
+            <Plus className={compact ? "h-4 w-4" : "h-5 w-5"} />
+          </span>
+          <span className={`mb-auto font-medium ${compact ? "text-[10px]" : "text-xs"} ${interactive ? "text-jade-soft" : "text-slate-500"}`}>{status}</span>
+        </>
+      )}
     </button>
   );
 }
@@ -98,22 +112,22 @@ export function RoomWaiting() {
   }
 
   return (
-    <main className={`relative flex min-h-[100dvh] w-full items-center justify-center overflow-y-auto bg-[#071014] ${isMobileLandscape ? "p-2" : "p-4"}`}>
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(80%_60%_at_50%_0%,rgba(233,196,106,0.08),transparent_60%)]" />
-      <div className={`surface-modal relative w-full overflow-y-auto rounded-2xl hud-scrollbar ${
-        isMobileLandscape ? "max-h-[calc(100dvh-1rem)] max-w-[min(440px,calc(100vw-1rem))] p-4" : "max-w-md p-6"
+    <main className={`lobby-shell relative flex min-h-[100dvh] w-full items-center justify-center overflow-y-auto bg-[#071014] ${isMobileLandscape ? "p-2" : "p-4"}`}>
+      <div className="lobby-art pointer-events-none absolute inset-0" />
+      <div className={`lobby-panel surface-modal relative w-full overflow-y-auto rounded-2xl hud-scrollbar ${
+        isMobileLandscape ? "max-h-[calc(100dvh-1rem)] max-w-[min(760px,calc(100vw-1rem))] p-3" : "max-w-3xl p-6"
       }`}>
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-xs text-slate-400">房间号</div>
+        <header className="flex items-center justify-between gap-4 border-b border-gold/20 pb-3">
+          <div className="min-w-0">
+            <div className="text-[11px] font-medium text-slate-400">房间号</div>
             <button
               type="button"
               onClick={copyCode}
-              className={`flex items-center gap-2 font-bold tracking-[0.3em] text-gold-soft transition hover:text-gold ${
-                isMobileLandscape ? "text-2xl" : "text-3xl"
+              className={`flex items-center gap-2 font-bold leading-none transition hover:brightness-110 ${
+                isMobileLandscape ? "mt-1 text-2xl" : "mt-1 text-3xl"
               }`}
             >
-              {room.code}
+              <span className="brand-title">{room.code}</span>
               {copied ? <Check className="h-4 w-4 text-jade" /> : <Copy className="h-4 w-4 text-slate-500" />}
             </button>
           </div>
@@ -125,16 +139,15 @@ export function RoomWaiting() {
             <LogOut className="h-3.5 w-3.5" />
             {isHost ? "解散" : "离开"}
           </button>
-        </div>
+        </header>
 
-        {/* 横屏：左右双栏（左=风位选择，右=设置摘要+开始），用宽度换高度；竖屏：单列堆叠 */}
-        <div className={isMobileLandscape ? "mt-3 grid grid-cols-[1.4fr_1fr] items-start gap-3" : "contents"}>
-          <div className={isMobileLandscape ? "" : "mt-5"}>
-            <div className="flex items-center justify-between text-xs font-medium text-slate-400">
+        <div className={`grid ${isMobileLandscape ? "mt-3 grid-cols-[1.45fr_1fr] items-start gap-4" : "mt-5 gap-5"}`}>
+          <section>
+            <div className="flex items-center justify-between gap-3 text-xs font-medium text-slate-400">
               <span>选择风位（{room.players.length}/3）</span>
               <span className="text-slate-500">点击空位可切换</span>
             </div>
-            <div className="mt-2 flex gap-2">
+            <div className={`mt-3 grid gap-2 ${isMobileLandscape ? "grid-cols-4" : "grid-cols-2 sm:grid-cols-4"}`}>
               {WIND_DISPLAY_ORDER.map((wind) => (
                 <WindSeat
                   key={wind}
@@ -147,11 +160,10 @@ export function RoomWaiting() {
                 />
               ))}
             </div>
-          </div>
+          </section>
 
-          <div className={isMobileLandscape ? "grid content-start gap-3" : "contents"}>
-            {/* 设置摘要 */}
-            <div className={`grid grid-cols-2 gap-2 rounded-xl border border-white/8 bg-white/5 text-center ${isMobileLandscape ? "p-2" : "mt-4 p-3 sm:grid-cols-4"}`}>
+          <section className={`grid content-start gap-4 ${isMobileLandscape ? "border-l border-gold/15 pl-4" : "border-t border-gold/15 pt-4"}`}>
+            <div className={`grid grid-cols-2 gap-y-3 text-center ${isMobileLandscape ? "text-[10px]" : "sm:grid-cols-4"}`}>
               <div>
                 <div className="text-[11px] text-slate-400">局数</div>
                 <div className="text-sm font-semibold text-bone">{formatRoomRoundLimit(room.settings.rounds, isMobileLandscape)}</div>
@@ -175,11 +187,11 @@ export function RoomWaiting() {
             </div>
 
             {isHost ? (
-              <div className={`grid gap-2 ${isMobileLandscape ? "" : "mt-4"}`}>
+              <div className="grid gap-2">
                 <button
                   type="button"
                   disabled={!canStart || busy}
-                  onClick={startGame}
+                  onClick={() => void startGame()}
                   className={`surface-panel inline-flex items-center justify-center rounded-xl border-gold/40 font-semibold transition hover:border-gold/70 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 ${
                     isMobileLandscape ? "h-10" : "h-11"
                   }`}
@@ -193,11 +205,11 @@ export function RoomWaiting() {
                 </div>
               </div>
             ) : (
-              <div className={`rounded-xl border border-white/8 bg-white/5 px-4 py-3 text-center text-xs text-slate-400 ${isMobileLandscape ? "" : "mt-4"}`}>
+              <div className="border-y border-white/10 px-3 py-3 text-center text-xs text-slate-400">
                 等待房主开始游戏…
               </div>
             )}
-          </div>
+          </section>
         </div>
       </div>
     </main>

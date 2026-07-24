@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState, type MouseEvent, type PointerEvent } from "react";
-import { BadgeCheck, CircleDot, LogOut, MessageCircle, RotateCcw, SendHorizontal, Settings, Volume2, VolumeX, X } from "lucide-react";
+import { ArrowLeft, BadgeCheck, ChevronRight, CircleDot, LogOut, MessageCircle, RotateCcw, SendHorizontal, Settings, Volume2, VolumeX, X } from "lucide-react";
 import type { Player, PlayerId, WinMultiplierLimit } from "@/types/mahjong";
 import type { NetActionType, QuickChatMessage, RoomPlayer } from "@/types/multiplayer";
 import { WIND_LABEL, type EngineSeatId, type Wind } from "@/types/multiplayer";
@@ -12,6 +12,8 @@ import { useUiStore } from "@/store/uiStore";
 import { useResponsiveGameLayout } from "@/hooks/useResponsiveGameLayout";
 import { analyzeWin, getAnGangKinds, getTingDiscardOptions } from "@/utils/mahjong/handAnalyzer";
 import { formatWinMultiplierLimit, WIN_MULTIPLIER_LIMIT_OPTIONS } from "@/utils/mahjong/winMultiplierLimit";
+import { getTileBackOption, TILE_BACK_OPTIONS } from "@/utils/tileBacks";
+import { getTableclothOption, TABLECLOTH_OPTIONS } from "@/utils/tablecloths";
 import { ActionPanel } from "./ActionPanel";
 
 // 每个显示座位一套固定配色。多人模式昵称会变化，颜色必须跟座位走，不能跟名字匹配。
@@ -226,6 +228,105 @@ function QuickChatPanel({
   );
 }
 
+type AppearancePickerKind = "tablecloth" | "tileBack";
+
+function AppearancePicker({ kind, onClose }: { kind: AppearancePickerKind; onClose: () => void }) {
+  const { isMobileLandscape } = useResponsiveGameLayout();
+  const tableclothId = useUiStore((state) => state.tableclothId);
+  const setTableclothId = useUiStore((state) => state.setTableclothId);
+  const tileBackId = useUiStore((state) => state.tileBackId);
+  const setTileBackId = useUiStore((state) => state.setTileBackId);
+  const isTablecloth = kind === "tablecloth";
+
+  return (
+    <div className={`pointer-events-auto fixed inset-0 z-[60] flex items-center justify-center bg-black/65 backdrop-blur-sm ${isMobileLandscape ? "p-2" : "p-4"}`}>
+      <div
+        className={`surface-modal w-full overflow-y-auto rounded-2xl text-sm text-slate-100 hud-scrollbar ${
+          isMobileLandscape ? "max-h-[calc(100dvh-1rem)] max-w-[min(620px,calc(100vw-1rem))] p-3" : "max-w-md p-5"
+        }`}
+      >
+        <div className="flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-white/12 bg-white/5 px-2.5 text-xs font-semibold text-slate-200 transition hover:border-gold/40 hover:text-gold-soft"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            返回
+          </button>
+          <div className="text-sm font-semibold text-bone">{isTablecloth ? "选择桌布" : "选择牌背"}</div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/12 bg-white/5 text-slate-200 transition hover:border-rose-300/40 hover:bg-rose-400/15 hover:text-rose-200"
+            aria-label="关闭外观选择"
+            title="关闭外观选择"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {isTablecloth ? (
+          <div className={`mt-4 grid gap-2 ${isMobileLandscape ? "grid-cols-6" : "grid-cols-3"}`}>
+            {TABLECLOTH_OPTIONS.map((option) => {
+              const selected = option.id === tableclothId;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => {
+                    setTableclothId(option.id);
+                    onClose();
+                  }}
+                  className={`overflow-hidden rounded-lg border bg-slate-950/70 text-left transition ${
+                    selected ? "border-gold/70 shadow-[0_0_14px_rgba(233,196,106,0.2)]" : "border-white/12 hover:border-white/25"
+                  }`}
+                  aria-label={`选择桌布：${option.name}`}
+                  aria-pressed={selected}
+                >
+                  <span className={`block bg-cover bg-center ${isMobileLandscape ? "h-12" : "h-16"}`} style={{ backgroundImage: `url(${option.texture.src})` }} />
+                  <span className={`block truncate px-1.5 py-1.5 text-center font-semibold ${isMobileLandscape ? "text-[9px]" : "text-xs"} ${selected ? "text-gold-soft" : "text-slate-300"}`}>
+                    {option.name}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <div className={`mt-4 grid gap-2 ${isMobileLandscape ? "grid-cols-4" : "grid-cols-2"}`}>
+            {TILE_BACK_OPTIONS.map((option) => {
+              const selected = option.id === tileBackId;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => {
+                    setTileBackId(option.id);
+                    onClose();
+                  }}
+                  className={`overflow-hidden rounded-lg border bg-slate-950/70 text-left transition ${
+                    selected ? "border-gold/70 shadow-[0_0_14px_rgba(233,196,106,0.2)]" : "border-white/12 hover:border-white/25"
+                  }`}
+                  aria-label={`选择牌背：${option.name}`}
+                  aria-pressed={selected}
+                >
+                  <span
+                    className={`block bg-contain bg-center bg-no-repeat ${isMobileLandscape ? "h-12" : "h-16"}`}
+                    style={{ backgroundImage: `url(${option.src})`, backgroundColor: option.edgeColor }}
+                  />
+                  <span className={`block truncate px-1.5 py-1.5 text-center font-semibold ${isMobileLandscape ? "text-[10px]" : "text-xs"} ${selected ? "text-gold-soft" : "text-slate-300"}`}>
+                    {option.name}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function SettingsModal({ onClose }: { onClose: () => void }) {
   const { isMobileLandscape } = useResponsiveGameLayout();
   const baseScore = useGameStore((state) => state.baseScore);
@@ -238,10 +339,15 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
   const room = useRoomStore((state) => state.room);
   const hardcoreModeEnabled = useUiStore((state) => state.hardcoreModeEnabled);
   const setHardcoreModeEnabled = useUiStore((state) => state.setHardcoreModeEnabled);
+  const tableclothId = useUiStore((state) => state.tableclothId);
+  const tileBackId = useUiStore((state) => state.tileBackId);
   const isMultiplayer = netRole !== "single";
+  const tablecloth = getTableclothOption(tableclothId);
+  const tileBack = getTileBackOption(tileBackId);
   const [draftBaseScore, setDraftBaseScore] = useState(String(nextBaseScore));
   const [draftMaxWinMultiplier, setDraftMaxWinMultiplier] = useState<WinMultiplierLimit>(nextMaxWinMultiplier);
   const [draftBuyHorseEnabled, setDraftBuyHorseEnabled] = useState(liangDaoZimoBuyHorseEnabled);
+  const [appearancePicker, setAppearancePicker] = useState<AppearancePickerKind | null>(null);
 
   useEffect(() => {
     setDraftBaseScore(String(nextBaseScore));
@@ -266,8 +372,8 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
   return (
     <div className={`pointer-events-auto fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm ${isMobileLandscape ? "p-2" : "p-4"}`}>
       <div
-        className={`surface-modal w-full overflow-y-auto rounded-2xl text-sm text-slate-100 hud-scrollbar ${
-          isMobileLandscape ? "max-h-[calc(100dvh-1rem)] max-w-[min(620px,calc(100vw-1rem))] p-3" : "max-w-sm p-5"
+        className={`surface-modal w-full rounded-2xl text-sm text-slate-100 ${
+          isMobileLandscape ? "h-[calc(100dvh-1rem)] max-w-[min(620px,calc(100vw-1rem))] overflow-hidden p-3" : "max-w-sm overflow-y-auto hud-scrollbar p-5"
         }`}
       >
         <div className="flex items-center justify-between gap-3">
@@ -286,124 +392,283 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        {/* 横屏：左右双栏（左=当前状态，右=下局设置），用宽度换高度；竖屏：单列堆叠 */}
-        <div className={`grid gap-3 ${isMobileLandscape ? "mt-3 grid-cols-2 items-start" : "mt-4 grid-cols-1"}`}>
-          <div className="grid content-start gap-1.5 rounded-xl border border-white/10 bg-white/5 p-3">
-            <div className="text-[11px] font-medium text-gold-soft">本局</div>
-            {isMultiplayer && room ? (
-              <div className="mb-1 flex items-center justify-between rounded-lg border border-gold/20 bg-gold/10 px-2.5 py-2 text-xs">
-                <span className="text-slate-300">房间号</span>
-                <span className="font-bold tracking-[0.22em] text-gold-soft">{room.code}</span>
-              </div>
-            ) : null}
-            <div className="flex items-center justify-between text-xs text-slate-400">
-              <span>底分</span>
-              <span className="font-semibold tabular-nums text-gold-soft">{baseScore}</span>
-            </div>
-            <div className="flex items-center justify-between text-xs text-slate-400">
-              <span>倍率封顶</span>
-              <span className="font-semibold text-gold-soft">{formatWinMultiplierLimit(maxWinMultiplier)}</span>
-            </div>
-            <div className="flex items-center justify-between text-xs text-slate-400">
-              <span>买马</span>
-              <span className={liangDaoZimoBuyHorseEnabled ? "font-semibold text-jade" : "text-slate-500"}>
-                {liangDaoZimoBuyHorseEnabled ? "开启" : "关闭"}
-              </span>
-            </div>
-          </div>
+        {isMobileLandscape ? (
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <section className="col-span-2 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setAppearancePicker("tablecloth")}
+                className="surface-panel flex min-w-0 items-center gap-2 rounded-lg p-2 text-left transition hover:border-gold/40"
+              >
+                <span className="h-9 w-10 shrink-0 rounded-md border border-gold/25 bg-cover bg-center" style={{ backgroundImage: `url(${tablecloth.texture.src})` }} />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[9px] text-slate-400">桌布</span>
+                  <span className="block truncate text-[11px] font-semibold text-bone">{tablecloth.name}</span>
+                </span>
+                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-500" />
+              </button>
 
-          {isMultiplayer ? (
-            <div className="grid content-start gap-3">
+              <button
+                type="button"
+                onClick={() => setAppearancePicker("tileBack")}
+                className="surface-panel flex min-w-0 items-center gap-2 rounded-lg p-2 text-left transition hover:border-gold/40"
+              >
+                <span
+                  className="h-9 w-10 shrink-0 rounded-md border border-gold/25 bg-contain bg-center bg-no-repeat"
+                  style={{ backgroundImage: `url(${tileBack.src})`, backgroundColor: tileBack.edgeColor }}
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[9px] text-slate-400">牌背</span>
+                  <span className="block truncate text-[11px] font-semibold text-bone">{tileBack.name}</span>
+                </span>
+                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-500" />
+              </button>
+            </section>
+
+            <div className={`col-span-2 grid items-center rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 ${isMultiplayer && room ? "grid-cols-4" : "grid-cols-3"}`}>
+              {isMultiplayer && room ? (
+                <div className="min-w-0 text-center">
+                  <div className="text-[9px] text-slate-500">房间号</div>
+                  <div className="truncate text-[11px] font-bold text-gold-soft">{room.code}</div>
+                </div>
+              ) : null}
+              <div className="text-center">
+                <div className="text-[9px] text-slate-500">底分</div>
+                <div className="text-xs font-semibold tabular-nums text-gold-soft">{baseScore}</div>
+              </div>
+              <div className="text-center">
+                <div className="text-[9px] text-slate-500">倍率封顶</div>
+                <div className="text-xs font-semibold text-gold-soft">{formatWinMultiplierLimit(maxWinMultiplier)}</div>
+              </div>
+              <div className="text-center">
+                <div className="text-[9px] text-slate-500">买马</div>
+                <div className={`text-xs font-semibold ${liangDaoZimoBuyHorseEnabled ? "text-jade" : "text-slate-500"}`}>
+                  {liangDaoZimoBuyHorseEnabled ? "开启" : "关闭"}
+                </div>
+              </div>
+            </div>
+
+            {isMultiplayer ? (
+              <div className="col-span-2 rounded-lg border border-white/10 bg-slate-900/70 px-2.5 py-2 text-[10px] leading-tight text-slate-400">
+                联机规则由房主创建房间时设定
+              </div>
+            ) : (
+              <>
+                <div className="col-span-2 grid grid-cols-[104px_1fr] items-end gap-2">
+                  <label className="grid gap-1">
+                    <span className="text-[10px] font-medium text-slate-300">下局底分</span>
+                    <input
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={draftBaseScore}
+                      onChange={(event) => setDraftBaseScore(event.target.value)}
+                      className="h-8 rounded-lg border border-white/12 bg-slate-900/70 px-2 text-xs font-semibold text-white outline-none transition focus:border-jade/60 focus:ring-1 focus:ring-jade/30"
+                    />
+                  </label>
+
+                  <div className="grid gap-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[10px] font-medium text-slate-300">倍率封顶</span>
+                      <span className="text-[9px] text-slate-500">本局生效</span>
+                    </div>
+                    <div className="grid grid-cols-5 gap-1">
+                      {WIN_MULTIPLIER_LIMIT_OPTIONS.map((limit) => {
+                        const active = draftMaxWinMultiplier === limit;
+                        return (
+                          <button
+                            key={limit ?? "unlimited"}
+                            type="button"
+                            aria-pressed={active}
+                            onClick={() => setDraftMaxWinMultiplier(limit)}
+                            className={`h-8 rounded-md border text-[10px] font-bold transition ${
+                              active
+                                ? "border-gold bg-gradient-to-b from-[#f7e6b8] via-gold to-gold-deep text-slate-900 shadow-[0_3px_10px_rgba(233,196,106,0.34)]"
+                                : "border-white/12 bg-slate-900/60 text-slate-300 hover:border-gold/40 hover:text-gold-soft"
+                            }`}
+                          >
+                            {formatWinMultiplierLimit(limit)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="col-span-2 grid grid-cols-2 gap-2">
+                  <label className="flex h-8 cursor-pointer items-center justify-between gap-2 rounded-lg border border-white/12 bg-slate-900/70 px-2 text-[10px] text-slate-200 transition hover:border-white/20">
+                    <span className="truncate">亮倒自摸买马</span>
+                    <input
+                      type="checkbox"
+                      checked={draftBuyHorseEnabled}
+                      onChange={(event) => setDraftBuyHorseEnabled(event.target.checked)}
+                      className="h-3.5 w-3.5 shrink-0 accent-jade"
+                    />
+                  </label>
+                  <label className="flex h-8 cursor-pointer items-center justify-between gap-2 rounded-lg border border-white/12 bg-slate-900/70 px-2 text-[10px] text-slate-200 transition hover:border-white/20">
+                    <span className="truncate">硬核模式</span>
+                    <input
+                      type="checkbox"
+                      checked={hardcoreModeEnabled}
+                      onChange={(event) => setHardcoreModeEnabled(event.target.checked)}
+                      className="h-3.5 w-3.5 shrink-0 accent-gold"
+                    />
+                  </label>
+                </div>
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="mt-4 grid gap-3">
+            <section className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setAppearancePicker("tablecloth")}
+                className="surface-panel flex min-w-0 items-center gap-2 rounded-xl p-2.5 text-left transition hover:border-gold/40"
+              >
+                <span className="h-11 w-12 shrink-0 rounded-lg border border-gold/25 bg-cover bg-center" style={{ backgroundImage: `url(${tablecloth.texture.src})` }} />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[10px] text-slate-400">桌布</span>
+                  <span className="block truncate text-xs font-semibold text-bone">{tablecloth.name}</span>
+                </span>
+                <ChevronRight className="h-4 w-4 shrink-0 text-slate-500" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setAppearancePicker("tileBack")}
+                className="surface-panel flex min-w-0 items-center gap-2 rounded-xl p-2.5 text-left transition hover:border-gold/40"
+              >
+                <span
+                  className="h-11 w-12 shrink-0 rounded-lg border border-gold/25 bg-contain bg-center bg-no-repeat"
+                  style={{ backgroundImage: `url(${tileBack.src})`, backgroundColor: tileBack.edgeColor }}
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[10px] text-slate-400">牌背</span>
+                  <span className="block truncate text-xs font-semibold text-bone">{tileBack.name}</span>
+                </span>
+                <ChevronRight className="h-4 w-4 shrink-0 text-slate-500" />
+              </button>
+            </section>
+
+            <div className="grid content-start gap-1.5 rounded-xl border border-white/10 bg-white/5 p-3">
+              <div className="text-[11px] font-medium text-gold-soft">本局</div>
+              {isMultiplayer && room ? (
+                <div className="mb-1 flex items-center justify-between rounded-lg border border-gold/20 bg-gold/10 px-2.5 py-2 text-xs">
+                  <span className="text-slate-300">房间号</span>
+                  <span className="font-bold tracking-[0.22em] text-gold-soft">{room.code}</span>
+                </div>
+              ) : null}
+              <div className="flex items-center justify-between text-xs text-slate-400">
+                <span>底分</span>
+                <span className="font-semibold tabular-nums text-gold-soft">{baseScore}</span>
+              </div>
+              <div className="flex items-center justify-between text-xs text-slate-400">
+                <span>倍率封顶</span>
+                <span className="font-semibold text-gold-soft">{formatWinMultiplierLimit(maxWinMultiplier)}</span>
+              </div>
+              <div className="flex items-center justify-between text-xs text-slate-400">
+                <span>买马</span>
+                <span className={liangDaoZimoBuyHorseEnabled ? "font-semibold text-jade" : "text-slate-500"}>
+                  {liangDaoZimoBuyHorseEnabled ? "开启" : "关闭"}
+                </span>
+              </div>
+            </div>
+
+            {isMultiplayer ? (
               <div className="rounded-lg border border-white/12 bg-slate-900/70 px-3 py-2.5 text-xs text-slate-400">
                 底分、倍率封顶和亮倒自摸买马由房主创建房间时设置，局内不可修改。
               </div>
-            </div>
-          ) : (
-            <div className="grid content-start gap-3">
-              <label className="grid gap-1.5">
-                <span className="text-xs font-medium text-slate-300">下局底分</span>
-                <input
-                  type="number"
-                  min={1}
-                  step={1}
-                  value={draftBaseScore}
-                  onChange={(event) => setDraftBaseScore(event.target.value)}
-                  className={`rounded-lg border border-white/12 bg-slate-900/70 px-3 text-sm font-semibold text-white outline-none transition focus:border-jade/60 focus:ring-1 focus:ring-jade/30 ${
-                    isMobileLandscape ? "h-9" : "h-10"
-                  }`}
-                />
-              </label>
+            ) : (
+              <div className="grid content-start gap-3">
+                <label className="grid gap-1.5">
+                  <span className="text-xs font-medium text-slate-300">下局底分</span>
+                  <input
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={draftBaseScore}
+                    onChange={(event) => setDraftBaseScore(event.target.value)}
+                    className="h-10 rounded-lg border border-white/12 bg-slate-900/70 px-3 text-sm font-semibold text-white outline-none transition focus:border-jade/60 focus:ring-1 focus:ring-jade/30"
+                  />
+                </label>
 
-              <div className="grid gap-1.5">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-medium text-slate-300">倍率封顶</span>
-                  <span className="text-[10px] text-slate-500">本局立即生效</span>
+                <div className="grid gap-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-medium text-slate-300">倍率封顶</span>
+                    <span className="text-[10px] text-slate-500">本局立即生效</span>
+                  </div>
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {WIN_MULTIPLIER_LIMIT_OPTIONS.map((limit) => {
+                      const active = draftMaxWinMultiplier === limit;
+                      return (
+                        <button
+                          key={limit ?? "unlimited"}
+                          type="button"
+                          aria-pressed={active}
+                          onClick={() => setDraftMaxWinMultiplier(limit)}
+                          className={`h-9 rounded-lg border text-[11px] font-bold transition ${
+                            active
+                              ? "scale-[1.03] border-gold bg-gradient-to-b from-[#f7e6b8] via-gold to-gold-deep text-slate-900 shadow-[0_4px_14px_rgba(233,196,106,0.38)]"
+                              : "border-white/12 bg-slate-900/60 text-slate-300 hover:border-gold/40 hover:text-gold-soft"
+                          }`}
+                        >
+                          {formatWinMultiplierLimit(limit)}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div className="grid grid-cols-5 gap-1.5">
-                  {WIN_MULTIPLIER_LIMIT_OPTIONS.map((limit) => {
-                    const active = draftMaxWinMultiplier === limit;
-                    return (
-                      <button
-                        key={limit ?? "unlimited"}
-                        type="button"
-                        aria-pressed={active}
-                        onClick={() => setDraftMaxWinMultiplier(limit)}
-                        className={`h-9 rounded-lg border text-[11px] font-bold transition ${
-                          active
-                            ? "scale-[1.03] border-gold bg-gradient-to-b from-[#f7e6b8] via-gold to-gold-deep text-slate-900 shadow-[0_4px_14px_rgba(233,196,106,0.38)]"
-                            : "border-white/12 bg-slate-900/60 text-slate-300 hover:border-gold/40 hover:text-gold-soft"
-                        }`}
-                      >
-                        {formatWinMultiplierLimit(limit)}
-                      </button>
-                    );
-                  })}
-                </div>
+
+                <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-white/12 bg-slate-900/70 px-3 py-2.5 text-sm text-slate-200 transition hover:border-white/20">
+                  <span>本局亮倒自摸买马</span>
+                  <input
+                    type="checkbox"
+                    checked={draftBuyHorseEnabled}
+                    onChange={(event) => setDraftBuyHorseEnabled(event.target.checked)}
+                    className="h-4 w-4 accent-jade"
+                  />
+                </label>
+
+                <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-white/12 bg-slate-900/70 px-3 py-2.5 text-sm text-slate-200 transition hover:border-white/20">
+                  <span className="grid gap-0.5">
+                    <span>硬核模式</span>
+                    <span className="text-[10px] font-normal text-slate-500">隐藏听牌辅助提示</span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={hardcoreModeEnabled}
+                    onChange={(event) => setHardcoreModeEnabled(event.target.checked)}
+                    className="h-4 w-4 accent-gold"
+                  />
+                </label>
               </div>
+            )}
+          </div>
+        )}
 
-              <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-white/12 bg-slate-900/70 px-3 py-2.5 text-sm text-slate-200 transition hover:border-white/20">
-                <span>本局亮倒自摸买马</span>
-                <input
-                  type="checkbox"
-                  checked={draftBuyHorseEnabled}
-                  onChange={(event) => setDraftBuyHorseEnabled(event.target.checked)}
-                  className="h-4 w-4 accent-jade"
-                />
-              </label>
-
-              <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-white/12 bg-slate-900/70 px-3 py-2.5 text-sm text-slate-200 transition hover:border-white/20">
-                <span className="grid gap-0.5">
-                  <span>硬核模式</span>
-                  <span className="text-[10px] font-normal text-slate-500">隐藏听牌辅助提示</span>
-                </span>
-                <input
-                  type="checkbox"
-                  checked={hardcoreModeEnabled}
-                  onChange={(event) => setHardcoreModeEnabled(event.target.checked)}
-                  className="h-4 w-4 accent-gold"
-                />
-              </label>
-            </div>
-          )}
-        </div>
-
-        <div className={`flex justify-end gap-2 ${isMobileLandscape ? "mt-3" : "mt-5"}`}>
+        <div className={`flex justify-end gap-2 ${isMobileLandscape ? "mt-2" : "mt-5"}`}>
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex h-9 items-center justify-center rounded-lg border border-white/12 bg-white/5 px-4 text-xs font-semibold text-slate-200 transition hover:bg-white/12"
+            className={`inline-flex items-center justify-center rounded-lg border border-white/12 bg-white/5 text-xs font-semibold text-slate-200 transition hover:bg-white/12 ${
+              isMobileLandscape ? "h-8 px-3" : "h-9 px-4"
+            }`}
           >
             取消
           </button>
           <button
             type="button"
             onClick={saveSettings}
-            className="inline-flex h-9 items-center justify-center rounded-lg bg-gradient-to-b from-jade-soft to-jade-deep px-4 text-xs font-semibold text-white shadow-[0_6px_18px_rgba(15,155,117,0.4)] transition hover:brightness-110"
+            className={`inline-flex items-center justify-center rounded-lg bg-gradient-to-b from-jade-soft to-jade-deep text-xs font-semibold text-white shadow-[0_6px_18px_rgba(15,155,117,0.4)] transition hover:brightness-110 ${
+              isMobileLandscape ? "h-8 px-3" : "h-9 px-4"
+            }`}
           >
             保存
           </button>
         </div>
       </div>
+      {appearancePicker ? <AppearancePicker kind={appearancePicker} onClose={() => setAppearancePicker(null)} /> : null}
     </div>
   );
 }

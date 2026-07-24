@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useState } from "react";
-import { ArrowLeft, LogIn, Plus, Settings, User, Users, X } from "lucide-react";
+import { ArrowLeft, ChevronRight, LogIn, Plus, Settings, User, Users, X } from "lucide-react";
 import { useRoomStore } from "@/store/roomStore";
 import { useUiStore } from "@/store/uiStore";
 import { useResponsiveGameLayout } from "@/hooks/useResponsiveGameLayout";
@@ -171,12 +171,19 @@ export function Lobby({ onStartSingle }: { onStartSingle: () => void }) {
       ? "max-w-[min(480px,calc(100vw-1rem))]"
       : view === "multiplayer"
         ? "max-w-[min(560px,calc(100vw-1rem))]"
-      : "max-w-[min(680px,calc(100vw-1rem))]";
+        : "max-w-[min(680px,calc(100vw-1rem))]";
+  const contentClass =
+    view === "home"
+      ? `relative w-full ${
+          isMobileLandscape ? "max-w-[min(620px,calc(100vw-1rem))]" : "max-w-[min(680px,calc(100vw-2rem))] px-2 py-6 sm:px-4"
+        }`
+      : `lobby-panel surface-modal relative w-full overflow-y-auto rounded-2xl hud-scrollbar ${
+          isMobileLandscape ? `max-h-[calc(100dvh-1rem)] ${landscapeMaxW} p-3` : "max-w-md p-6"
+        }`;
 
   return (
     <main className={`lobby-shell relative flex min-h-[100dvh] w-full items-center justify-center overflow-y-auto bg-[#071014] ${isMobileLandscape ? "p-2" : "p-4"}`}>
       <div className="lobby-art pointer-events-none absolute inset-0" />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(70%_55%_at_50%_42%,rgba(7,16,20,0.06),rgba(7,16,20,0.78)_72%,rgba(7,16,20,0.94)_100%)]" />
       {view === "home" ? (
         <button
           type="button"
@@ -190,12 +197,10 @@ export function Lobby({ onStartSingle }: { onStartSingle: () => void }) {
           <Settings className={isMobileLandscape ? "h-4 w-4" : "h-5 w-5"} />
         </button>
       ) : null}
-      <div className={`lobby-panel surface-modal relative w-full overflow-y-auto rounded-2xl hud-scrollbar ${
-        isMobileLandscape ? `max-h-[calc(100dvh-1rem)] ${landscapeMaxW} p-3` : "max-w-md p-6"
-      }`}>
+      <div className={contentClass}>
         {view === "home" ? (
           <div className="mx-auto text-center">
-            <div className={`relative mx-auto ${isMobileLandscape ? "h-28 w-28" : "h-52 w-52"}`}>
+            <div className={`relative mx-auto ${isMobileLandscape ? "h-36 w-36" : "h-64 w-64"}`}>
               <Image
                 src="/generated/ui/brand-crest-base-1k-transparent.png"
                 alt=""
@@ -206,14 +211,11 @@ export function Lobby({ onStartSingle }: { onStartSingle: () => void }) {
               />
               <div
                 className={`brand-title absolute left-1/2 top-1/2 z-10 w-[78%] -translate-x-1/2 -translate-y-1/2 whitespace-nowrap text-center font-bold leading-none drop-shadow-[0_3px_8px_rgba(0,0,0,0.9)] ${
-                  isMobileLandscape ? "text-sm" : "text-2xl"
+                  isMobileLandscape ? "text-[17px]" : "text-3xl"
                 }`}
               >
                 卡五星麻将
               </div>
-            </div>
-            <div className={`${isMobileLandscape ? "mt-1 text-[10px]" : "mt-2 text-xs"} text-slate-400`}>
-              3D 在线对战
             </div>
           </div>
         ) : (
@@ -230,19 +232,23 @@ export function Lobby({ onStartSingle }: { onStartSingle: () => void }) {
         ) : null}
 
         {view === "home" ? (
-          <div className={`grid gap-3 ${isMobileLandscape ? "mt-3 grid-cols-2" : "mt-5 grid-cols-1 sm:grid-cols-2"}`}>
+          <div className={`mx-auto grid ${isMobileLandscape ? "mt-3 max-w-[540px] grid-cols-2 gap-3" : "mt-5 max-w-[34rem] grid-cols-1 gap-4 sm:grid-cols-2"}`}>
             <button
               type="button"
               onClick={onStartSingle}
-              className="surface-panel flex items-center gap-3 rounded-xl px-4 py-3.5 text-left transition hover:border-jade/40"
+              className={`group relative flex items-center overflow-hidden rounded-xl border border-jade/30 bg-[linear-gradient(105deg,rgba(9,49,45,0.78),rgba(7,16,26,0.58))] text-left shadow-[0_14px_32px_rgba(0,0,0,0.22)] transition hover:border-jade/65 hover:bg-[linear-gradient(105deg,rgba(10,67,57,0.84),rgba(7,18,28,0.72))] ${
+                isMobileLandscape ? "min-h-[72px] gap-2 px-3 py-2.5" : "min-h-[116px] gap-4 px-5 py-4"
+              }`}
             >
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-jade/15">
-                <User className="h-5 w-5 text-jade" />
+              <span className="absolute inset-y-0 left-0 w-1 bg-jade" />
+              <span className={`grid shrink-0 place-items-center rounded-full border border-jade/40 bg-jade/10 ${isMobileLandscape ? "h-9 w-9" : "h-14 w-14"}`}>
+                <User className={isMobileLandscape ? "h-4 w-4 text-jade" : "h-6 w-6 text-jade"} />
               </span>
-              <span>
-                <span className="block text-sm font-semibold text-bone">单人模式</span>
-                <span className="block text-xs text-slate-400">与两位电脑对手对战</span>
+              <span className="min-w-0 flex-1">
+                <span className={`block font-semibold text-bone ${isMobileLandscape ? "text-xs" : "text-base"}`}>单人模式</span>
+                <span className={`block text-slate-400 ${isMobileLandscape ? "mt-0.5 text-[10px] leading-tight" : "mt-1 text-xs"}`}>与两位电脑对手对战</span>
               </span>
+              <ChevronRight className={`${isMobileLandscape ? "h-4 w-4" : "h-5 w-5"} shrink-0 text-jade/70 transition group-hover:translate-x-0.5 group-hover:text-jade-soft`} />
             </button>
 
             <button
@@ -253,17 +259,21 @@ export function Lobby({ onStartSingle }: { onStartSingle: () => void }) {
                 setView("multiplayer");
               }}
               disabled={!configured}
-              className="surface-panel flex items-center gap-3 rounded-xl px-4 py-3.5 text-left transition hover:border-gold/40 disabled:cursor-not-allowed disabled:opacity-50"
+              className={`group relative flex items-center overflow-hidden rounded-xl border border-gold/30 bg-[linear-gradient(105deg,rgba(65,45,14,0.72),rgba(18,20,27,0.58))] text-left shadow-[0_14px_32px_rgba(0,0,0,0.22)] transition hover:border-gold/65 hover:bg-[linear-gradient(105deg,rgba(82,57,16,0.8),rgba(24,22,25,0.72))] disabled:cursor-not-allowed disabled:opacity-50 ${
+                isMobileLandscape ? "min-h-[72px] gap-2 px-3 py-2.5" : "min-h-[116px] gap-4 px-5 py-4"
+              }`}
             >
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-gold/15">
-                <Users className="h-5 w-5 text-gold" />
+              <span className="absolute inset-y-0 left-0 w-1 bg-gold" />
+              <span className={`grid shrink-0 place-items-center rounded-full border border-gold/40 bg-gold/10 ${isMobileLandscape ? "h-9 w-9" : "h-14 w-14"}`}>
+                <Users className={isMobileLandscape ? "h-4 w-4 text-gold" : "h-6 w-6 text-gold"} />
               </span>
-              <span>
-                <span className="block text-sm font-semibold text-bone">多人模式</span>
-                <span className="block text-xs text-slate-400">
+              <span className="min-w-0 flex-1">
+                <span className={`block font-semibold text-bone ${isMobileLandscape ? "text-xs" : "text-base"}`}>多人模式</span>
+                <span className={`block text-slate-400 ${isMobileLandscape ? "mt-0.5 text-[10px] leading-tight" : "mt-1 text-xs"}`}>
                   {configured ? "创建或加入房间，与好友联机" : "未配置联机服务，暂不可用"}
                 </span>
               </span>
+              <ChevronRight className={`${isMobileLandscape ? "h-4 w-4" : "h-5 w-5"} shrink-0 text-gold/70 transition group-hover:translate-x-0.5 group-hover:text-gold-soft`} />
             </button>
           </div>
         ) : null}
