@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useState } from "react";
-import { ArrowLeft, ChevronRight, LogIn, Plus, Settings, User, Users, X } from "lucide-react";
+import { ArrowLeft, LogIn, Plus, Settings, X } from "lucide-react";
 import { useRoomStore } from "@/store/roomStore";
 import { useUiStore } from "@/store/uiStore";
 import { useResponsiveGameLayout } from "@/hooks/useResponsiveGameLayout";
@@ -236,19 +236,23 @@ export function Lobby({ onStartSingle }: { onStartSingle: () => void }) {
             <button
               type="button"
               onClick={onStartSingle}
-              className={`group relative flex items-center overflow-hidden rounded-xl border border-jade/30 bg-[linear-gradient(105deg,rgba(9,49,45,0.78),rgba(7,16,26,0.58))] text-left shadow-[0_14px_32px_rgba(0,0,0,0.22)] transition hover:border-jade/65 hover:bg-[linear-gradient(105deg,rgba(10,67,57,0.84),rgba(7,18,28,0.72))] ${
+              className={`group relative flex items-center overflow-hidden rounded-lg border border-jade/45 bg-[#0a2928]/90 text-left shadow-[inset_0_0_0_1px_rgba(177,235,218,0.06),0_14px_32px_rgba(0,0,0,0.22)] transition hover:border-jade/75 hover:bg-[#0c3531]/95 ${
                 isMobileLandscape ? "min-h-[72px] gap-2 px-3 py-2.5" : "min-h-[116px] gap-4 px-5 py-4"
               }`}
             >
-              <span className="absolute inset-y-0 left-0 w-1 bg-jade" />
-              <span className={`grid shrink-0 place-items-center rounded-full border border-jade/40 bg-jade/10 ${isMobileLandscape ? "h-9 w-9" : "h-14 w-14"}`}>
-                <User className={isMobileLandscape ? "h-4 w-4 text-jade" : "h-6 w-6 text-jade"} />
+              <span className="pointer-events-none absolute inset-[4px] rounded-md border border-jade/15" />
+              <Image
+                src="/generated/ui/mode-single-jade-seal-2k.png?v=2"
+                alt=""
+                width={1024}
+                height={1024}
+                unoptimized
+                className={`${isMobileLandscape ? "h-10 w-10" : "h-16 w-16"} relative z-10 shrink-0 object-contain drop-shadow-[0_5px_10px_rgba(0,0,0,0.35)]`}
+              />
+              <span className="relative z-10 min-w-0 flex-1">
+                <span className={`block font-serif font-semibold text-bone ${isMobileLandscape ? "text-sm" : "text-lg"}`}>单人模式</span>
+                <span className={`block text-[#bad0c7]/75 ${isMobileLandscape ? "mt-0.5 text-[10px] leading-tight" : "mt-1 text-xs"}`}>与两位电脑对手对战</span>
               </span>
-              <span className="min-w-0 flex-1">
-                <span className={`block font-semibold text-bone ${isMobileLandscape ? "text-xs" : "text-base"}`}>单人模式</span>
-                <span className={`block text-slate-400 ${isMobileLandscape ? "mt-0.5 text-[10px] leading-tight" : "mt-1 text-xs"}`}>与两位电脑对手对战</span>
-              </span>
-              <ChevronRight className={`${isMobileLandscape ? "h-4 w-4" : "h-5 w-5"} shrink-0 text-jade/70 transition group-hover:translate-x-0.5 group-hover:text-jade-soft`} />
             </button>
 
             <button
@@ -259,21 +263,25 @@ export function Lobby({ onStartSingle }: { onStartSingle: () => void }) {
                 setView("multiplayer");
               }}
               disabled={!configured}
-              className={`group relative flex items-center overflow-hidden rounded-xl border border-gold/30 bg-[linear-gradient(105deg,rgba(65,45,14,0.72),rgba(18,20,27,0.58))] text-left shadow-[0_14px_32px_rgba(0,0,0,0.22)] transition hover:border-gold/65 hover:bg-[linear-gradient(105deg,rgba(82,57,16,0.8),rgba(24,22,25,0.72))] disabled:cursor-not-allowed disabled:opacity-50 ${
+              className={`group relative flex items-center overflow-hidden rounded-lg border border-gold/45 bg-[#2d2414]/90 text-left shadow-[inset_0_0_0_1px_rgba(245,219,152,0.06),0_14px_32px_rgba(0,0,0,0.22)] transition hover:border-gold/75 hover:bg-[#3a2e18]/95 disabled:cursor-not-allowed disabled:opacity-50 ${
                 isMobileLandscape ? "min-h-[72px] gap-2 px-3 py-2.5" : "min-h-[116px] gap-4 px-5 py-4"
               }`}
             >
-              <span className="absolute inset-y-0 left-0 w-1 bg-gold" />
-              <span className={`grid shrink-0 place-items-center rounded-full border border-gold/40 bg-gold/10 ${isMobileLandscape ? "h-9 w-9" : "h-14 w-14"}`}>
-                <Users className={isMobileLandscape ? "h-4 w-4 text-gold" : "h-6 w-6 text-gold"} />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className={`block font-semibold text-bone ${isMobileLandscape ? "text-xs" : "text-base"}`}>多人模式</span>
-                <span className={`block text-slate-400 ${isMobileLandscape ? "mt-0.5 text-[10px] leading-tight" : "mt-1 text-xs"}`}>
+              <span className="pointer-events-none absolute inset-[4px] rounded-md border border-gold/15" />
+              <Image
+                src="/generated/ui/mode-multiplayer-gold-seal-2k.png?v=2"
+                alt=""
+                width={1024}
+                height={1024}
+                unoptimized
+                className={`${isMobileLandscape ? "h-10 w-10" : "h-16 w-16"} relative z-10 shrink-0 object-contain drop-shadow-[0_5px_10px_rgba(0,0,0,0.35)]`}
+              />
+              <span className="relative z-10 min-w-0 flex-1">
+                <span className={`block font-serif font-semibold text-bone ${isMobileLandscape ? "text-sm" : "text-lg"}`}>多人模式</span>
+                <span className={`block text-[#ddceb0]/75 ${isMobileLandscape ? "mt-0.5 text-[10px] leading-tight" : "mt-1 text-xs"}`}>
                   {configured ? "创建或加入房间，与好友联机" : "未配置联机服务，暂不可用"}
                 </span>
               </span>
-              <ChevronRight className={`${isMobileLandscape ? "h-4 w-4" : "h-5 w-5"} shrink-0 text-gold/70 transition group-hover:translate-x-0.5 group-hover:text-gold-soft`} />
             </button>
           </div>
         ) : null}
