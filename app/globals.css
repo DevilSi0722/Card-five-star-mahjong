@@ -102,7 +102,7 @@ body.mobile-game-locked {
 }
 
 .lobby-art {
-  background-image: url("/generated/concepts/lobby-jingchu-2k.png");
+  background-image: url("/generated/concepts/lobby-jingchu-2k.jpg");
   background-position: center;
   background-size: cover;
   filter: saturate(0.92) contrast(1.04);
@@ -118,14 +118,20 @@ body.mobile-game-locked {
 .game-room-shell {
   background-image:
     radial-gradient(75% 70% at 50% 58%, rgba(7, 16, 20, 0.08), rgba(7, 16, 20, 0.48) 66%, rgba(7, 16, 20, 0.82) 100%),
-    url("/generated/ui/game-room-backdrop-2k.png");
+    url("/generated/ui/game-room-backdrop-2k.webp");
+  background-image:
+    radial-gradient(75% 70% at 50% 58%, rgba(7, 16, 20, 0.08), rgba(7, 16, 20, 0.48) 66%, rgba(7, 16, 20, 0.82) 100%),
+    image-set(
+      url("/generated/ui/game-room-backdrop-2k.avif") type("image/avif"),
+      url("/generated/ui/game-room-backdrop-2k.webp") type("image/webp")
+    );
   background-position: center;
   background-size: cover;
 }
 
 @media (orientation: portrait) {
   .lobby-art {
-    background-image: url("/generated/ui/lobby-bg-mobile-2k.png");
+    background-image: url("/generated/ui/lobby-bg-mobile-2k.jpg");
     background-position: center;
   }
 }

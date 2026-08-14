@@ -84,7 +84,7 @@ function LobbySettingsModal({ onClose }: { onClose: () => void }) {
                     >
                       <span
                         className={`block bg-cover bg-center ${isMobileLandscape ? "h-12" : "h-14"}`}
-                        style={{ backgroundImage: `url(${option.texture.src})` }}
+                        style={{ backgroundImage: `url(${option.thumb.src})` }}
                       />
                       <span className={`block truncate px-2 py-1.5 text-xs font-semibold ${selected ? "text-gold-soft" : "text-slate-300"}`}>
                         {option.name}
@@ -202,7 +202,7 @@ export function Lobby({ onStartSingle }: { onStartSingle: () => void }) {
           <div className="mx-auto text-center">
             <div className={`relative mx-auto ${isMobileLandscape ? "h-36 w-36" : "h-64 w-64"}`}>
               <Image
-                src="/generated/ui/brand-crest-base-1k-transparent.png"
+                src="/generated/ui/brand-crest-base-1k-transparent.webp"
                 alt=""
                 width={1024}
                 height={1024}
@@ -242,7 +242,7 @@ export function Lobby({ onStartSingle }: { onStartSingle: () => void }) {
             >
               <span className="pointer-events-none absolute inset-[4px] rounded-md border border-jade/15" />
               <Image
-                src="/generated/ui/mode-single-jade-seal-2k.png?v=2"
+                src="/generated/ui/mode-single-jade-seal-2k.webp"
                 alt=""
                 width={1024}
                 height={1024}
@@ -269,7 +269,7 @@ export function Lobby({ onStartSingle }: { onStartSingle: () => void }) {
             >
               <span className="pointer-events-none absolute inset-[4px] rounded-md border border-gold/15" />
               <Image
-                src="/generated/ui/mode-multiplayer-gold-seal-2k.png?v=2"
+                src="/generated/ui/mode-multiplayer-gold-seal-2k.webp"
                 alt=""
                 width={1024}
                 height={1024}

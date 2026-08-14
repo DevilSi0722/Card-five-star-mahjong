@@ -11,25 +11,25 @@ export const TILE_BACK_OPTIONS: TileBackOption[] = [
   {
     id: "ink-cloud",
     name: "水墨流云",
-    src: "/generated/tile-backs/back-ink-cloud-1k.png",
+    src: "/generated/tile-backs/back-ink-cloud-1k.webp",
     edgeColor: "#17243b",
   },
   {
     id: "jade-phoenix",
     name: "碧羽呈祥",
-    src: "/generated/tile-backs/back-jade-phoenix-1k.png",
+    src: "/generated/tile-backs/back-jade-phoenix-1k.webp",
     edgeColor: "#0f5a4d",
   },
   {
     id: "cinnabar-bell",
     name: "朱砂钟韵",
-    src: "/generated/tile-backs/back-cinnabar-bell-1k.png",
+    src: "/generated/tile-backs/back-cinnabar-bell-1k.webp",
     edgeColor: "#641c1d",
   },
   {
     id: "black-gold-thunder",
     name: "玄金雷纹",
-    src: "/generated/tile-backs/back-black-gold-thunder-1k.png",
+    src: "/generated/tile-backs/back-black-gold-thunder-1k.webp",
     edgeColor: "#1b1b1d",
   },
 ];

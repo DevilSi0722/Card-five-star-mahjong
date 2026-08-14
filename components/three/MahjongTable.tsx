@@ -3,7 +3,7 @@
 import { RoundedBox, useTexture } from "@react-three/drei";
 import { useEffect, useMemo } from "react";
 import { MirroredRepeatWrapping, SRGBColorSpace } from "three";
-import frameTextureImage from "@/png/table/20260709_150122_2.png";
+import frameTextureImage from "@/png/table/frame-wood.webp";
 import type { TableclothId } from "@/store/uiStore";
 import { getTableclothOption } from "@/utils/tablecloths";
 

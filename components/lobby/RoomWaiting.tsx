@@ -9,13 +9,13 @@ import { formatRoomRoundLimit, WIND_DISPLAY_ORDER, WIND_LABEL, type RoomPlayer, 
 import { formatWinMultiplierLimit } from "@/utils/mahjong/winMultiplierLimit";
 
 const WIND_AVATAR_SRC: Record<Wind, string> = {
-  east: "/generated/avatars/human-jade-guardian-1k.png",
-  south: "/generated/avatars/ai-left-scholar-1k.png",
-  west: "/generated/avatars/ai-right-strategist-1k.png",
-  north: "/generated/avatars/north-jade-strategist-2k.png",
+  east: "/generated/avatars/human-jade-guardian-1k.webp",
+  south: "/generated/avatars/ai-left-scholar-1k.webp",
+  west: "/generated/avatars/ai-right-strategist-1k.webp",
+  north: "/generated/avatars/north-jade-strategist-2k.webp",
 };
 
-const AI_AVATAR_SRC = "/generated/avatars/ai-right-strategist-1k.png";
+const AI_AVATAR_SRC = "/generated/avatars/ai-right-strategist-1k.webp";
 
 function WindSeat({
   wind,

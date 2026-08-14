@@ -27,9 +27,9 @@ const PLAYER_TONES: Record<PlayerId, PlayerTone> = {
 
 const SCORE_PANEL_PLAYER_ORDER: EngineSeatId[] = ["human", "ai_right", "ai_left"];
 const PLAYER_AVATAR_SRC: Record<PlayerId, string> = {
-  human: "/generated/avatars/human-jade-guardian-1k.png",
-  ai_left: "/generated/avatars/ai-left-scholar-1k.png",
-  ai_right: "/generated/avatars/ai-right-strategist-1k.png",
+  human: "/generated/avatars/human-jade-guardian-1k.webp",
+  ai_left: "/generated/avatars/ai-left-scholar-1k.webp",
+  ai_right: "/generated/avatars/ai-right-strategist-1k.webp",
 };
 const QUICK_CHAT_MESSAGES = [
   "快点快点，茶都凉了",
@@ -284,7 +284,7 @@ function AppearancePicker({ kind, onClose }: { kind: AppearancePickerKind; onClo
                   aria-label={`选择桌布：${option.name}`}
                   aria-pressed={selected}
                 >
-                  <span className={`block bg-cover bg-center ${isMobileLandscape ? "h-12" : "h-16"}`} style={{ backgroundImage: `url(${option.texture.src})` }} />
+                  <span className={`block bg-cover bg-center ${isMobileLandscape ? "h-12" : "h-16"}`} style={{ backgroundImage: `url(${option.thumb.src})` }} />
                   <span className={`block truncate px-1.5 py-1.5 text-center font-semibold ${isMobileLandscape ? "text-[9px]" : "text-xs"} ${selected ? "text-gold-soft" : "text-slate-300"}`}>
                     {option.name}
                   </span>
@@ -400,7 +400,7 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
                 onClick={() => setAppearancePicker("tablecloth")}
                 className="surface-panel flex min-w-0 items-center gap-2 rounded-lg p-2 text-left transition hover:border-gold/40"
               >
-                <span className="h-9 w-10 shrink-0 rounded-md border border-gold/25 bg-cover bg-center" style={{ backgroundImage: `url(${tablecloth.texture.src})` }} />
+                <span className="h-9 w-10 shrink-0 rounded-md border border-gold/25 bg-cover bg-center" style={{ backgroundImage: `url(${tablecloth.thumb.src})` }} />
                 <span className="min-w-0 flex-1">
                   <span className="block text-[9px] text-slate-400">桌布</span>
                   <span className="block truncate text-[11px] font-semibold text-bone">{tablecloth.name}</span>
@@ -526,7 +526,7 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
                 onClick={() => setAppearancePicker("tablecloth")}
                 className="surface-panel flex min-w-0 items-center gap-2 rounded-xl p-2.5 text-left transition hover:border-gold/40"
               >
-                <span className="h-11 w-12 shrink-0 rounded-lg border border-gold/25 bg-cover bg-center" style={{ backgroundImage: `url(${tablecloth.texture.src})` }} />
+                <span className="h-11 w-12 shrink-0 rounded-lg border border-gold/25 bg-cover bg-center" style={{ backgroundImage: `url(${tablecloth.thumb.src})` }} />
                 <span className="min-w-0 flex-1">
                   <span className="block text-[10px] text-slate-400">桌布</span>
                   <span className="block truncate text-xs font-semibold text-bone">{tablecloth.name}</span>

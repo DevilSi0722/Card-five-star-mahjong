@@ -2,9 +2,10 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 
-// 中式书法体（马善政），仅用于品牌标题，懒加载不阻塞首屏
+// 中式书法体（马善政），仅用于品牌标题与胡牌特效；已按源码实际用字子集化（5.6MB → 356KB），懒加载不阻塞首屏。
+// 若新增使用 brand-title / win-callig 的文案包含子集外字符，会回退到 STKaiti/KaiTi，需重新生成子集。
 const brandFont = localFont({
-  src: "../public/fonts/MaShanZheng-Regular.ttf",
+  src: "../public/fonts/MaShanZheng-Regular-subset.woff2",
   variable: "--font-brand",
   display: "swap",
   weight: "400",
