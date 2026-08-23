@@ -1,6 +1,6 @@
 "use client";
 
-import { create } from "zustand";
+import { create, type StateCreator } from "zustand";
 import type {
   GameState,
   LastDiscard,
@@ -38,7 +38,7 @@ import type {
   Wind,
 } from "@/types/multiplayer";
 
-interface GameStore extends GameState {
+export interface GameStore extends GameState {
   /** 联机角色：single（单机）/ host（房主跑引擎）/ guest（访客渲染视图）。 */
   netRole: NetRole;
   /** 本客户端的真实引擎座位（host 恒为 human）。 */
@@ -423,12 +423,6 @@ const LIANGDAO_REVEAL_AFTER_DISCARD_DELAY_MS = 80;
 const DICE_ROLL_DURATION_MS = 2800;
 const INITIAL_DEAL_FIRST_STEP_DELAY_MS = 180;
 const INITIAL_DEAL_STEP_DELAY_MS = 360;
-const INITIAL_DEAL_COUNTS: Record<PlayerId, number[]> = {
-  human: [],
-  ai_left: [],
-  ai_right: [],
-};
-
 function emptyDealRevealCounts(): Record<PlayerId, number> {
   return {
     human: 0,
@@ -443,56 +437,6 @@ function fullDealRevealCounts(players: Record<PlayerId, Player>): Record<PlayerI
     ai_left: players.ai_left.hand.length,
     ai_right: players.ai_right.hand.length,
   };
-}
-
-function dealRevealCountsForStep(step: number): Record<PlayerId, number> {
-  return {
-    human: INITIAL_DEAL_COUNTS.human[Math.min(step, INITIAL_DEAL_COUNTS.human.length - 1)] ?? 0,
-    ai_left: INITIAL_DEAL_COUNTS.ai_left[Math.min(step, INITIAL_DEAL_COUNTS.ai_left.length - 1)] ?? 0,
-    ai_right: INITIAL_DEAL_COUNTS.ai_right[Math.min(step, INITIAL_DEAL_COUNTS.ai_right.length - 1)] ?? 0,
-  };
-}
-
-let initialDealAnimationId = 0;
-let roundIntroAnimationId = 0;
-
-function scheduleInitialDealReveal() {
-  initialDealAnimationId += 1;
-  const animationId = initialDealAnimationId;
-  const runStep = (step: number) => {
-    const delayMs = step === 0 ? INITIAL_DEAL_FIRST_STEP_DELAY_MS : INITIAL_DEAL_STEP_DELAY_MS;
-    window.setTimeout(() => {
-      const state = useGameStore.getState();
-      if (animationId !== initialDealAnimationId || state.phase !== "dealing") return;
-
-      const nextRevealCounts = dealRevealCountsForStep(step);
-      const finished = step >= 3;
-      useGameStore.setState({
-        dealRevealCounts: nextRevealCounts,
-        phase: finished ? "playing" : "dealing",
-        canHumanLiangDao: finished ? updateHumanLiangDaoHint(state.players.human) : false,
-        actionNonce: state.actionNonce + 1,
-      });
-
-      if (!finished) runStep(step + 1);
-    }, delayMs);
-  };
-
-  runStep(0);
-}
-
-function scheduleDiceRollThenInitialDeal() {
-  roundIntroAnimationId += 1;
-  const animationId = roundIntroAnimationId;
-  window.setTimeout(() => {
-    const state = useGameStore.getState();
-    if (animationId !== roundIntroAnimationId || state.phase !== "rolling") return;
-    useGameStore.setState({
-      phase: "dealing",
-      actionNonce: state.actionNonce + 1,
-    });
-    scheduleInitialDealReveal();
-  }, DICE_ROLL_DURATION_MS);
 }
 
 /** 把名册（真人/AI、昵称）套用到玩家表，返回新表。 */
@@ -524,23 +468,70 @@ function applyOptimisticGuestAction(action: () => void) {
   }
 }
 
-function markNetPendingAction(type: NetActionType) {
-  useGameStore.setState({ netPendingAction: { type, createdAt: Date.now() } });
-}
+/**
+ * 状态机既供 React UI 使用，也供 Node 实时服务使用。每次创建都有自己的动画/轮次定时器，
+ * 避免多个服务器房间共享全局状态。
+ */
+export const createGameStore: StateCreator<GameStore> = (set, get) => {
+  const initialDealCounts: Record<PlayerId, number[]> = { human: [], ai_left: [], ai_right: [] };
+  let initialDealAnimationId = 0;
+  let roundIntroAnimationId = 0;
 
-function forwardIfGuest(
-  state: { netRole: NetRole; netSeat: EngineSeatId; netForward?: (action: GuestActionInput) => void },
-  action: Omit<GuestActionInput, "seat">,
-): boolean {
-  if (state.netRole !== "guest") return false;
-  if (optimisticGuestActionDepth > 0) return false;
-  if (!state.netForward) return true;
-  state.netForward({ ...action, seat: state.netSeat });
-  markNetPendingAction(action.type);
-  return true;
-}
+  const dealRevealCountsForStep = (step: number): Record<PlayerId, number> => ({
+    human: initialDealCounts.human[Math.min(step, initialDealCounts.human.length - 1)] ?? 0,
+    ai_left: initialDealCounts.ai_left[Math.min(step, initialDealCounts.ai_left.length - 1)] ?? 0,
+    ai_right: initialDealCounts.ai_right[Math.min(step, initialDealCounts.ai_right.length - 1)] ?? 0,
+  });
 
-export const useGameStore = create<GameStore>((set, get) => ({
+  const scheduleInitialDealReveal = () => {
+    initialDealAnimationId += 1;
+    const animationId = initialDealAnimationId;
+    const runStep = (step: number) => {
+      const delayMs = step === 0 ? INITIAL_DEAL_FIRST_STEP_DELAY_MS : INITIAL_DEAL_STEP_DELAY_MS;
+      setTimeout(() => {
+        const state = get();
+        if (animationId !== initialDealAnimationId || state.phase !== "dealing") return;
+        const finished = step >= 3;
+        set({
+          dealRevealCounts: dealRevealCountsForStep(step),
+          phase: finished ? "playing" : "dealing",
+          canHumanLiangDao: finished ? updateHumanLiangDaoHint(state.players.human) : false,
+          actionNonce: state.actionNonce + 1,
+        });
+        if (!finished) runStep(step + 1);
+      }, delayMs);
+    };
+    runStep(0);
+  };
+
+  const scheduleDiceRollThenInitialDeal = () => {
+    roundIntroAnimationId += 1;
+    const animationId = roundIntroAnimationId;
+    setTimeout(() => {
+      const state = get();
+      if (animationId !== roundIntroAnimationId || state.phase !== "rolling") return;
+      set({ phase: "dealing", actionNonce: state.actionNonce + 1 });
+      scheduleInitialDealReveal();
+    }, DICE_ROLL_DURATION_MS);
+  };
+
+  const markNetPendingAction = (type: NetActionType) => {
+    set({ netPendingAction: { type, createdAt: Date.now() } });
+  };
+
+  const forwardIfGuest = (
+    state: { netRole: NetRole; netSeat: EngineSeatId; netForward?: (action: GuestActionInput) => void },
+    action: Omit<GuestActionInput, "seat">,
+  ): boolean => {
+    if (state.netRole !== "guest") return false;
+    if (optimisticGuestActionDepth > 0) return false;
+    if (!state.netForward) return true;
+    state.netForward({ ...action, seat: state.netSeat });
+    markNetPendingAction(action.type);
+    return true;
+  };
+
+  return {
   wall: [],
   deadWall: [],
   players: initialPlayers,
@@ -672,9 +663,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const dealerId = nextDealerFromResult(state.roundResult, state.dealerId ?? "human");
     const previous = state.players;
     const players = createPlayers(previous, dealerId);
-    INITIAL_DEAL_COUNTS.human = dealerId === "human" ? [4, 8, 12, 14] : [4, 8, 12, 13];
-    INITIAL_DEAL_COUNTS.ai_left = dealerId === "ai_left" ? [4, 8, 12, 14] : [4, 8, 12, 13];
-    INITIAL_DEAL_COUNTS.ai_right = dealerId === "ai_right" ? [4, 8, 12, 14] : [4, 8, 12, 13];
+    initialDealCounts.human = dealerId === "human" ? [4, 8, 12, 14] : [4, 8, 12, 13];
+    initialDealCounts.ai_left = dealerId === "ai_left" ? [4, 8, 12, 14] : [4, 8, 12, 13];
+    initialDealCounts.ai_right = dealerId === "ai_right" ? [4, 8, 12, 14] : [4, 8, 12, 13];
     const wall = shuffle(createTileSet());
     const dealt = { ...players };
     const nextWall = [...wall];
@@ -868,7 +859,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         actionNonce: state.actionNonce + 1,
       });
       if (player.autoPlay && drawnTileId && !optimisticGuestAction) {
-        window.setTimeout(() => get().discardTile(playerId, drawnTileId), 0);
+        setTimeout(() => get().discardTile(playerId, drawnTileId), 0);
       }
       return;
     }
@@ -1235,7 +1226,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       actionNonce: state.actionNonce + 1,
     });
 
-    window.setTimeout(() => {
+    setTimeout(() => {
       const latest = get();
       const latestPlayer = latest.players[playerId];
       const stillSameDiscard =
@@ -1391,7 +1382,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     };
 
     if (delayMs > 0) {
-      window.setTimeout(advance, delayMs);
+      setTimeout(advance, delayMs);
       return;
     }
 
@@ -1612,4 +1603,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   resetRound: () => get().startNewRound(),
-}));
+  };
+};
+
+export const useGameStore = create<GameStore>(createGameStore);

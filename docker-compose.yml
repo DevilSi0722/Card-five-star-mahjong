@@ -1,0 +1,32 @@
+services:
+  web:
+    build:
+      context: .
+      target: web
+    restart: unless-stopped
+    networks: [kawuxing]
+
+  realtime:
+    build:
+      context: .
+      target: realtime
+    restart: unless-stopped
+    environment:
+      REALTIME_PORT: "3101"
+      # Set this to the final Funnel URL in .env.deploy for stricter browser CORS.
+      CORS_ORIGIN: ${PUBLIC_ORIGIN:-http://localhost}
+    networks: [kawuxing]
+
+  gateway:
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    depends_on: [web, realtime]
+    ports:
+      - "127.0.0.1:8080:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    networks: [kawuxing]
+
+networks:
+  kawuxing:
+    driver: bridge

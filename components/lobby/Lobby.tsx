@@ -6,7 +6,6 @@ import { ArrowLeft, LogIn, Plus, Settings, X } from "lucide-react";
 import { useRoomStore } from "@/store/roomStore";
 import { useUiStore } from "@/store/uiStore";
 import { useResponsiveGameLayout } from "@/hooks/useResponsiveGameLayout";
-import { isFirebaseConfigured } from "@/lib/firebase/client";
 import { TILE_BACK_OPTIONS } from "@/utils/tileBacks";
 import { TABLECLOTH_OPTIONS } from "@/utils/tablecloths";
 import { CreateRoomForm } from "./CreateRoomForm";
@@ -160,7 +159,6 @@ export function Lobby({ onStartSingle }: { onStartSingle: () => void }) {
   const setView = useRoomStore((s) => s.setView);
   const error = useRoomStore((s) => s.error);
   const clearError = useRoomStore((s) => s.clearError);
-  const [configured] = useState(isFirebaseConfigured());
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   if (view === "room") return <RoomWaiting />;
@@ -258,12 +256,10 @@ export function Lobby({ onStartSingle }: { onStartSingle: () => void }) {
             <button
               type="button"
               onClick={() => {
-                if (!configured) return;
                 clearError();
                 setView("multiplayer");
               }}
-              disabled={!configured}
-              className={`group relative flex items-center overflow-hidden rounded-lg border border-gold/45 bg-[#2d2414]/90 text-left shadow-[inset_0_0_0_1px_rgba(245,219,152,0.06),0_14px_32px_rgba(0,0,0,0.22)] transition hover:border-gold/75 hover:bg-[#3a2e18]/95 disabled:cursor-not-allowed disabled:opacity-50 ${
+              className={`group relative flex items-center overflow-hidden rounded-lg border border-gold/45 bg-[#2d2414]/90 text-left shadow-[inset_0_0_0_1px_rgba(245,219,152,0.06),0_14px_32px_rgba(0,0,0,0.22)] transition hover:border-gold/75 hover:bg-[#3a2e18]/95 ${
                 isMobileLandscape ? "min-h-[72px] gap-2 px-3 py-2.5" : "min-h-[116px] gap-4 px-5 py-4"
               }`}
             >
@@ -279,7 +275,7 @@ export function Lobby({ onStartSingle }: { onStartSingle: () => void }) {
               <span className="relative z-10 min-w-0 flex-1">
                 <span className={`block font-serif font-semibold text-bone ${isMobileLandscape ? "text-sm" : "text-lg"}`}>多人模式</span>
                 <span className={`block text-[#ddceb0]/75 ${isMobileLandscape ? "mt-0.5 text-[10px] leading-tight" : "mt-1 text-xs"}`}>
-                  {configured ? "创建或加入房间，与好友联机" : "未配置联机服务，暂不可用"}
+                  创建或加入房间，与好友联机
                 </span>
               </span>
             </button>

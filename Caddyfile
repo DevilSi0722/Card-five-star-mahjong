@@ -1,0 +1,7 @@
+:80 {
+  encode zstd gzip
+
+  @socket path /socket.io/*
+  reverse_proxy @socket realtime:3101
+  reverse_proxy web:3000
+}

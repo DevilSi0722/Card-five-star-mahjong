@@ -56,9 +56,9 @@
 
 ## 多人联机说明
 
-多人模式需要部署者配置 Firebase 联机服务。如果大厅中的“多人模式”显示不可用，说明当前站点还没有配置联机服务；此时仍然可以正常游玩单人模式。
+本分支的多人模式使用独立 Socket.IO 实时服务，不依赖 Firebase。服务器是牌局的唯一权威：它校验每个操作、推进 AI 回合，并且只向每位玩家下发其自身视角可见的牌局信息。
 
-联机时房主负责推进牌局，其他玩家通过房间同步自己的视角。房间号可以点击复制，分享给好友后即可加入同一局。
+房间号可以点击复制，分享给好友后即可加入同一局。浏览器会在本机保存私有重连令牌，短暂断线后可以重新获得自己的座位；不要分享这个令牌。服务进程重启会清空正在进行的房间和牌局，容器本身会由 Compose 自动拉起。
 
 ## 本地体验
 
@@ -67,6 +67,8 @@
 ```bash
 npm install
 npm run dev
+# 另开一个终端
+npm run realtime
 ```
 
 启动后访问：
@@ -75,4 +77,28 @@ npm run dev
 http://localhost:11450
 ```
 
-单人模式不需要额外配置。多人模式需要先配置 Firebase 环境变量，变量名可以参考 `.env.local.example`。
+单人模式不需要额外配置。本分支的多人模式需要同时启动 Next.js 和实时服务；Firebase 环境变量仅保留给旧版 Vercel 部署参考。
+
+本机联调多人模式时，在 `.env.local` 中加入：
+
+```bash
+NEXT_PUBLIC_REALTIME_URL=http://127.0.0.1:3101
+```
+
+## 容器部署
+
+生产部署使用三个容器：Next.js 前端、Socket.IO 实时服务和 Caddy 网关。网关只监听宿主机 `127.0.0.1:8080`，不会直接暴露游戏服务端口。
+
+```bash
+docker compose up -d --build
+curl http://127.0.0.1:8080
+curl http://127.0.0.1:8080/socket.io/
+```
+
+容器会在 Docker 重启后自动恢复。要通过 Tailscale Funnel 公开时，先把最终 Funnel HTTPS 地址写入 `.env.deploy` 的 `PUBLIC_ORIGIN`，再以该文件启动 Compose：
+
+```bash
+docker compose --env-file .env.deploy up -d --build
+```
+
+随后让 Tailscale 将 Funnel 转发到 `http://127.0.0.1:8080`。前端和实时服务同源，Funnel 只需要公开这一条入口。
