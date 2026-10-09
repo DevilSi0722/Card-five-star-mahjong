@@ -41,3 +41,7 @@ CLAUDE.md
 AGENTS.md
 
 preview/
+
+# P100 releases, runtime, logs and local service configuration
+.p100/
+__pycache__/

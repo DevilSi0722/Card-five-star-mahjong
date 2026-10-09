@@ -6,3 +6,5 @@ node_modules
 npm-debug.log
 output
 preview
+.p100
+ops/p100/__pycache__

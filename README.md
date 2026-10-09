@@ -87,6 +87,8 @@ NEXT_PUBLIC_REALTIME_URL=http://127.0.0.1:3101
 
 ## 容器部署
 
+P100 / Cloudflare 部署与日常开发发布流程见 [ops/p100/README.md](ops/p100/README.md)。该部署使用独立的用户级服务，通过 `kwx.dscode.win` 同域提供网页与多人联机，无需 Tailscale。
+
 生产部署使用三个容器：Next.js 前端、Socket.IO 实时服务和 Caddy 网关。网关只监听宿主机 `127.0.0.1:8080`，不会直接暴露游戏服务端口。
 
 ```bash

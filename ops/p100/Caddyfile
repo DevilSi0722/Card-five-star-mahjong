@@ -1,0 +1,19 @@
+{
+    admin 127.0.0.1:18143
+    auto_https off
+}
+
+http://:18140 {
+    bind 127.0.0.1
+    encode zstd gzip
+    handle /_health/realtime {
+        rewrite * /health
+        reverse_proxy 127.0.0.1:18142
+    }
+    handle /socket.io/* {
+        reverse_proxy 127.0.0.1:18142
+    }
+    handle {
+        reverse_proxy 127.0.0.1:18141
+    }
+}

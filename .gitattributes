@@ -1,0 +1,4 @@
+* text=auto
+ops/p100/kwxctl text eol=lf
+ops/p100/*.py text eol=lf
+ops/p100/Caddyfile text eol=lf
