@@ -113,17 +113,20 @@ async function emitAck<T>(event: keyof ClientToServerEvents, ...args: unknown[])
 }
 
 function remember(session: RealtimeSession, clientId: string, name: string) {
-  latestView = undefined;
   saveStoredSession({ code: session.room.code, clientId, name, sessionToken: session.sessionToken });
 }
 
 export async function createRealtimeRoom(request: CreateRoomRequest) {
+  latestView = undefined;
   const session = await emitAck<RealtimeSession>("room:create", request);
   remember(session, request.clientId, request.name);
   return session;
 }
 
 export async function joinRealtimeRoom(request: JoinRoomRequest) {
+  // attach() sends the current game view before acknowledging a successful join.
+  // Keep that view so the game component can consume it after it mounts.
+  latestView = undefined;
   const session = await emitAck<RealtimeSession>("room:join", request);
   remember(session, request.clientId, request.name);
   return session;

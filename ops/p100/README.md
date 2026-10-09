@@ -70,6 +70,8 @@ for local multiplayer development. `npm run check:realtime -- --self-test` check
 three clients, WebSocket upgrade, polling, room authority, hidden hands, chat,
 reconnection, a complete round, readiness, and AI filling a two-player room.
 
+Refreshing the browser returns to the lobby; join the same room number to restore
+your seat and current hand. A transport interruption reconnects automatically.
 Rooms and games are in memory, as in the original server branch. Restarting or
 publishing the realtime service clears active games. Release when no one is
 playing. Short network interruptions preserve the seat for reconnecting players.
