@@ -152,6 +152,9 @@ export interface NetAction {
  * 直接是一份可被 gameStore 吸收的引擎 GameState 切片。
  */
 export interface NetGameView {
+  roomCode?: string;
+  /** 不随同一张牌的其他玩家「过」操作变化，用于拒绝过期操作。 */
+  actionContext?: string;
   /** 视图所属的真实座位（裁剪/旋转前的座位）。 */
   forSeat: EngineSeatId;
   /** 该视图对应的房间局号，用于重连时过滤旧快照。 */

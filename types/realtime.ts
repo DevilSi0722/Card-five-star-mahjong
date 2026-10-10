@@ -7,6 +7,21 @@ import type {
   RoomSettings,
   Wind,
 } from "@/types/multiplayer";
+import type { GameSyncPacket } from "@/lib/multiplayer/syncProtocol";
+
+export type RealtimeAction = Omit<GuestActionInput, "seat"> & {
+  actionId?: string;
+  round?: number;
+  context?: string;
+};
+
+export interface ActionReceipt {
+  actionId?: string;
+  round: number;
+  rev: number;
+}
+
+export interface SyncCursor { roomCode: string; round: number; rev: number }
 
 export interface RealtimeSession {
   room: Room;
@@ -48,19 +63,23 @@ export interface ClientToServerEvents {
   "room:ready": (round: number, ack: (result: RealtimeResult<Room>) => void) => void;
   "room:chat": (text: string, ack: (result: RealtimeResult<void>) => void) => void;
   "room:leave": (ack: (result: RealtimeResult<void>) => void) => void;
-  "game:action": (action: Omit<GuestActionInput, "seat">, ack: (result: RealtimeResult<void>) => void) => void;
+  "game:action": (action: RealtimeAction, ack: (result: RealtimeResult<ActionReceipt>) => void) => void;
+  "game:resync": (ack: (result: RealtimeResult<void>) => void) => void;
+  "realtime:ping": (ack: (result: RealtimeResult<SyncCursor | null>) => void) => void;
 }
 
 export interface ServerToClientEvents {
   "room:update": (room: Room) => void;
   "room:closed": (message: string) => void;
   "game:view": (view: NetGameView) => void;
+  "game:sync": (packet: GameSyncPacket) => void;
 }
 
 export interface InterServerEvents {}
 
 export interface SocketData {
   identity?: SocketIdentity;
+  syncProtocol?: number;
 }
 
 export type RealtimeSeat = EngineSeatId;

@@ -70,8 +70,22 @@ for local multiplayer development. `npm run check:realtime -- --self-test` check
 three clients, WebSocket upgrade, polling, room authority, hidden hands, chat,
 reconnection, a complete round, readiness, and AI filling a two-player room.
 
-Refreshing the browser returns to the lobby; join the same room number to restore
-your seat and current hand. A transport interruption reconnects automatically.
+Refreshing the browser automatically restores the saved room, seat and current
+hand. A transport interruption restores the session and a full authoritative
+snapshot before enabling input. Actions carry an ID and a round/action context;
+uncertain acknowledgements are retried with that ID and applied at most once.
+Rejected actions restore the authoritative view. WebSocket is tried first, with
+HTTP polling as a fallback. The room and game HUD show application round-trip time.
+
+Protocol 2 clients receive compact full snapshots on join/reconnect and incremental
+updates during play. Hidden hands and walls are encoded as counts; hand privacy
+is still enforced on the server. Missing a baseline requests a full snapshot.
+Existing clients remain supported during upgrades. The realtime health endpoint
+also reports aggregate packet/byte and action retry/rejection counters, without
+player identities or game contents. `check:realtime -- --self-test` additionally
+uses a test-only proxy with the actual browser client module to verify WebSocket
+fallback, lost acknowledgements, transport interruptions and missing patches.
+
 Rooms and games are in memory, as in the original server branch. Restarting or
 publishing the realtime service clears active games. Release when no one is
 playing. Short network interruptions preserve the seat for reconnecting players.

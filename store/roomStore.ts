@@ -7,11 +7,13 @@ import {
   leaveRealtimeRoom, readyRealtimeRound, savedSessionFor, sendRealtimeAction,
   sendRealtimeChat, startRealtimeGame, subscribeRoom, subscribeRoomClosed,
   updateRealtimeSettings,
+  getRealtimeConnection, subscribeRealtimeConnection, restoreAuthoritativeView, loadRealtimeSession,
 } from "@/lib/multiplayer/realtimeClient";
 import { useGameStore } from "@/store/gameStore";
 
 const CLIENT_ID_KEY = "kwx:clientId";
 const NAME_KEY = "kwx:playerName";
+let restoreAttempted = false;
 
 function getClientId(): string {
   if (typeof window === "undefined") return "ssr";
@@ -56,19 +58,24 @@ interface RoomStore {
   markReady: (round: number) => Promise<void>;
   sendQuickChat: (text: string) => Promise<void>;
   leave: () => Promise<void>;
+  restoreSavedRoom: () => Promise<void>;
 }
 
 function configureRealtimeClient() {
-  useGameStore.getState().configureNet({
-    role: "guest",
-    seat: "human",
-    forward: (input: GuestActionInput) => {
-      const { seat: _seat, ...action } = input;
-      void sendRealtimeAction(action).catch((error) => {
-        useRoomStore.setState({ error: error instanceof Error ? error.message : "游戏动作发送失败" });
-      });
-    },
-  });
+  const forward = (input: GuestActionInput) => {
+    const { seat: _seat, ...action } = input;
+    void sendRealtimeAction(action).then(() => {
+      if (useGameStore.getState().netForward === forward) useRoomStore.setState({ error: null });
+    }).catch((error) => {
+      if (useGameStore.getState().netForward !== forward) return;
+      restoreAuthoritativeView();
+      useRoomStore.setState({ error: error instanceof Error ? error.message : "游戏动作发送失败" });
+    }).finally(() => {
+      if (useGameStore.getState().netForward === forward) useGameStore.getState().clearNetPendingAction();
+    });
+  };
+  useGameStore.getState().configureNet({ role: "guest", seat: "human", forward });
+  useGameStore.getState().setNetConnected(getRealtimeConnection().status === "connected");
 }
 
 function bindRoomEvents(set: (partial: Partial<RoomStore>) => void, get: () => RoomStore) {
@@ -82,9 +89,13 @@ function bindRoomEvents(set: (partial: Partial<RoomStore>) => void, get: () => R
     useGameStore.getState().configureNet({ role: "single", seat: "human" });
     set({ room: null, myWind: null, view: "home", error: message, unsubscribe: null });
   });
+  const stopConnection = subscribeRealtimeConnection(() => {
+    useGameStore.getState().setNetConnected(getRealtimeConnection().status === "connected");
+  });
   return () => {
     stopRoom();
     stopClosed();
+    stopConnection();
   };
 }
 
@@ -108,6 +119,12 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
     set({ playerName: trimmed });
   },
   clearError: () => set({ error: null }),
+  restoreSavedRoom: async () => {
+    if (restoreAttempted) return;
+    restoreAttempted = true;
+    const session = loadRealtimeSession();
+    if (session && !get().room && !get().singlePlaying) await get().joinExistingRoom(session.code);
+  },
   createNewRoom: async (settings, code) => {
     const { clientId, playerName } = get();
     set({ busy: true, error: null });

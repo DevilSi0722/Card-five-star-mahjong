@@ -86,6 +86,7 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
   const currentPlayerId = useGameStore((state) => state.currentPlayerId);
   const netRole = useGameStore((state) => state.netRole);
   const netPendingAction = useGameStore((state) => state.netPendingAction);
+  const netConnected = useGameStore((state) => state.netConnected);
   const pendingReactions = useGameStore((state) => state.pendingReactions);
   const reactionPasses = useGameStore((state) => state.reactionPasses);
   const players = useGameStore((state) => state.players);
@@ -100,7 +101,7 @@ export function ActionPanel({ canSelfHu, anGangKinds, buGangMelds, tingOptions }
   const setLiangDaoArmed = useUiStore((state) => state.setLiangDaoArmed);
 
   const human = players.human;
-  const waitingForHost = netRole === "guest" && Boolean(netPendingAction);
+  const waitingForHost = netRole === "guest" && (!netConnected || Boolean(netPendingAction));
   const isHumanTurn = phase === "playing" && currentPlayerId === "human";
   const playable = isHumanTurn && !human.autoPlay;
   const liangDaoDecisionTurn = isHumanTurn && human.isLiangDao;

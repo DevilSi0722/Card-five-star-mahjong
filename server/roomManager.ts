@@ -5,6 +5,7 @@ import { createGameStore, type GameStore } from "@/store/gameStore";
 import { cropSnapshotForSeat } from "@/lib/multiplayer/seatRotation";
 import { engineSeatForClient, engineSeatWinds, resolveEngineSeats } from "@/lib/multiplayer/windSeating";
 import { actionDelay } from "@/utils/mahjong/rules";
+import { actionContext, compactView, syncPacket, SYNC_PROTOCOL, type CompactView } from "@/lib/multiplayer/syncProtocol";
 import { chooseDiscard, chooseGang, chooseReaction, shouldDeclareLiangDao } from "@/utils/mahjong/ai";
 import { analyzeWin } from "@/utils/mahjong/handAnalyzer";
 import type {
@@ -26,6 +27,8 @@ import type {
   RealtimeSession,
   ServerToClientEvents,
   SocketData,
+  ActionReceipt,
+  RealtimeAction,
 } from "@/types/realtime";
 
 type RealtimeServer = Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
@@ -33,6 +36,17 @@ type RealtimeSocket = Socket<ClientToServerEvents, ServerToClientEvents, Record<
 
 const ROOM_CODE = /^\d{4}$/;
 const EMPTY_ROOM_GRACE_MS = 30 * 60_000;
+const ACTION_HISTORY_LIMIT = 512;
+
+interface RealtimeMetrics {
+  fullPackets: number;
+  patchPackets: number;
+  bytesSent: number;
+  fullViewBytes: number;
+  actionsApplied: number;
+  actionsRetried: number;
+  actionsRejected: number;
+}
 
 function now() {
   return Date.now();
@@ -93,19 +107,24 @@ class ManagedRoom {
   private emptyTimer: ReturnType<typeof setTimeout> | undefined;
   private revision = 0;
   private destroyed = false;
+  private viewsPending = false;
+  private readonly baselines = new Map<string, CompactView>();
+  private readonly actionHistory = new Map<string, Map<string, { request: string; result: RealtimeResult<ActionReceipt> }>>();
 
   constructor(
     private readonly io: RealtimeServer,
     private room: Room,
     hostToken: string,
     private readonly onDestroy: (code: string) => void,
+    private readonly metrics: RealtimeMetrics,
   ) {
     this.sessionTokens.set(room.hostClientId, hostToken);
     this.engine = createStore(createGameStore);
     this.engine.subscribe(() => {
       if (this.room.status !== "playing" || this.destroyed) return;
-      this.emitViews();
-      this.scheduleAi();
+      if (this.viewsPending) return;
+      this.viewsPending = true;
+      queueMicrotask(() => this.flushViews());
     });
   }
 
@@ -116,6 +135,8 @@ class ManagedRoom {
   get snapshot() {
     return cloneRoom(this.room);
   }
+
+  get cursor() { return { roomCode: this.room.code, round: this.room.currentRound, rev: this.revision }; }
 
   attach(socket: RealtimeSocket, clientId: string) {
     this.clearEmptyTimer();
@@ -137,6 +158,7 @@ class ManagedRoom {
     if (!identity || identity.code !== this.room.code) return;
     const socketIds = this.socketsByClient.get(identity.clientId);
     socketIds?.delete(socket.id);
+    this.baselines.delete(socket.id);
     if (socketIds?.size === 0) this.socketsByClient.delete(identity.clientId);
     if (this.socketsByClient.size === 0) this.scheduleEmptyRoomCleanup();
   }
@@ -344,11 +366,56 @@ class ManagedRoom {
     return ok(undefined);
   }
 
-  action(clientId: string, action: Omit<GuestActionInput, "seat">): RealtimeResult<void> {
-    if (this.room.status !== "playing") return errorResult("游戏尚未开始");
+  action(clientId: string, action: RealtimeAction): RealtimeResult<ActionReceipt> {
+    const reject = (message: string): RealtimeResult<ActionReceipt> => {
+      this.metrics.actionsRejected += 1;
+      this.resync(clientId);
+      return errorResult(message);
+    };
+    const request = JSON.stringify(action);
+    const history = this.actionHistory.get(clientId) ?? new Map();
+    const prior = action.actionId ? history.get(action.actionId) : undefined;
+    if (prior) {
+      if (prior.request !== request) return reject("操作编号已被使用，请重新操作");
+      this.metrics.actionsRetried += 1;
+      this.resync(clientId);
+      return prior.result;
+    }
+    let result: RealtimeResult<ActionReceipt>;
+    if (this.room.status !== "playing") result = reject("游戏尚未开始");
+    else if (action.actionId && (action.round !== this.room.currentRound
+      || action.context !== actionContext(this.engine.getState(), this.room.currentRound))) {
+      result = reject("牌局已更新，已同步最新状态，请重新操作");
+    } else if (!this.applyAction(clientId, action)) {
+      result = reject("当前操作不符合牌局规则，已同步最新状态");
+    } else {
+      this.flushViews();
+      this.metrics.actionsApplied += 1;
+      result = ok({ actionId: action.actionId, round: this.room.currentRound, rev: this.revision });
+    }
+    if (action.actionId) {
+      history.set(action.actionId, { request, result });
+      if (history.size > ACTION_HISTORY_LIMIT) history.delete(history.keys().next().value!);
+      this.actionHistory.set(clientId, history);
+    }
+    return result;
+  }
+
+  resync(clientId: string) {
+    this.flushViews();
+    this.emitViewFor(clientId);
+  }
+
+  private applyAction(clientId: string, action: Omit<GuestActionInput, "seat">): boolean {
     const seat = engineSeatForClient(this.room.players, clientId);
-    if (!seat) return errorResult("你不在牌局内");
+    if (!seat) return false;
     const game = this.engine.getState();
+    if (action.type === "pass") {
+      if (game.phase === "responding") {
+        if (!game.pendingReactions?.options.some((option) => option.playerId === seat)
+          || game.reactionPasses.includes(seat)) return false;
+      } else if (game.phase !== "playing" || game.currentPlayerId !== seat) return false;
+    }
     switch (action.type) {
       case "discard":
         if (action.tileId) game.discardTile(seat, action.tileId);
@@ -375,17 +442,35 @@ class ManagedRoom {
         game.passReaction(seat);
         break;
       default:
-        return errorResult("未知的游戏动作");
+        return false;
     }
-    return ok(undefined);
+    const updated = this.engine.getState();
+    if (updated === game) return false;
+    if (action.type === "discard" || action.type === "liang_dao") {
+      return updated.phase === "settled"
+        || !updated.players[seat].hand.some((tile) => tile.id === action.tileId);
+    }
+    return true;
   }
 
   close(message: string) {
     if (this.destroyed) return;
     this.destroyed = true;
+    this.baselines.clear();
+    this.actionHistory.clear();
     if (this.aiTimer) clearTimeout(this.aiTimer);
     this.clearEmptyTimer();
     this.io.to(roomChannel(this.room.code)).emit("room:closed", message);
+    for (const socketIds of this.socketsByClient.values()) {
+      for (const id of socketIds) {
+        const socket = this.io.sockets.sockets.get(id);
+        if (socket) {
+          socket.leave(roomChannel(this.room.code));
+          socket.data.identity = undefined;
+        }
+      }
+    }
+    this.socketsByClient.clear();
     this.onDestroy(this.room.code);
   }
 
@@ -398,6 +483,13 @@ class ManagedRoom {
     this.io.to(roomChannel(this.room.code)).emit("room:update", this.snapshot);
   }
 
+  private flushViews() {
+    if (!this.viewsPending || this.destroyed) return;
+    this.viewsPending = false;
+    this.emitViews();
+    this.scheduleAi();
+  }
+
   private emitViews() {
     const winds = engineSeatWinds(this.room.players);
     if (!winds) return;
@@ -408,6 +500,8 @@ class ManagedRoom {
       const seat = engineSeatForClient(this.room.players, player.clientId);
       if (!seat) continue;
       const view = {
+        roomCode: this.room.code,
+        actionContext: actionContext(state, this.room.currentRound),
         forSeat: seat,
         round: this.room.currentRound,
         rev: this.revision,
@@ -424,18 +518,35 @@ class ManagedRoom {
     const seat = engineSeatForClient(this.room.players, clientId);
     if (!winds || !seat) return;
     const view = {
+      roomCode: this.room.code,
+      actionContext: actionContext(this.engine.getState(), this.room.currentRound),
       forSeat: seat,
       round: this.room.currentRound,
       rev: this.revision,
       state: cropSnapshotForSeat(snapshotOf(this.engine.getState()), seat),
       winds: rotateWinds(winds, seat),
     };
-    this.emitView(clientId, view);
+    this.emitView(clientId, view, true);
   }
 
-  private emitView(clientId: string, view: Parameters<ServerToClientEvents["game:view"]>[0]) {
+  private emitView(clientId: string, view: Parameters<ServerToClientEvents["game:view"]>[0], full = false) {
+    let compact: CompactView | undefined;
     for (const socketId of this.socketsByClient.get(clientId) ?? []) {
-      this.io.to(socketId).emit("game:view", view);
+      const socket = this.io.sockets.sockets.get(socketId);
+      if (!socket) continue;
+      this.metrics.fullViewBytes += Buffer.byteLength(JSON.stringify(view));
+      if (socket.data.syncProtocol === SYNC_PROTOCOL) {
+        compact ??= compactView(view);
+        const packet = syncPacket(compact, full ? undefined : this.baselines.get(socketId));
+        this.baselines.set(socketId, compact);
+        this.metrics[packet.kind === "full" ? "fullPackets" : "patchPackets"] += 1;
+        this.metrics.bytesSent += Buffer.byteLength(JSON.stringify(packet));
+        socket.emit("game:sync", packet);
+      } else {
+        this.metrics.fullPackets += 1;
+        this.metrics.bytesSent += Buffer.byteLength(JSON.stringify(view));
+        socket.emit("game:view", view);
+      }
     }
   }
 
@@ -527,6 +638,12 @@ function rotateWinds(winds: Record<EngineSeatId, Wind>, seat: EngineSeatId) {
 
 export class RoomManager {
   private readonly rooms = new Map<string, ManagedRoom>();
+  readonly metrics: RealtimeMetrics = {
+    fullPackets: 0, patchPackets: 0, bytesSent: 0, fullViewBytes: 0,
+    actionsApplied: 0, actionsRetried: 0, actionsRejected: 0,
+  };
+
+  get roomCount() { return this.rooms.size; }
 
   constructor(private readonly io: RealtimeServer) {}
 
@@ -554,7 +671,8 @@ export class RoomManager {
       updatedAt: now(),
     };
     const token = newToken();
-    const managed = new ManagedRoom(this.io, room, token, (closedCode) => this.rooms.delete(closedCode));
+    if (this.fromSocket(socket)) return errorResult("请先退出当前房间");
+    const managed = new ManagedRoom(this.io, room, token, (closedCode) => this.rooms.delete(closedCode), this.metrics);
     this.rooms.set(code, managed);
     managed.attach(socket, request.clientId);
     return ok({ room: managed.snapshot, myWind: "east", sessionToken: token });
@@ -564,13 +682,21 @@ export class RoomManager {
     const room = this.rooms.get(request.code.trim());
     if (!room) return errorResult("房间不存在或服务器已重启");
     const result = room.join(request);
-    if (result.ok) room.attach(socket, request.clientId);
+    if (result.ok) {
+      const previous = this.fromSocket(socket);
+      if (previous && previous !== room) {
+        previous.detach(socket);
+        socket.leave(roomChannel(previous.code));
+      }
+      room.attach(socket, request.clientId);
+    }
     return result;
   }
 
   fromSocket(socket: RealtimeSocket): ManagedRoom | undefined {
     const identity = socket.data.identity;
-    return identity ? this.rooms.get(identity.code) : undefined;
+    const room = identity ? this.rooms.get(identity.code) : undefined;
+    return room && room.isSessionValid(identity!.clientId, identity!.sessionToken) ? room : undefined;
   }
 
   disconnect(socket: RealtimeSocket) {

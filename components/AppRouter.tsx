@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useRoomStore } from "@/store/roomStore";
 import { Lobby } from "@/components/lobby/Lobby";
 import { MahjongGame } from "@/components/game/MahjongGame";
@@ -14,6 +15,8 @@ export function AppRouter() {
   const singlePlaying = useRoomStore((s) => s.singlePlaying);
   const room = useRoomStore((s) => s.room);
   const startSingle = useRoomStore((s) => s.startSingle);
+  const restoreSavedRoom = useRoomStore((s) => s.restoreSavedRoom);
+  useEffect(() => { void restoreSavedRoom(); }, [restoreSavedRoom]);
 
   const inMultiplayerGame = Boolean(room && room.status === "playing");
 

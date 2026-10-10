@@ -40,6 +40,8 @@ export function HumanHandOverlay() {
   const pendingReactions = useGameStore((state) => state.pendingReactions);
   const reactionPasses = useGameStore((state) => state.reactionPasses);
   const netRole = useGameStore((state) => state.netRole);
+  const netConnected = useGameStore((state) => state.netConnected);
+  const netPendingAction = useGameStore((state) => state.netPendingAction);
   const selectTile = useGameStore((state) => state.selectTile);
   const discardTile = useGameStore((state) => state.discardTile);
   const declareLiangDao = useGameStore((state) => state.declareLiangDao);
@@ -80,7 +82,8 @@ export function HumanHandOverlay() {
   const current = phase === "playing" && currentPlayerId === "human";
   const revealAll = phase === "settled" || phase === "draw";
   const dealing = phase === "dealing" && dealRevealCounts.human < human.hand.length;
-  const interactive = current && !human.autoPlay && !human.isLiangDao && !revealAll;
+  const interactive = current && !human.autoPlay && !human.isLiangDao && !revealAll
+    && (netRole !== "guest" || netConnected && !netPendingAction);
   const dealVisibleCount = dealing ? Math.min(human.hand.length, dealRevealCounts.human) : human.hand.length;
   const drawnId = !dealing && !human.isLiangDao && !revealAll ? human.lastDrawnTileId : undefined;
   const hasDrawn = drawnId ? human.hand.some((tile) => tile.id === drawnId) : false;

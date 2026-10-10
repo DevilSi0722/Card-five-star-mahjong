@@ -15,6 +15,7 @@ import { formatWinMultiplierLimit, WIN_MULTIPLIER_LIMIT_OPTIONS } from "@/utils/
 import { getTileBackOption, TILE_BACK_OPTIONS } from "@/utils/tileBacks";
 import { getTableclothOption, TABLECLOTH_OPTIONS } from "@/utils/tablecloths";
 import { ActionPanel } from "./ActionPanel";
+import { RealtimeStatus } from "./RealtimeStatus";
 
 // 每个显示座位一套固定配色。多人模式昵称会变化，颜色必须跟座位走，不能跟名字匹配。
 type PlayerTone = { chip: string; dot: string; text: string };
@@ -837,6 +838,7 @@ export function GameHUD() {
         </div>
 
         <div className={`pointer-events-auto grid gap-2 ${isMobileLandscape ? "w-[104px]" : "min-w-[168px]"}`}>
+          {netRole === "guest" ? <RealtimeStatus compact={isMobileLandscape} /> : null}
           {netRole === "guest" && netPendingAction ? (
             <div className={`surface-panel flex items-center justify-between rounded-xl border-jade/35 text-jade-soft ${
               isMobileLandscape ? "gap-1 px-2 py-1 text-[9px]" : "gap-2 px-3 py-1.5 text-[11px]"

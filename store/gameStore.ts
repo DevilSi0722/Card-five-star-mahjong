@@ -51,6 +51,9 @@ export interface GameStore extends GameState {
   netForward?: (action: GuestActionInput) => void;
   /** guest 本地动作已发出、正在等待房主权威快照确认。 */
   netPendingAction?: { type: NetActionType; createdAt: number };
+  netConnected: boolean;
+  setNetConnected: (connected: boolean) => void;
+  clearNetPendingAction: () => void;
   /** 配置联机角色与转发回调。 */
   configureNet: (config: { role: NetRole; seat: EngineSeatId; forward?: (action: GuestActionInput) => void }) => void;
   /** 单独校正本客户端的引擎座位（访客在三人就座、座位推导出来后调用）。 */
@@ -468,6 +471,11 @@ function applyOptimisticGuestAction(action: () => void) {
   }
 }
 
+function guestInputBlocked(state: GameStore) {
+  return state.netRole === "guest" && optimisticGuestActionDepth === 0
+    && (!state.netConnected || Boolean(state.netPendingAction));
+}
+
 /**
  * 状态机既供 React UI 使用，也供 Node 实时服务使用。每次创建都有自己的动画/轮次定时器，
  * 避免多个服务器房间共享全局状态。
@@ -556,6 +564,7 @@ export const createGameStore: StateCreator<GameStore> = (set, get) => {
   netSeat: "human",
   netForward: undefined,
   netPendingAction: undefined,
+  netConnected: true,
   netRoster: undefined,
   netWinds: undefined,
 
@@ -566,6 +575,7 @@ export const createGameStore: StateCreator<GameStore> = (set, get) => {
       netSeat: seat,
       netForward: forward,
       netPendingAction: undefined,
+      netConnected: role !== "guest",
       netRoster: undefined,
       netWinds: undefined,
       wall: [],
@@ -598,6 +608,9 @@ export const createGameStore: StateCreator<GameStore> = (set, get) => {
     set({ netSeat: seat });
   },
 
+  setNetConnected: (connected) => set({ netConnected: connected }),
+  clearNetPendingAction: () => set({ netPendingAction: undefined }),
+
   setNetWinds: (winds) => {
     set({ netWinds: winds });
   },
@@ -623,7 +636,6 @@ export const createGameStore: StateCreator<GameStore> = (set, get) => {
       maxWinMultiplier: snapshot.maxWinMultiplier === undefined ? 8 : snapshot.maxWinMultiplier,
       liangDaoZimoBuyHorseEnabled: snapshot.liangDaoZimoBuyHorseEnabled ?? false,
       canHumanLiangDao: updateHumanLiangDaoHint(snapshot.players.human),
-      netPendingAction: undefined,
     });
   },
 
@@ -761,6 +773,7 @@ export const createGameStore: StateCreator<GameStore> = (set, get) => {
 
   discardTile: (playerId, tileId) => {
     const state = get();
+    if (guestInputBlocked(state)) return;
     if (state.phase !== "playing" || state.currentPlayerId !== playerId) return;
     const player = state.players[playerId];
     const tile = player.hand.find((item) => item.id === tileId);
@@ -845,6 +858,7 @@ export const createGameStore: StateCreator<GameStore> = (set, get) => {
 
   passReaction: (playerId) => {
     const state = get();
+    if (guestInputBlocked(state)) return;
     if (forwardIfGuest(state, { type: "pass" })) {
       applyOptimisticGuestAction(() => get().passReaction(playerId));
       return;
@@ -875,6 +889,7 @@ export const createGameStore: StateCreator<GameStore> = (set, get) => {
 
   claimPeng: (playerId) => {
     const state = get();
+    if (guestInputBlocked(state)) return;
     if (forwardIfGuest(state, { type: "peng" })) {
       applyOptimisticGuestAction(() => get().claimPeng(playerId));
       return;
@@ -925,6 +940,7 @@ export const createGameStore: StateCreator<GameStore> = (set, get) => {
 
   claimMingGang: (playerId) => {
     const state = get();
+    if (guestInputBlocked(state)) return;
     if (forwardIfGuest(state, { type: "ming_gang" })) {
       applyOptimisticGuestAction(() => get().claimMingGang(playerId));
       return;
@@ -1020,6 +1036,7 @@ export const createGameStore: StateCreator<GameStore> = (set, get) => {
 
   claimAnGang: (playerId, tileType) => {
     const state = get();
+    if (guestInputBlocked(state)) return;
     if (forwardIfGuest(state, { type: "an_gang", tileKind: tileType })) {
       applyOptimisticGuestAction(() => get().claimAnGang(playerId, tileType));
       return;
@@ -1092,6 +1109,7 @@ export const createGameStore: StateCreator<GameStore> = (set, get) => {
 
   claimBuGang: (playerId, meldId) => {
     const state = get();
+    if (guestInputBlocked(state)) return;
     if (forwardIfGuest(state, { type: "bu_gang", meldId })) {
       applyOptimisticGuestAction(() => get().claimBuGang(playerId, meldId));
       return;
@@ -1181,6 +1199,7 @@ export const createGameStore: StateCreator<GameStore> = (set, get) => {
 
   declareLiangDao: (playerId, discardTileId) => {
     const state = get();
+    if (guestInputBlocked(state)) return;
     if (forwardIfGuest(state, { type: "liang_dao", tileId: discardTileId })) {
       applyOptimisticGuestAction(() => get().declareLiangDao(playerId, discardTileId));
       return;
@@ -1264,6 +1283,7 @@ export const createGameStore: StateCreator<GameStore> = (set, get) => {
 
   claimHu: (playerId) => {
     const state = get();
+    if (guestInputBlocked(state)) return;
     if (state.phase !== "playing" && state.phase !== "responding") return;
     if (forwardIfGuest(state, { type: "hu" })) {
       applyOptimisticGuestAction(() => get().claimHu(playerId));

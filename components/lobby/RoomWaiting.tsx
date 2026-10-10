@@ -7,6 +7,7 @@ import { useRoomStore } from "@/store/roomStore";
 import { useResponsiveGameLayout } from "@/hooks/useResponsiveGameLayout";
 import { formatRoomRoundLimit, WIND_DISPLAY_ORDER, WIND_LABEL, type RoomPlayer, type Wind } from "@/types/multiplayer";
 import { formatWinMultiplierLimit } from "@/utils/mahjong/winMultiplierLimit";
+import { RealtimeStatus } from "@/components/game/RealtimeStatus";
 
 const WIND_AVATAR_SRC: Record<Wind, string> = {
   east: "/generated/avatars/human-jade-guardian-1k.webp",
@@ -163,6 +164,7 @@ export function RoomWaiting() {
           </section>
 
           <section className={`grid content-start gap-4 ${isMobileLandscape ? "border-l border-gold/15 pl-4" : "border-t border-gold/15 pt-4"}`}>
+            <RealtimeStatus compact={isMobileLandscape} />
             <div className={`grid grid-cols-2 gap-y-3 text-center ${isMobileLandscape ? "text-[10px]" : "sm:grid-cols-4"}`}>
               <div>
                 <div className="text-[11px] text-slate-400">局数</div>

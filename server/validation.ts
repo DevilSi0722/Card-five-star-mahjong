@@ -15,7 +15,7 @@ function settings(value: unknown) {
 
 export function validateEvent(event: string, args: unknown[]) {
   const value = args[0];
-  if (["room:start", "room:leave"].includes(event)) return args.length === 0;
+  if (["room:start", "room:leave", "game:resync", "realtime:ping"].includes(event)) return args.length === 0;
   if (args.length !== 1) return false;
   switch (event) {
     case "room:create":
@@ -34,6 +34,11 @@ export function validateEvent(event: string, args: unknown[]) {
       return text(value, 100);
     case "game:action":
       return isRecord(value) && typeof value.type === "string" && actions.includes(value.type)
+        && (value.actionId === undefined && value.round === undefined && value.context === undefined
+          || (text(value.actionId, 128) && Number.isSafeInteger(value.round) && (value.round as number) >= 1 && text(value.context, 256)))
+        && (!["discard", "liang_dao"].includes(value.type) || text(value.tileId, 128))
+        && (value.type !== "an_gang" || text(value.tileKind, 32))
+        && (value.type !== "bu_gang" || text(value.meldId, 128))
         && optionalText(value.tileId, 128) && optionalText(value.meldId, 128)
         && (value.tileKind === undefined || (typeof value.tileKind === "string" && /^(dot-[1-9]|bamboo-[1-9]|dragon-(red|green|white))$/.test(value.tileKind)));
     default:
